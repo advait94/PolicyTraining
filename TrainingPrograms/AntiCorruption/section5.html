@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Policies | Anti-Corruption Training</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Rubik:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Auth Guard -->
+    <script type="module" src="../auth.js"></script>
+</head>
+
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="../ishantechnologies_logo.jpeg" alt="Ishan Technologies" class="sidebar-logo">
+            <a href="../index.html" class="back-link">← Training Hub</a>
+            <h2>Anti-Corruption Training</h2>
+        </div>
+        <ul class="toc-nav">
+            <li ><a href="index.html"><span class="toc-num">1</span> Introduction</a></li>
+            <li ><a href="section2.html"><span class="toc-num">2</span> Legal Framework</a></li>
+            <li ><a href="section3.html"><span class="toc-num">3</span> Types of Corruption</a></li>
+            <li ><a href="section4.html"><span class="toc-num">4</span> Red Flags</a></li>
+            <li class="active"><a href="section5.html"><span class="toc-num">5</span> Company Policies</a></li>
+            <li><a href="section6.html"><span class="toc-num">6</span> Reporting Mechanisms</a></li>
+            <li><a href="section7.html"><span class="toc-num">7</span> Consequences</a></li>
+            <li><a href="section8.html"><span class="toc-num">8</span> Best Practices</a></li>
+            <li><a href="quiz.html"><span class="toc-num">📄</span> Assessment Quiz</a></li>
+        </ul>
+        <div class="sidebar-progress">
+            <div class="progress-label">Progress: <span id="progressPercent">0%</span></div>
+            <div class="progress-bar-mini">
+                <div class="progress-fill-mini" id="progressFill"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="content-header">
+            <div class="breadcrumb">Module 5 of 8</div>
+            <h1>Company Policies</h1>
+            <p class="subtitle">Internal compliance requirements and procedures</p>
+        </div>
+
+        <div class="content-body">
+            <div class="info-card primary">
+                <div class="info-icon">📋</div>
+                <div>
+                    <h3>Zero Tolerance Policy</h3>
+                    <p>Our company maintains a zero-tolerance policy towards bribery and corruption. All employees,
+                        contractors, and business partners are expected to comply fully with anti-corruption laws and
+                        company policies.</p>
+                </div>
+            </div>
+
+            <h2>Gifts & Entertainment Policy</h2>
+            <div class="highlight-box">
+                <h3>✅ Acceptable</h3>
+                <ul>
+                    <li>Modest gifts of nominal value (under ₹5,000)</li>
+                    <li>Reasonable business meals</li>
+                    <li>Company-branded promotional items</li>
+                    <li>Gifts given openly, not secretly</li>
+                </ul>
+            </div>
+
+            <div class="info-card danger">
+                <div class="info-icon">❌</div>
+                <div>
+                    <h3>Not Acceptable</h3>
+                    <ul style="margin-top: 10px;">
+                        <li>Cash or cash equivalents (gift cards, vouchers)</li>
+                        <li>Lavish entertainment or travel</li>
+                        <li>Gifts to government officials without prior approval</li>
+                        <li>Gifts made secretly or under suspicious circumstances</li>
+                        <li>Gifts intended to influence business decisions</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h2>Third Party Due Diligence</h2>
+            <p>Before engaging agents, consultants, distributors, or joint venture partners, the company requires:</p>
+            <div class="key-points-grid">
+                <div class="key-point-card">
+                    <div class="kp-icon">🔍</div>
+                    <h4>Background Checks</h4>
+                    <p>Verify identity, ownership, and reputation</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">📄</div>
+                    <h4>Written Agreement</h4>
+                    <p>Anti-corruption clauses in all contracts</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">💰</div>
+                    <h4>Fair Compensation</h4>
+                    <p>Fees must be reasonable for services</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">🔍</div>
+                    <h4>Ongoing Monitoring</h4>
+                    <p>Regular reviews and audits</p>
+                </div>
+            </div>
+
+            <h2>Record Keeping Requirements</h2>
+            <ul>
+                <li>All transactions must be accurately recorded in company books</li>
+                <li>No off-the-books accounts or payments</li>
+                <li>Invoices must accurately describe goods or services</li>
+                <li>Retain records for minimum 7 years</li>
+                <li>Support all entries with appropriate documentation</li>
+            </ul>
+
+            <h2>Approval Requirements</h2>
+            <div class="info-card warning">
+                <div class="info-icon">✋</div>
+                <div>
+                    <h3>Prior Approval Required For:</h3>
+                    <ul style="margin-top: 10px;">
+                        <li>Any gift to a government official</li>
+                        <li>Charitable donations over ₹50,000</li>
+                        <li>Sponsorships or event participation</li>
+                        <li>Engaging third-party intermediaries</li>
+                        <li>Any payments that could be considered unusual</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation-footer">
+            <a href="section4.html" class="nav-btn prev-btn">← Previous: Red Flags</a>
+            <a href="section6.html" class="nav-btn next-btn">Next: Reporting Mechanisms →</a>
+        </div>
+    </main>
+
+    <script>
+        const trainingId = 'anticorruption';
+        const totalSections = 8;
+        let completedSections = JSON.parse(localStorage.getItem(trainingId + '_completed') || '[]');
+        if (!completedSections.includes(5)) {
+            completedSections.push(5);
+            localStorage.setItem(trainingId + '_completed', JSON.stringify(completedSections));
+        }
+        const progress = Math.round((completedSections.length / totalSections) * 100);
+        document.getElementById('progressPercent').textContent = progress + '%';
+        document.getElementById('progressFill').style.width = progress + '%';
+
+        // Update Sidebar
+        document.querySelectorAll('.toc-nav li a').forEach(link => {
+            const span = link.querySelector('.toc-num');
+            if (span) {
+                const num = parseInt(span.innerText);
+                if (!isNaN(num) && completedSections.includes(num)) {
+                    link.parentElement.classList.add('completed');
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

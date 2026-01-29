@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POSH Act Training | Ishan Technologies</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Rubik:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Auth Guard -->
+    <script type="module" src="../auth.js"></script>
+</head>
+
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="../ishantechnologies_logo.jpeg" alt="Ishan Technologies" class="sidebar-logo">
+            <a href="../index.html" class="back-link">← Training Hub</a>
+            <h2>POSH Act Training</h2>
+        </div>
+        <ul class="toc-nav">
+            <li class="active"><a href="index.html"><span class="toc-num">1</span> Introduction</a></li>
+            <li><a href="section2.html"><span class="toc-num">2</span> What is Sexual Harassment</a></li>
+            <li><a href="section3.html"><span class="toc-num">3</span> POSH Act Overview</a></li>
+            <li><a href="section4.html"><span class="toc-num">4</span> Internal Complaints Committee</a></li>
+            <li><a href="section5.html"><span class="toc-num">5</span> Complaint Process</a></li>
+            <li><a href="section6.html"><span class="toc-num">6</span> Employer Obligations</a></li>
+            <li><a href="section7.html"><span class="toc-num">7</span> Prevention Measures</a></li>
+            <li><a href="section8.html"><span class="toc-num">8</span> Key Takeaways</a></li>
+            <li><a href="quiz.html"><span class="toc-num">📝</span> Assessment Quiz</a></li>
+        </ul>
+        <div class="sidebar-progress">
+            <div class="progress-label">Progress: <span id="progressPercent">0%</span></div>
+            <div class="progress-bar-mini">
+                <div class="progress-fill-mini" id="progressFill"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="content-header">
+            <div class="breadcrumb">Module 1 of 8</div>
+            <h1>Introduction to POSH Act</h1>
+            <p class="subtitle">Creating a Safe and Respectful Workplace</p>
+        </div>
+
+        <div class="content-body">
+            <div class="info-card primary">
+                <div class="info-icon">🎯</div>
+                <div>
+                    <h3>Training Objectives</h3>
+                    <p>Understand the POSH Act, recognize sexual harassment, know the complaint process, and learn how
+                        to maintain a respectful workplace.</p>
+                </div>
+            </div>
+
+            <h2>Why This Training Matters</h2>
+            <p>Every employee has the right to work in an environment free from sexual harassment. The <strong>Sexual
+                    Harassment of Women at Workplace (Prevention, Prohibition and Redressal) Act, 2013</strong>
+                (commonly known as the POSH Act) provides a legal framework to address this critical issue.</p>
+
+            <div class="highlight-box">
+                <h3>📊 Key Facts</h3>
+                <ul>
+                    <li>Sexual harassment affects <strong>productivity, morale, and well-being</strong></li>
+                    <li>Organizations are <strong>legally obligated</strong> to prevent and address harassment</li>
+                    <li>Both <strong>men and women</strong> can be victims of harassment</li>
+                    <li>Non-compliance can result in <strong>penalties up to ₹50,000</strong> and license cancellation
+                    </li>
+                </ul>
+            </div>
+
+            <h2>Who Should Take This Training?</h2>
+            <div class="key-points-grid">
+                <div class="key-point-card">
+                    <div class="kp-icon">👥</div>
+                    <h4>All Employees</h4>
+                    <p>Every employee must understand what constitutes harassment</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">👔</div>
+                    <h4>Managers</h4>
+                    <p>Leaders must foster a safe and respectful environment</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">⚖️</div>
+                    <h4>ICC Members</h4>
+                    <p>ICC members need in-depth knowledge of procedures</p>
+                </div>
+            </div>
+
+            <h2>What You Will Learn</h2>
+            <ol class="learning-list">
+                <li><strong>Definition:</strong> What constitutes sexual harassment at the workplace</li>
+                <li><strong>POSH Act:</strong> Key provisions and applicability</li>
+                <li><strong>ICC:</strong> Role and composition of Internal Complaints Committee</li>
+                <li><strong>Complaint Process:</strong> How to file and what happens next</li>
+                <li><strong>Employer Duties:</strong> Organizational obligations under the Act</li>
+                <li><strong>Prevention:</strong> Building a respectful workplace culture</li>
+            </ol>
+
+            <div class="info-card warning">
+                <div class="info-icon">⚠️</div>
+                <div>
+                    <h3>Zero Tolerance Policy</h3>
+                    <p>Ishan Technologies maintains a zero-tolerance policy towards sexual harassment. Any violation
+                        will be dealt with strictly as per the law and company policy.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation-footer">
+            <a href="../index.html" class="nav-btn prev-btn">← Back to Hub</a>
+            <a href="section2.html" class="nav-btn next-btn">Next: What is Sexual Harassment →</a>
+        </div>
+    </main>
+
+    <script>
+        const trainingId = 'posh';
+        const totalSections = 8;
+
+        function resetProgress() {
+            // Reset progress when starting from the beginning (first section)
+            localStorage.removeItem(trainingId + '_completed');
+            let completedSections = [1];
+            localStorage.setItem(trainingId + '_completed', JSON.stringify(completedSections));
+
+            const progress = Math.round((completedSections.length / totalSections) * 100);
+            document.getElementById('progressPercent').textContent = progress + '%';
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        // Run immediately
+        resetProgress();
+
+        // Run when showing page from cache (back button)
+        window.addEventListener('pageshow', function (event) {
+            if (event.persisted) {
+                resetProgress();
+            }
+        });
+    </script>
+</body>
+
+</html>

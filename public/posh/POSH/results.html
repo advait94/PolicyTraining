@@ -1,0 +1,210 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results | POSH Training</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Rubik:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="/dark-styles.css">`n</head>
+
+<body>
+    <div class="header-bar">
+        <img src="/aaplus_logo_colored.png" alt="AA Plus">
+        <div style="text-align: center;">
+            <div style="font-weight: 600;">POSH Act Training</div>
+            <div style="font-size: 0.85rem; opacity: 0.8;">Assessment Results</div>
+        </div>
+        <a href="/dashboard" style="color: white; text-decoration: none; font-size: 0.9rem;">← Back to Hub</a>
+    </div>
+
+    <div class="results-container">
+        <div class="result-card">
+            <div class="result-icon" id="resultIcon">🎉</div>
+            <h1 class="result-title pass" id="resultTitle">Congratulations!</h1>
+            <p class="result-subtitle" id="resultSubtitle">You have passed the assessment</p>
+
+            <div class="score-display">
+                <div class="score-item">
+                    <div class="score-number correct" id="correctCount">0</div>
+                    <div class="score-label">Correct</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-number incorrect" id="incorrectCount">0</div>
+                    <div class="score-label">Incorrect</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-number total">10</div>
+                    <div class="score-label">Total</div>
+                </div>
+            </div>
+
+            <p class="result-message" id="resultMessage">
+                You have demonstrated a strong understanding of anti-corruption principles and company policies. Your
+                certificate is ready below.
+            </p>
+
+            <div class="action-buttons">
+                <a href="quiz.html" class="action-btn secondary" id="retakeQuizBtn">🔄 Retake Quiz</a>
+                <button class="action-btn primary" id="certificateBtn" onclick="showCertificate()">📜 View
+                    Certificate</button>
+            </div>
+        </div>
+
+        <div class="certificate-section" id="certificateSection">
+            <div class="certificate" id="certificate">
+                <div class="certificate-header">
+                    <img src="/aaplus_logo_colored.png" alt="AA Plus" class="certificate-logo" style="filter: invert(1);">
+                    <h1 class="certificate-title">Certificate</h1>
+                    <p class="certificate-subtitle">OF COMPLETION</p>
+                </div>
+
+                <div class="certificate-body">
+                    <p class="certificate-text">This is to certify that</p>
+                    <div class="certificate-recipient" id="recipientName">Your Name</div>
+                    <p class="certificate-course">has successfully completed the</p>
+                    <h2 class="certificate-course-name">POSH Act Training Program</h2>
+                    <p class="certificate-score">Score: <strong id="certScore">8/10</strong> (Passed)</p>
+                </div>
+
+                <div class="certificate-footer">
+                    <div class="certificate-date">
+                        <h4>Date of Completion</h4>
+                        <p id="completionDate">January 17, 2026</p>
+                    </div>
+                    <div class="certificate-seal">
+                        <div class="certificate-seal-badge">✓</div>
+                        <span>Verified</span>
+                    </div>
+                    <div class="certificate-id">
+                        <h4>Certificate ID</h4>
+                        <p id="certificateId">POSH-2026-XXXXX</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="print-instructions">
+                <strong>📄 To download:</strong> Click the Print button below and select "Save as PDF" as your printer.
+                <br><br>
+                <button class="action-btn primary" onclick="printCertificate()">🖨️ Print Certificate</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://xrxsqivbytniuovblwqs.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyeHNxaXZieXRuaXVvdmJsd3FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1ODE5ODYsImV4cCI6MjA4NDE1Nzk4Nn0.BzfVg0dmrbHvKtTa3p53D7ptQC-ZT5OoAJeCl8UzKHo';
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Check if accessed from Print Certificate on completed module
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromCertificate = urlParams.get('fromCertificate') === 'true';
+        if (fromCertificate) {
+            document.getElementById('retakeQuizBtn').style.display = 'none';
+        }
+
+        // Get results from localStorage
+        let score = parseInt(localStorage.getItem('posh_score') || '0');
+        let passedStr = localStorage.getItem('posh_passed');
+        let dateStr = localStorage.getItem('posh_date');
+        let quizTaken = passedStr !== null;
+        let passed = passedStr === 'true';
+
+        // Load from database if coming from certificate
+        async function loadFromDatabase() {
+            const { data: { user } } = await sb.auth.getUser();
+            if (user && fromCertificate) {
+                const { data } = await sb.from('user_progress').select('*').eq('user_id', user.id).eq('module_id', 'posh').single();
+                if (data) {
+                    score = data.score / 10;
+                    passed = data.status === 'completed';
+                    quizTaken = true;
+                    dateStr = data.completed_at;
+                    updateUI();
+                    showCertificate();
+                }
+            }
+        }
+        if (fromCertificate) loadFromDatabase();
+
+        function updateUI() {
+            document.getElementById('correctCount').textContent = score;
+            document.getElementById('incorrectCount').textContent = 10 - score;
+            if (!quizTaken) {
+                document.getElementById('resultIcon').textContent = '📋';
+                document.getElementById('resultTitle').textContent = 'Results Preview';
+                document.getElementById('resultTitle').className = 'result-title';
+                document.getElementById('resultTitle').style.color = '#01356f';
+                document.getElementById('resultSubtitle').textContent = 'Complete the quiz to see your actual results';
+                document.getElementById('resultMessage').textContent = 'This is a preview of the results page. Complete the quiz to see your actual score and receive your certificate.';
+                document.getElementById('certificateBtn').style.display = 'inline-flex';
+                document.getElementById('correctCount').textContent = '—';
+                document.getElementById('incorrectCount').textContent = '—';
+            } else if (passed) {
+                document.getElementById('resultIcon').textContent = '🎉';
+                document.getElementById('resultTitle').textContent = 'Congratulations!';
+                document.getElementById('resultTitle').className = 'result-title pass';
+                document.getElementById('resultSubtitle').textContent = 'You have PASSED the assessment';
+                document.getElementById('resultMessage').textContent = 'You have demonstrated a strong understanding of POSH principles and workplace safety policies. Your certificate is ready below.';
+                document.getElementById('certificateBtn').style.display = 'inline-flex';
+            } else {
+                document.getElementById('resultIcon').textContent = '📚';
+                document.getElementById('resultTitle').textContent = 'Not Passed';
+                document.getElementById('resultTitle').className = 'result-title fail';
+                document.getElementById('resultSubtitle').textContent = 'You need 70% or higher to pass';
+                document.getElementById('resultMessage').textContent = 'Please review the training material and try again. You need at least 7 correct answers (70%) to pass the assessment and receive your certificate.';
+                document.getElementById('certificateBtn').style.display = 'none';
+            }
+        }
+        updateUI();
+
+        async function showCertificate() {
+            const { data: { user } } = await sb.auth.getUser();
+            let name = 'Training Participant';
+            if (user) {
+                if (user.user_metadata?.full_name) {
+                    name = user.user_metadata.full_name;
+                } else if (user.user_metadata?.name) {
+                    name = user.user_metadata.name;
+                } else {
+                    const { data: invitation } = await sb.from('invitations').select('display_name').eq('email', user.email).single();
+                    if (invitation?.display_name) {
+                        name = invitation.display_name;
+                    } else if (user.email) {
+                        const emailPrefix = user.email.split('@')[0];
+                        const parts = emailPrefix.split('.');
+                        if (parts.length >= 2) {
+                            name = parts[1].charAt(0).toUpperCase() + parts[1].slice(1).toLowerCase() + ' ' + parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+                        } else {
+                            name = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+                        }
+                    }
+                }
+            }
+            document.getElementById('recipientName').textContent = name;
+            document.getElementById('certScore').textContent = (quizTaken ? score : 'N/A') + '/10';
+            const date = dateStr ? new Date(dateStr) : new Date();
+            document.getElementById('completionDate').textContent = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('certificateId').textContent = 'POSH-' + date.getFullYear() + '-' + Math.random().toString(36).substr(2, 5).toUpperCase();
+            document.getElementById('certificateSection').classList.add('visible');
+            document.getElementById('certificateSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function printCertificate() {
+            window.print();
+        }
+
+        window.showCertificate = showCertificate;
+        window.printCertificate = printCertificate;
+    </script>
+</body>
+
+</html>
+
+
+

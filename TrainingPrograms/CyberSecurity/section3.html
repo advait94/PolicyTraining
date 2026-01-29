@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Common Threats | CyberSecurity Training</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Auth Guard -->
+    <script type="module" src="../auth.js"></script>
+</head>
+
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="../ishantechnologies_logo.jpeg" alt="Ishan Technologies" class="sidebar-logo">
+            <a href="../index.html" class="back-link">← Training Hub</a>
+            <h2>CyberSecurity Training</h2>
+        </div>
+        <ul class="toc-nav">
+            <li><a href="index.html"><span class="toc-num">1</span> Introduction</a></li>
+            <li><a href="section2.html"><span class="toc-num">2</span> Legal Framework</a></li>
+            <li class="active"><a href="section3.html"><span class="toc-num">3</span> Common Threats</a></li>
+            <li><a href="section4.html"><span class="toc-num">4</span> Password Security</a></li>
+            <li><a href="section5.html"><span class="toc-num">5</span> Data Protection</a></li>
+            <li><a href="section6.html"><span class="toc-num">6</span> Incident Response</a></li>
+            <li><a href="section7.html"><span class="toc-num">7</span> Consequences</a></li>
+            <li><a href="section8.html"><span class="toc-num">8</span> Best Practices</a></li>
+            <li><a href="quiz.html"><span class="toc-num">📄</span> Assessment Quiz</a></li>
+        </ul>
+        <div class="sidebar-progress">
+            <div class="progress-label">Progress: <span id="progressPercent">0%</span></div>
+            <div class="progress-bar-mini">
+                <div class="progress-fill-mini" id="progressFill"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="content-header">
+            <div class="breadcrumb">Module 3 of 8</div>
+            <h1>Common Threats</h1>
+            <p class="subtitle">Recognizing the most frequent cyber attacks and scams</p>
+        </div>
+
+        <div class="content-body">
+            <h2>Social Engineering</h2>
+            <p>Social engineering is the psychological manipulation of people into performing actions or divulging
+                confidential information.</p>
+
+            <div class="info-card warning">
+                <div class="info-icon">🧠</div>
+                <div>
+                    <h3>Phishing</h3>
+                    <p>Phishing is a method of sending fraudulent communications that appear to come from a reputable
+                        source, usually through email or SMS.</p>
+                </div>
+            </div>
+
+            <h3>Types of Phishing</h3>
+            <div class="key-points-grid">
+                <div class="key-point-card">
+                    <div class="kp-icon">📧</div>
+                    <h4>Spear Phishing</h4>
+                    <p>Targeted attacks aimed at specific individuals or companies</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">👑</div>
+                    <h4>Whaling</h4>
+                    <p>Phishing attacks targeting high-profile executives</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">📞</div>
+                    <h4>Vishing</h4>
+                    <p>Phishing over voice calls (voice phishing)</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">📱</div>
+                    <h4>Smishing</h4>
+                    <p>Phishing via SMS or text messages</p>
+                </div>
+            </div>
+
+            <h2>Malware</h2>
+            <p>Malware is "malicious software" designed to damage, disrupt, or gain unauthorized access to a computer
+                system.</p>
+
+            <div class="highlight-box">
+                <h3>🚨 Ransomware</h3>
+                <p>A type of malware that locks/encrypts your files and demands a "ransom" payment to unlock them. This
+                    is one of the most dangerous threats today.</p>
+            </div>
+
+            <h2>Common Malware Types</h2>
+            <ul>
+                <li><strong>Viruses:</strong> Programs that replicate by attaching to other files</li>
+                <li><strong>Trojans:</strong> Malicious software disguised as legitimate programs</li>
+                <li><strong>Spyware:</strong> Software used to secretly record your activity</li>
+                <li><strong>Worms:</strong> Malware that spreads across networks automatically</li>
+            </ul>
+
+            <div class="info-card primary">
+                <div class="info-icon">📡</div>
+                <div>
+                    <h3>Man-in-the-Middle (MITM)</h3>
+                    <p>An attack where the hacker secretly relays and possibly alters the communication between two
+                        parties who believe they are directly communicating with each other. Often occurs on insecure
+                        public Wi-Fi.</p>
+                </div>
+            </div>
+
+            <h2>Credential Stuffing</h2>
+            <p>Hackers use lists of compromised user credentials (usernames and passwords) to gain unauthorized access
+                to user accounts through automated login requests.</p>
+
+            <div class="info-card success">
+                <div class="info-icon">🔍</div>
+                <div>
+                    <h3>Red Flags to Watch For</h3>
+                    <ul>
+                        <li>Urgent or threatening language in emails</li>
+                        <li>Requests for sensitive information (passwords, OTPs)</li>
+                        <li>Mismatched URLs or sender addresses</li>
+                        <li>Unexpected attachments or links</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation-footer">
+            <a href="section2.html" class="nav-btn prev-btn">← Previous: Legal Framework</a>
+            <a href="section4.html" class="nav-btn next-btn">Next: Password Security →</a>
+        </div>
+    </main>
+
+    <script>
+        const trainingId = 'cybersecurity';
+        const totalSections = 8;
+        let completedSections = JSON.parse(localStorage.getItem(trainingId + '_completed') || '[]');
+        if (!completedSections.includes(3)) {
+            completedSections.push(3);
+            localStorage.setItem(trainingId + '_completed', JSON.stringify(completedSections));
+        }
+        const progress = Math.round((completedSections.length / totalSections) * 100);
+        document.getElementById('progressPercent').textContent = progress + '%';
+        document.getElementById('progressFill').style.width = progress + '%';
+
+        // Update Sidebar
+        document.querySelectorAll('.toc-nav li a').forEach(link => {
+            const span = link.querySelector('.toc-num');
+            if (span) {
+                const num = parseInt(span.innerText);
+                if (!isNaN(num) && completedSections.includes(num)) {
+                    link.parentElement.classList.add('completed');
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

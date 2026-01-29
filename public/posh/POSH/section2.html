@@ -1,0 +1,163 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What is Sexual Harassment | POSH Training</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Rubik:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/dark-styles.css">
+
+    <!-- Auth Guard -->
+    <script type="module" src="../auth.js"></script>
+</head>
+
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="/aaplus_logo_colored.png" alt="AA Plus" class="sidebar-logo">
+            <a href="/dashboard" class="back-link">← Training Hub</a>
+            <h2>POSH Act Training</h2>
+        </div>
+        <ul class="toc-nav">
+            <li ><a href="index.html"><span class="toc-num">1</span> Introduction</a></li>
+            <li class="active"><a href="section2.html"><span class="toc-num">2</span> What is Sexual Harassment</a></li>
+            <li><a href="section3.html"><span class="toc-num">3</span> POSH Act Overview</a></li>
+            <li><a href="section4.html"><span class="toc-num">4</span> Internal Complaints Committee</a></li>
+            <li><a href="section5.html"><span class="toc-num">5</span> Complaint Process</a></li>
+            <li><a href="section6.html"><span class="toc-num">6</span> Employer Obligations</a></li>
+            <li><a href="section7.html"><span class="toc-num">7</span> Prevention Measures</a></li>
+            <li><a href="section8.html"><span class="toc-num">8</span> Key Takeaways</a></li>
+            <li><a href="quiz.html"><span class="toc-num">📄</span> Assessment Quiz</a></li>
+        </ul>
+        <div class="sidebar-progress">
+            <div class="progress-label">Progress: <span id="progressPercent">0%</span></div>
+            <div class="progress-bar-mini">
+                <div class="progress-fill-mini" id="progressFill"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="content-header">
+            <div class="breadcrumb">Module 2 of 8</div>
+            <h1>What is Sexual Harassment?</h1>
+            <p class="subtitle">Understanding unwelcome conduct</p>
+        </div>
+
+        <div class="content-body">
+            <h2>Definition Under POSH Act</h2>
+            <div class="info-card primary">
+                <div class="info-icon">📋</div>
+                <div>
+                    <h3>Legal Definition</h3>
+                    <p>Sexual harassment includes any <strong>unwelcome</strong> sexually determined behavior (whether
+                        directly or by implication) such as physical contact, demand or request for sexual favors,
+                        sexually colored remarks, showing pornography, or any other unwelcome physical, verbal, or
+                        non-verbal conduct of a sexual nature.</p>
+                </div>
+            </div>
+
+            <h2>Forms of Sexual Harassment</h2>
+            <div class="key-points-grid">
+                <div class="key-point-card">
+                    <div class="kp-icon">👆</div>
+                    <h4>Physical</h4>
+                    <p>Unwelcome touching, blocking movement, assault</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">💬</div>
+                    <h4>Verbal</h4>
+                    <p>Comments on appearance, jokes, requests for dates, sexual innuendos</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">👁️</div>
+                    <h4>Non-Verbal</h4>
+                    <p>Staring, gestures, displaying offensive material</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">💻</div>
+                    <h4>Digital</h4>
+                    <p>Inappropriate emails, messages, social media posts</p>
+                </div>
+            </div>
+
+            <h2>Quid Pro Quo Harassment</h2>
+            <div class="info-card danger">
+                <div class="info-icon">⚠️</div>
+                <div>
+                    <h3>"This for That"</h3>
+                    <p>When employment decisions (hiring, promotion, salary, assignments) are based on acceptance or
+                        rejection of sexual advances. Examples:</p>
+                    <ul style="margin-top: 10px;">
+                        <li>"Accept my proposal if you want that promotion"</li>
+                        <li>"Go out with me or face negative performance review"</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h2>Hostile Work Environment</h2>
+            <p>When conduct creates an intimidating, hostile, or offensive work environment that interferes with work
+                performance. This includes:</p>
+            <ul>
+                <li>Persistent sexual jokes or comments</li>
+                <li>Display of sexually explicit material</li>
+                <li>Repeated unwanted invitations</li>
+                <li>Spreading rumors about someone's personal life</li>
+            </ul>
+
+            <h2>The "Reasonable Woman" Standard</h2>
+            <div class="highlight-box">
+                <h3>💡 Key Principle</h3>
+                <p>Whether conduct constitutes harassment is judged from the <strong>perspective of the
+                        recipient</strong>, not the intent of the harasser. What matters is how the behavior is
+                    <strong>perceived</strong>, not how it was <strong>intended</strong>.</p>
+            </div>
+
+            <div class="info-card success">
+                <div class="info-icon">✅</div>
+                <div>
+                    <h3>Remember</h3>
+                    <p>"I was just joking" or "I didn't mean it that way" is NOT a defense. If the recipient found it
+                        unwelcome and offensive, it may constitute harassment.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation-footer">
+            <a href="index.html" class="nav-btn prev-btn">← Previous: Introduction</a>
+            <a href="section3.html" class="nav-btn next-btn">Next: POSH Act Overview →</a>
+        </div>
+    </main>
+
+    <script>
+        const trainingId = 'posh';
+        const totalSections = 8;
+        let completedSections = JSON.parse(localStorage.getItem(trainingId + '_completed') || '[]');
+        if (!completedSections.includes(2)) {
+            completedSections.push(2);
+            localStorage.setItem(trainingId + '_completed', JSON.stringify(completedSections));
+        }
+        const progress = Math.round((completedSections.length / totalSections) * 100);
+        document.getElementById('progressPercent').textContent = progress + '%';
+        document.getElementById('progressFill').style.width = progress + '%';
+
+        // Update Sidebar
+        document.querySelectorAll('.toc-nav li a').forEach(link => {
+            const span = link.querySelector('.toc-num');
+            if (span) {
+                const num = parseInt(span.innerText);
+                if (!isNaN(num) && completedSections.includes(num)) {
+                    link.parentElement.classList.add('completed');
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
+
+
+

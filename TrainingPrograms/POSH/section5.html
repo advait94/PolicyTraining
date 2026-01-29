@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complaint Process | POSH Training</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Rubik:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Auth Guard -->
+    <script type="module" src="../auth.js"></script>
+</head>
+
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="../ishantechnologies_logo.jpeg" alt="Ishan Technologies" class="sidebar-logo">
+            <a href="../index.html" class="back-link">← Training Hub</a>
+            <h2>POSH Act Training</h2>
+        </div>
+        <ul class="toc-nav">
+            <li ><a href="index.html"><span class="toc-num">1</span> Introduction</a></li>
+            <li ><a href="section2.html"><span class="toc-num">2</span> What is Sexual Harassment</a>
+            </li>
+            <li ><a href="section3.html"><span class="toc-num">3</span> POSH Act Overview</a></li>
+            <li ><a href="section4.html"><span class="toc-num">4</span> Internal Complaints
+                    Committee</a></li>
+            <li class="active"><a href="section5.html"><span class="toc-num">5</span> Complaint Process</a></li>
+            <li><a href="section6.html"><span class="toc-num">6</span> Employer Obligations</a></li>
+            <li><a href="section7.html"><span class="toc-num">7</span> Prevention Measures</a></li>
+            <li><a href="section8.html"><span class="toc-num">8</span> Key Takeaways</a></li>
+            <li><a href="quiz.html"><span class="toc-num">📄</span> Assessment Quiz</a></li>
+        </ul>
+        <div class="sidebar-progress">
+            <div class="progress-label">Progress: <span id="progressPercent">0%</span></div>
+            <div class="progress-bar-mini">
+                <div class="progress-fill-mini" id="progressFill"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="content-header">
+            <div class="breadcrumb">Module 5 of 8</div>
+            <h1>Complaint Process</h1>
+            <p class="subtitle">How to file a complaint and what happens next</p>
+        </div>
+
+        <div class="content-body">
+            <h2>Filing a Complaint</h2>
+            <div class="info-card primary">
+                <div class="info-icon">📄</div>
+                <div>
+                    <h3>Written Complaint</h3>
+                    <p>A written complaint must be submitted to the ICC. If the complainant cannot write, the Presiding
+                        Officer shall assist in writing the complaint.</p>
+                </div>
+            </div>
+
+            <h2>Complaint Timeline</h2>
+            <div class="highlight-box">
+                <h3>⏰ Important Deadlines</h3>
+                <ul>
+                    <li><strong>Filing:</strong> Within 3 months of the incident (or last incident in case of series)
+                    </li>
+                    <li><strong>Extension:</strong> ICC can extend by 3 more months if valid reason exists</li>
+                    <li><strong>Inquiry Completion:</strong> 90 days from receipt of complaint</li>
+                    <li><strong>Report Submission:</strong> Within 10 days of inquiry completion</li>
+                    <li><strong>Action by Employer:</strong> Within 60 days of receiving ICC report</li>
+                </ul>
+            </div>
+
+            <h2>Complaint Process Steps</h2>
+            <ol class="learning-list">
+                <li><strong>Complaint Filing:</strong> Aggrieved woman submits written complaint to ICC</li>
+                <li><strong>Preliminary Assessment:</strong> ICC reviews if complaint falls under POSH</li>
+                <li><strong>Conciliation Option:</strong> If complainant requests, ICC may attempt settlement (no
+                    monetary)</li>
+                <li><strong>Inquiry Initiation:</strong> If no conciliation, formal inquiry begins</li>
+                <li><strong>Evidence Collection:</strong> Both parties present evidence and witnesses</li>
+                <li><strong>Report & Recommendation:</strong> ICC submits findings and recommendations</li>
+                <li><strong>Action by Employer:</strong> Employer implements ICC recommendations</li>
+            </ol>
+
+            <h2>Interim Relief</h2>
+            <div class="key-points-grid">
+                <div class="key-point-card">
+                    <div class="kp-icon">🔍</div>
+                    <h4>Transfer</h4>
+                    <p>Transfer complainant or respondent to different workplace</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">📅</div>
+                    <h4>Leave</h4>
+                    <p>Grant leave up to 3 months (in addition to regular leave)</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">🚫</div>
+                    <h4>Restrict Contact</h4>
+                    <p>Prevent respondent from contacting complainant</p>
+                </div>
+            </div>
+
+            <h2>Confidentiality</h2>
+            <div class="info-card warning">
+                <div class="info-icon">🔒</div>
+                <div>
+                    <h3>Strict Confidentiality Required</h3>
+                    <p>The identity of the complainant, respondent, witnesses, and inquiry proceedings must be kept
+                        strictly confidential. Breach of confidentiality is punishable under the Act.</p>
+                </div>
+            </div>
+
+            <div class="info-card danger">
+                <div class="info-icon">⚠️</div>
+                <div>
+                    <h3>False Complaints</h3>
+                    <p>Making false or malicious complaints is also punishable. However, inability to prove a complaint
+                        does not automatically make it false.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation-footer">
+            <a href="section4.html" class="nav-btn prev-btn">← Previous: Internal Complaints Committee</a>
+            <a href="section6.html" class="nav-btn next-btn">Next: Employer Obligations →</a>
+        </div>
+    </main>
+
+    <script>
+        const trainingId = 'posh';
+        const totalSections = 8;
+        let completedSections = JSON.parse(localStorage.getItem(trainingId + '_completed') || '[]');
+        if (!completedSections.includes(5)) {
+            completedSections.push(5);
+            localStorage.setItem(trainingId + '_completed', JSON.stringify(completedSections));
+        }
+        const progress = Math.round((completedSections.length / totalSections) * 100);
+        document.getElementById('progressPercent').textContent = progress + '%';
+        document.getElementById('progressFill').style.width = progress + '%';
+
+        // Update Sidebar
+        document.querySelectorAll('.toc-nav li a').forEach(link => {
+            const span = link.querySelector('.toc-num');
+            if (span) {
+                const num = parseInt(span.innerText);
+                if (!isNaN(num) && completedSections.includes(num)) {
+                    link.parentElement.classList.add('completed');
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

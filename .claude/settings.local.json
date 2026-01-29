@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__n8n-mcp__search_workflows",
+      "Bash(tree:*)",
+      "Bash(wc:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npm run build:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(npm install:*)",
+      "Bash(uipro init:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(curl:*)",
+      "Bash(ls -la \"C:\\\\Users\\\\pc\\\\Desktop\\\\PolicyTraining\\\\public\"\" 2>/dev/null | head -20 || dir \"C:UserspcDesktopPolicyTrainingpublic \")"
+    ]
+  }
+}

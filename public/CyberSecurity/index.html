@@ -1,0 +1,143 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cybersecurity Awareness Training</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/dark-styles.css">
+
+    <!-- Auth Guard -->
+    <script type="module" src="../auth.js"></script>
+</head>
+
+<body>
+    <!-- Sidebar TOC -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="/aaplus_logo_colored.png" alt="AA Plus" class="sidebar-logo">
+            <a href="/dashboard" class="back-link">← Training Hub</a>
+            <h2>Cybersecurity Training</h2>
+        </div>
+        <ul class="toc-nav">
+            <li class="active"><a href="index.html"><span class="toc-num">1</span> Introduction</a></li>
+            <li><a href="section2.html"><span class="toc-num">2</span> Legal Framework</a></li>
+            <li><a href="section3.html"><span class="toc-num">3</span> Common Threats</a></li>
+            <li><a href="section4.html"><span class="toc-num">4</span> Password Security</a></li>
+            <li><a href="section5.html"><span class="toc-num">5</span> Data Protection</a></li>
+            <li><a href="section6.html"><span class="toc-num">6</span> Incident Response</a></li>
+            <li><a href="section7.html"><span class="toc-num">7</span> Consequences</a></li>
+            <li><a href="section8.html"><span class="toc-num">8</span> Best Practices</a></li>
+            <li><a href="quiz.html"><span class="toc-num">📄</span> Assessment Quiz</a></li>
+        </ul>
+        <div class="sidebar-progress">
+            <div class="progress-label">Progress: <span id="progressPercent">0%</span></div>
+            <div class="progress-bar-mini">
+                <div class="progress-fill-mini" id="progressFill" style="width: 0%"></div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="content-header">
+            <div class="breadcrumb">Module 1 of 8</div>
+            <h1>Introduction - Why Cybersecurity Matters</h1>
+            <p class="subtitle">Protecting yourself and the organization from cyber threats</p>
+        </div>
+
+        <div class="content-body">
+            <div class="info-card primary">
+                <div class="info-icon">🔒</div>
+                <div>
+                    <h3>Training Objectives</h3>
+                    <p>By the end of this training, you will recognize cyber threats, protect sensitive data, and
+                        respond appropriately to security incidents.</p>
+                </div>
+            </div>
+
+            <h2>What is Cybersecurity?</h2>
+            <p>Cybersecurity is the practice of protecting <strong>systems, networks, programs, and data</strong> from
+                digital attacks, unauthorized access, and damage.</p>
+
+            <div class="highlight-box">
+                <h3>🚨 Why Cybersecurity is Critical</h3>
+                <ul>
+                    <li>Cyber attacks cost businesses <strong>$4.45M on average</strong> per breach</li>
+                    <li><strong>Human error</strong> is the leading cause of security breaches</li>
+                    <li>A data breach can result in <strong>legal penalties, reputational damage, and financial
+                            loss</strong></li>
+                </ul>
+            </div>
+
+            <h2>Who Needs This Training?</h2>
+            <p>Everyone who uses company systems is a potential target. Cybersecurity is <strong>everyone's
+                    responsibility</strong>.</p>
+
+            <div class="key-points-grid">
+                <div class="key-point-card">
+                    <div class="kp-icon">📧</div>
+                    <h4>Email Users</h4>
+                    <p>Recognize and avoid phishing attacks</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">💻</div>
+                    <h4>Data Handlers</h4>
+                    <p>Protect sensitive information always</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">📱</div>
+                    <h4>Device Users</h4>
+                    <p>Secure all devices and accounts</p>
+                </div>
+            </div>
+
+            <h2>What You Will Learn</h2>
+            <ol class="learning-list">
+                <li><strong>Legal Framework:</strong> Laws governing digital security in India</li>
+                <li><strong>Common Threats:</strong> Malware, ransomware, and social engineering</li>
+                <li><strong>Password Security:</strong> Creating and managing strong passwords</li>
+                <li><strong>Data Protection:</strong> Handling confidential information</li>
+                <li><strong>Incident Response:</strong> What to do when something goes wrong</li>
+                <li><strong>Consequences:</strong> Impacts of cyber attacks</li>
+                <li><strong>Best Practices:</strong> Daily security habits</li>
+            </ol>
+        </div>
+
+        <div class="navigation-footer">
+            <a href="/dashboard" class="nav-btn prev-btn">← Back to Hub</a>
+            <a href="section2.html" class="nav-btn next-btn">Next: Legal Framework →</a>
+        </div>
+    </main>
+
+    <script>
+        const trainingId = 'cybersecurity';
+        const totalSections = 8;
+
+        function resetProgress() {
+            // Reset progress when starting from the beginning (first section)
+            localStorage.removeItem(trainingId + '_completed');
+            let completedSections = [1];
+            localStorage.setItem(trainingId + '_completed', JSON.stringify(completedSections));
+
+            const progress = Math.round((completedSections.length / totalSections) * 100);
+            document.getElementById('progressPercent').textContent = progress + '%';
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        // Run immediately
+        resetProgress();
+
+        // Run when showing page from cache (back button)
+        window.addEventListener('pageshow', function (event) {
+            if (event.persisted) {
+                resetProgress();
+            }
+        });
+    </script>
+</body>
+
+</html>
+
+

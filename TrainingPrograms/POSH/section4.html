@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internal Complaints Committee | POSH Training</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Rubik:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Auth Guard -->
+    <script type="module" src="../auth.js"></script>
+</head>
+
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="../ishantechnologies_logo.jpeg" alt="Ishan Technologies" class="sidebar-logo">
+            <a href="../index.html" class="back-link">← Training Hub</a>
+            <h2>POSH Act Training</h2>
+        </div>
+        <ul class="toc-nav">
+            <li ><a href="index.html"><span class="toc-num">1</span> Introduction</a></li>
+            <li ><a href="section2.html"><span class="toc-num">2</span> What is Sexual Harassment</a>
+            </li>
+            <li ><a href="section3.html"><span class="toc-num">3</span> POSH Act Overview</a></li>
+            <li class="active"><a href="section4.html"><span class="toc-num">4</span> Internal Complaints Committee</a>
+            </li>
+            <li><a href="section5.html"><span class="toc-num">5</span> Complaint Process</a></li>
+            <li><a href="section6.html"><span class="toc-num">6</span> Employer Obligations</a></li>
+            <li><a href="section7.html"><span class="toc-num">7</span> Prevention Measures</a></li>
+            <li><a href="section8.html"><span class="toc-num">8</span> Key Takeaways</a></li>
+            <li><a href="quiz.html"><span class="toc-num">📄</span> Assessment Quiz</a></li>
+        </ul>
+        <div class="sidebar-progress">
+            <div class="progress-label">Progress: <span id="progressPercent">0%</span></div>
+            <div class="progress-bar-mini">
+                <div class="progress-fill-mini" id="progressFill"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="content-header">
+            <div class="breadcrumb">Module 4 of 8</div>
+            <h1>Internal Complaints Committee (ICC)</h1>
+            <p class="subtitle">The body responsible for addressing complaints</p>
+        </div>
+
+        <div class="content-body">
+            <h2>What is ICC?</h2>
+            <div class="info-card primary">
+                <div class="info-icon">⚖️</div>
+                <div>
+                    <h3>Internal Complaints Committee</h3>
+                    <p>A committee constituted by the employer to receive and address complaints of sexual harassment.
+                        It is <strong>mandatory</strong> for every organization with 10 or more employees.</p>
+                </div>
+            </div>
+
+            <h2>Composition of ICC</h2>
+            <div class="key-points-grid">
+                <div class="key-point-card">
+                    <div class="kp-icon">👩‍💼</div>
+                    <h4>Presiding Officer</h4>
+                    <p>Senior woman employee (mandatory)</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">👥</div>
+                    <h4>Internal Members</h4>
+                    <p>At least 2 employees committed to women's cause</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">🏛️</div>
+                    <h4>External Member</h4>
+                    <p>From NGO or person familiar with sexual harassment issues</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">♀️</div>
+                    <h4>Majority Women</h4>
+                    <p>At least 50% of ICC members must be women</p>
+                </div>
+            </div>
+
+            <h2>ICC Member Requirements</h2>
+            <div class="highlight-box">
+                <h3>✅ Members Should:</h3>
+                <ul>
+                    <li>Be committed to the cause of women's rights</li>
+                    <li>Have knowledge of POSH Act provisions</li>
+                    <li>Maintain strict confidentiality</li>
+                    <li>Be impartial and unbiased</li>
+                    <li>Serve for a term not exceeding 3 years</li>
+                </ul>
+            </div>
+
+            <h2>Powers of ICC</h2>
+            <ul>
+                <li>Receive complaints of sexual harassment</li>
+                <li>Initiate action based on complaints</li>
+                <li>Conduct inquiry as per rules</li>
+                <li>Recommend action to employer</li>
+                <li>Recommend interim relief to complainant</li>
+                <li>Attempt conciliation if requested by complainant</li>
+            </ul>
+
+            <h2>ICC at Ishan Technologies</h2>
+            <div class="info-card success">
+                <div class="info-icon">📋</div>
+                <div>
+                    <h3>Contact ICC</h3>
+                    <p>Our ICC details are displayed at prominent locations in the office. You can reach the ICC at
+                        <strong>icc@ishantechnologies.com</strong> or contact any ICC member directly.</p>
+                </div>
+            </div>
+
+            <div class="info-card warning">
+                <div class="info-icon">⚠️</div>
+                <div>
+                    <h3>Important</h3>
+                    <p>ICC members must recuse themselves if they have any conflict of interest in a particular case
+                        (e.g., if they are related to either party).</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation-footer">
+            <a href="section3.html" class="nav-btn prev-btn">← Previous: POSH Act Overview</a>
+            <a href="section5.html" class="nav-btn next-btn">Next: Complaint Process →</a>
+        </div>
+    </main>
+
+    <script>
+        const trainingId = 'posh';
+        const totalSections = 8;
+        let completedSections = JSON.parse(localStorage.getItem(trainingId + '_completed') || '[]');
+        if (!completedSections.includes(4)) {
+            completedSections.push(4);
+            localStorage.setItem(trainingId + '_completed', JSON.stringify(completedSections));
+        }
+        const progress = Math.round((completedSections.length / totalSections) * 100);
+        document.getElementById('progressPercent').textContent = progress + '%';
+        document.getElementById('progressFill').style.width = progress + '%';
+
+        // Update Sidebar
+        document.querySelectorAll('.toc-nav li a').forEach(link => {
+            const span = link.querySelector('.toc-num');
+            if (span) {
+                const num = parseInt(span.innerText);
+                if (!isNaN(num) && completedSections.includes(num)) {
+                    link.parentElement.classList.add('completed');
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

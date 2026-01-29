@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fire Safety & PPE | HSE Training</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Auth Guard -->
+    <script type="module" src="../auth.js"></script>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="../ishantechnologies_logo.jpeg" alt="Ishan Technologies" class="sidebar-logo">
+            <a href="../index.html" class="back-link">← Training Hub</a>
+            <h2>HSE Training</h2>
+        </div>
+        <ul class="toc-nav">
+            <li><a href="index.html"><span class="toc-num">1</span> Introduction</a></li>
+            <li><a href="section2.html"><span class="toc-num">2</span> Legal Framework</a></li>
+            <li><a href="section3.html"><span class="toc-num">3</span> Workplace Hazards</a></li>
+            <li class="active"><a href="section4.html"><span class="toc-num">4</span> Fire Safety & PPE</a></li>
+            <li><a href="section5.html"><span class="toc-num">5</span> Emergency Procedures</a></li>
+            <li><a href="section6.html"><span class="toc-num">6</span> Environmental Responsibility</a></li>
+            <li><a href="section7.html"><span class="toc-num">7</span> Consequences</a></li>
+            <li><a href="section8.html"><span class="toc-num">8</span> Best Practices</a></li>
+            <li><a href="quiz.html"><span class="toc-num">📄</span> Assessment Quiz</a></li>
+        </ul>
+        <div class="sidebar-progress">
+            <div class="progress-label">Progress: <span id="progressPercent">0%</span></div>
+            <div class="progress-bar-mini">
+                <div class="progress-fill-mini" id="progressFill"></div>
+            </div>
+        </div>
+    </nav>
+    <main class="main-content">
+        <div class="content-header">
+            <div class="breadcrumb">Module 4 of 8</div>
+            <h1>Fire Safety & PPE</h1>
+            <p class="subtitle">Fire prevention and proper use of Personal Protective Equipment</p>
+        </div>
+        <div class="content-body">
+            <h2>The Fire Triangle</h2>
+            <p>Fire needs three elements to exist: <strong>Heat, Fuel, and Oxygen</strong>. Removing any one of these will extinguish the fire.</p>
+            <div class="info-card warning">
+                <div class="info-icon">🔥</div>
+                <div>
+                    <h3>Fire Extinguisher Types</h3>
+                    <ul>
+                        <li><strong>Type A (Water):</strong> For wood, paper, and cloth.</li>
+                        <li><strong>Type B (CO2/Dry Powder):</strong> For flammable liquids like oil or petrol.</li>
+                        <li><strong>Type C (CO2/Dry Powder):</strong> For electrical fires.</li>
+                    </ul>
+                    <p style="margin-top:10px;"><strong>Never use water on an electrical fire!</strong></p>
+                </div>
+            </div>
+            <h2>Using a Fire Extinguisher: The PASS Method</h2>
+            <ol>
+                <li><strong>P</strong>ull the pin.</li>
+                <li><strong>A</strong>im at the base of the fire.</li>
+                <li><strong>S</strong>queeze the handle.</li>
+                <li><strong>S</strong>weep from side to side.</li>
+            </ol>
+            <h2>Personal Protective Equipment (PPE)</h2>
+            <p>PPE is your last line of defense. It must be worn correctly and maintained in good condition.</p>
+            <div class="key-points-grid">
+                <div class="key-point-card">
+                    <div class="kp-icon">🦺</div>
+                    <h4>Visibility</h4>
+                    <p>High-visibility vests for field and warehouse operations.</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">⛑️</div>
+                    <h4>Head Protection</h4>
+                    <p>Safety helmets where there's a risk of falling objects.</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">🥽</div>
+                    <h4>Eye Protection</h4>
+                    <p>Safety goggles when handling chemicals or during drilling/cutting.</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">🧤</div>
+                    <h4>Hand Protection</h4>
+                    <p>Gloves suited for the task (chemical resistant, heat resistant, etc.)</p>
+                </div>
+            </div>
+            <div class="info-card info">
+                <div class="info-icon">ℹ️</div>
+                <div>
+                    <h3>PPE Inspection</h3>
+                    <p>Inspect your PPE before every use. If it is damaged, cracked, or worn out, request a replacement from your supervisor immediately.</p>
+                </div>
+            </div>
+        </div>
+        <div class="navigation-footer">
+            <a href="section3.html" class="nav-btn prev-btn">← Previous: Workplace Hazards</a>
+            <a href="section5.html" class="nav-btn next-btn">Next: Emergency Procedures →</a>
+        </div>
+    </main>
+    <script>
+        const trainingId = 'hse';
+        const totalSections = 8;
+        let completedSections = JSON.parse(localStorage.getItem(trainingId + '_completed') || '[]');
+        if (!completedSections.includes(4)) {
+            completedSections.push(4);
+            localStorage.setItem(trainingId + '_completed', JSON.stringify(completedSections));
+        }
+        const progress = Math.round((completedSections.length / totalSections) * 100);
+        document.getElementById('progressPercent').textContent = progress + '%';
+        document.getElementById('progressFill').style.width = progress + '%';
+        document.querySelectorAll('.toc-nav li a').forEach(link => {
+            const span = link.querySelector('.toc-num');
+            if (span) {
+                const num = parseInt(span.innerText);
+                if (!isNaN(num) && completedSections.includes(num)) {
+                    link.parentElement.classList.add('completed');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

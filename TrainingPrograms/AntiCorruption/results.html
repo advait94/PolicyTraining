@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results | Anti-Corruption Training</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Rubik:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --navy: #01356f;
+            --cyan: #009ee2;
+            --red: #d60013;
+            --gray: #58595b;
+            --light-gray: #f5f7fa;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rubik', sans-serif;
+            background: var(--light-gray);
+            min-height: 100vh;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            font-family: 'Raleway', sans-serif;
+        }
+
+        .header-bar {
+            background: var(--navy);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-bar img {
+            height: 50px;
+        }
+
+        .results-container {
+            max-width: 700px;
+            margin: 60px auto;
+            padding: 0 20px;
+        }
+
+        .result-card {
+            background: white;
+            border-radius: 24px;
+            padding: 60px 50px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        }
+
+        .result-icon {
+            font-size: 5rem;
+            margin-bottom: 20px;
+            animation: bounceIn 0.6s ease;
+        }
+
+        @keyframes bounceIn {
+            0% {
+                transform: scale(0);
+            }
+
+            50% {
+                transform: scale(1.2);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .result-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+
+        .result-title.pass {
+            color: #22c55e;
+        }
+
+        .result-title.fail {
+            color: var(--red);
+        }
+
+        .result-subtitle {
+            font-size: 1.1rem;
+            color: var(--gray);
+            margin-bottom: 30px;
+        }
+
+        .score-display {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 30px 0;
+            padding: 30px;
+            background: var(--light-gray);
+            border-radius: 16px;
+        }
+
+        .score-item {
+            text-align: center;
+        }
+
+        .score-number {
+            font-size: 3rem;
+            font-weight: 800;
+            font-family: 'Raleway', sans-serif;
+        }
+
+        .score-number.correct {
+            color: #22c55e;
+        }
+
+        .score-number.incorrect {
+            color: var(--red);
+        }
+
+        .score-number.total {
+            color: var(--navy);
+        }
+
+        .score-label {
+            font-size: 0.9rem;
+            color: var(--gray);
+            margin-top: 5px;
+        }
+
+        .result-message {
+            font-size: 1.1rem;
+            color: var(--gray);
+            line-height: 1.7;
+            margin-bottom: 30px;
+            padding: 0 20px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Raleway', sans-serif;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .action-btn.primary {
+            background: var(--cyan);
+            color: white;
+        }
+
+        .action-btn.primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(0, 158, 226, 0.4);
+        }
+
+        .action-btn.secondary {
+            background: #f1f5f9;
+            color: var(--gray);
+        }
+
+        .action-btn.secondary:hover {
+            background: #e2e8f0;
+        }
+
+        /* Certificate Styles */
+        .certificate-section {
+            margin-top: 60px;
+            display: none;
+        }
+
+        .certificate-section.visible {
+            display: block;
+        }
+
+        .certificate {
+            background: white;
+            border: 3px solid var(--navy);
+            padding: 50px 40px;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        }
+
+        .certificate::before {
+            content: '';
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+            border: 1px solid var(--cyan);
+            pointer-events: none;
+        }
+
+        .certificate-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .certificate-logo {
+            max-width: 180px;
+            margin-bottom: 20px;
+        }
+
+        .certificate-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--navy);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 5px;
+        }
+
+        .certificate-subtitle {
+            font-size: 1rem;
+            color: var(--gray);
+            letter-spacing: 2px;
+        }
+
+        .certificate-body {
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        .certificate-text {
+            font-size: 1.1rem;
+            color: var(--gray);
+            margin-bottom: 15px;
+        }
+
+        .certificate-recipient {
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: var(--navy);
+            padding: 10px 40px;
+            display: inline-block;
+            margin: 10px 0 20px;
+            border-bottom: 3px solid var(--red);
+        }
+
+        .certificate-course {
+            font-size: 1rem;
+            color: var(--gray);
+            margin-bottom: 10px;
+        }
+
+        .certificate-course-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--navy);
+        }
+
+        .certificate-score {
+            margin-top: 20px;
+            font-size: 1rem;
+            color: var(--gray);
+        }
+
+        .certificate-score strong {
+            color: var(--navy);
+        }
+
+        .certificate-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .certificate-date,
+        .certificate-id {
+            text-align: left;
+        }
+
+        .certificate-date h4,
+        .certificate-id h4 {
+            font-size: 0.75rem;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .certificate-date p,
+        .certificate-id p {
+            font-size: 0.95rem;
+            color: var(--navy);
+            font-weight: 600;
+        }
+
+        .certificate-seal {
+            text-align: center;
+        }
+
+        .certificate-seal-badge {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, var(--navy) 0%, var(--cyan) 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            color: white;
+            margin: 0 auto;
+        }
+
+        .certificate-seal span {
+            font-size: 0.75rem;
+            color: var(--gray);
+            margin-top: 5px;
+            display: block;
+        }
+
+        .print-instructions {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            background: #e8f4fc;
+            border-radius: 12px;
+            color: var(--navy);
+        }
+
+        @media print {
+            @page {
+                margin: 0;
+                size: auto;
+            }
+
+            html,
+            body {
+                width: 100%;
+                height: 100%;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+                /* CRITICAL: Kills the empty 2nd page */
+                background: white;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .header-bar,
+            .result-card,
+            .print-instructions {
+                display: none !important;
+            }
+
+            .certificate-section {
+                display: flex !important;
+                justify-content: center;
+                align-items: center;
+                width: 100vw;
+                height: 100vh;
+                margin: 0 !important;
+                padding: 0 !important;
+                position: absolute;
+                top: 0;
+                left: 0;
+                background: white;
+            }
+
+            .certificate {
+                width: 98%;
+                /* Almost full width */
+                height: 98%;
+                /* Almost full height */
+                max-width: none;
+                /* Allow it to be big */
+                border: 4px solid var(--navy);
+                padding: 40px;
+                /* Restore comfortable padding */
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                box-shadow: none;
+            }
+
+            /* Restore original sizes for better look, just ensure flex handles spacing */
+            .certificate-body {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+
+            .certificate-title {
+                margin-top: 0;
+            }
+
+            .certificate-footer {
+                margin-bottom: 0;
+            }
+        }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+    <div class="header-bar">
+        <img src="../ishantechnologies_logo.jpeg" alt="Ishan Technologies">
+        <div style="text-align: center;">
+            <div style="font-weight: 600;">Anti-Corruption Training</div>
+            <div style="font-size: 0.85rem; opacity: 0.8;">Assessment Results</div>
+        </div>
+        <a href="../index.html" style="color: white; text-decoration: none; font-size: 0.9rem;">← Back to Hub</a>
+    </div>
+
+    <div class="results-container">
+        <div class="result-card">
+            <div class="result-icon" id="resultIcon">🎉</div>
+            <h1 class="result-title pass" id="resultTitle">Congratulations!</h1>
+            <p class="result-subtitle" id="resultSubtitle">You have passed the assessment</p>
+
+            <div class="score-display">
+                <div class="score-item">
+                    <div class="score-number correct" id="correctCount">0</div>
+                    <div class="score-label">Correct</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-number incorrect" id="incorrectCount">0</div>
+                    <div class="score-label">Incorrect</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-number total">10</div>
+                    <div class="score-label">Total</div>
+                </div>
+            </div>
+
+            <p class="result-message" id="resultMessage">
+                You have demonstrated a strong understanding of anti-corruption principles and company policies. Your
+                certificate is ready below.
+            </p>
+
+            <div class="action-buttons">
+                <a href="quiz.html" class="action-btn secondary" id="retakeQuizBtn">🔄 Retake Quiz</a>
+                <button class="action-btn primary" id="certificateBtn" onclick="showCertificate()">📜 View
+                    Certificate</button>
+            </div>
+        </div>
+
+        <div class="certificate-section" id="certificateSection">
+            <div class="certificate" id="certificate">
+                <div class="certificate-header">
+                    <img src="../ishantechnologies_logo.jpeg" alt="Ishan Technologies" class="certificate-logo">
+                    <h1 class="certificate-title">Certificate</h1>
+                    <p class="certificate-subtitle">OF COMPLETION</p>
+                </div>
+
+                <div class="certificate-body">
+                    <p class="certificate-text">This is to certify that</p>
+                    <div class="certificate-recipient" id="recipientName">Your Name</div>
+                    <p class="certificate-course">has successfully completed the</p>
+                    <h2 class="certificate-course-name">Anti-Corruption & Anti-Bribery Training Program</h2>
+                    <p class="certificate-score">Score: <strong id="certScore">8/10</strong> (Passed)</p>
+                </div>
+
+                <div class="certificate-footer">
+                    <div class="certificate-date">
+                        <h4>Date of Completion</h4>
+                        <p id="completionDate">January 17, 2026</p>
+                    </div>
+                    <div class="certificate-seal">
+                        <div class="certificate-seal-badge">✓</div>
+                        <span>Verified</span>
+                    </div>
+                    <div class="certificate-id">
+                        <h4>Certificate ID</h4>
+                        <p id="certificateId">AC-2026-XXXXX</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="print-instructions">
+                <strong>📄 To download:</strong> Click the Print button below and select "Save as PDF" as your printer.
+                <br><br>
+                <button class="action-btn primary" onclick="printCertificate()">🖨️ Print Certificate</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://xrxsqivbytniuovblwqs.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyeHNxaXZieXRuaXVvdmJsd3FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1ODE5ODYsImV4cCI6MjA4NDE1Nzk4Nn0.BzfVg0dmrbHvKtTa3p53D7ptQC-ZT5OoAJeCl8UzKHo';
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Check if accessed from Print Certificate on completed module
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromCertificate = urlParams.get('fromCertificate') === 'true';
+
+        if (fromCertificate) {
+            document.getElementById('retakeQuizBtn').style.display = 'none';
+        }
+
+        // Get results from localStorage first
+        let score = parseInt(localStorage.getItem('anticorruption_score') || '0');
+        let passedStr = localStorage.getItem('anticorruption_passed');
+        let dateStr = localStorage.getItem('anticorruption_date');
+        let quizTaken = passedStr !== null;
+        let passed = passedStr === 'true';
+
+        // If coming from certificate, load from database
+        async function loadFromDatabase() {
+            const { data: { user } } = await sb.auth.getUser();
+            if (user && fromCertificate) {
+                const { data } = await sb.from('user_progress')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .eq('module_id', 'anticorruption')
+                    .single();
+
+                if (data) {
+                    score = data.score / 10; // Convert percentage back to count
+                    passed = data.status === 'completed';
+                    quizTaken = true;
+                    dateStr = data.completed_at;
+                    updateUI();
+                    // Auto-show certificate
+                    showCertificate();
+                }
+            }
+        }
+
+        if (fromCertificate) {
+            loadFromDatabase();
+        }
+
+        // Update UI function
+        function updateUI() {
+            document.getElementById('correctCount').textContent = score;
+            document.getElementById('incorrectCount').textContent = 10 - score;
+
+            if (!quizTaken) {
+                document.getElementById('resultIcon').textContent = '📋';
+                document.getElementById('resultTitle').textContent = 'Results Preview';
+                document.getElementById('resultTitle').className = 'result-title';
+                document.getElementById('resultTitle').style.color = '#01356f';
+                document.getElementById('resultSubtitle').textContent = 'Complete the quiz to see your actual results';
+                document.getElementById('resultMessage').textContent =
+                    'This is a preview of the results page. Complete the quiz to see your actual score and receive your certificate.';
+                document.getElementById('certificateBtn').style.display = 'inline-flex';
+                document.getElementById('correctCount').textContent = '—';
+                document.getElementById('incorrectCount').textContent = '—';
+            } else if (passed) {
+                document.getElementById('resultIcon').textContent = '🎉';
+                document.getElementById('resultTitle').textContent = 'Congratulations!';
+                document.getElementById('resultTitle').className = 'result-title pass';
+                document.getElementById('resultSubtitle').textContent = 'You have PASSED the assessment';
+                document.getElementById('resultMessage').textContent =
+                    'You have demonstrated a strong understanding of anti-corruption principles and company policies. Your certificate is ready below.';
+                document.getElementById('certificateBtn').style.display = 'inline-flex';
+            } else {
+                document.getElementById('resultIcon').textContent = '📚';
+                document.getElementById('resultTitle').textContent = 'Not Passed';
+                document.getElementById('resultTitle').className = 'result-title fail';
+                document.getElementById('resultSubtitle').textContent = 'You need 70% or higher to pass';
+                document.getElementById('resultMessage').textContent =
+                    'Please review the training material and try again. You need at least 7 correct answers (70%) to pass the assessment and receive your certificate.';
+                document.getElementById('certificateBtn').style.display = 'none';
+            }
+        }
+
+        // Initial UI update
+        updateUI();
+
+        async function showCertificate() {
+            // Get user info from Supabase
+            const { data: { user } } = await sb.auth.getUser();
+            let name = 'Training Participant';
+
+            if (user) {
+                // Try to get name from user metadata first
+                if (user.user_metadata?.full_name) {
+                    name = user.user_metadata.full_name;
+                } else if (user.user_metadata?.name) {
+                    name = user.user_metadata.name;
+                } else {
+                    // Query invitations table for display_name
+                    const { data: invitation } = await sb.from('invitations')
+                        .select('display_name')
+                        .eq('email', user.email)
+                        .single();
+
+                    if (invitation?.display_name) {
+                        name = invitation.display_name;
+                    } else if (user.email) {
+                        // Fall back to parsing email
+                        const emailPrefix = user.email.split('@')[0];
+                        const parts = emailPrefix.split('.');
+                        if (parts.length >= 2) {
+                            const firstName = parts[1].charAt(0).toUpperCase() + parts[1].slice(1).toLowerCase();
+                            const lastName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+                            name = `${firstName} ${lastName}`;
+                        } else {
+                            name = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+                        }
+                    }
+                }
+            }
+
+            document.getElementById('recipientName').textContent = name;
+            document.getElementById('certScore').textContent = (quizTaken ? score : 'N/A') + '/10';
+
+            // Format date
+            const date = dateStr ? new Date(dateStr) : new Date();
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('completionDate').textContent = date.toLocaleDateString('en-US', options);
+
+            // Generate certificate ID
+            const certId = 'AC-' + date.getFullYear() + '-' + Math.random().toString(36).substr(2, 5).toUpperCase();
+            document.getElementById('certificateId').textContent = certId;
+
+            document.getElementById('certificateSection').classList.add('visible');
+            document.getElementById('certificateSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function printCertificate() {
+            window.print();
+        }
+
+        // Expose functions to global scope for onclick handlers
+        window.showCertificate = showCertificate;
+        window.printCertificate = printCertificate;
+    </script>
+</body>
+
+</html>

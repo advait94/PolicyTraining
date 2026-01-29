@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incident Response | CyberSecurity Training</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Auth Guard -->
+    <script type="module" src="../auth.js"></script>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="../ishantechnologies_logo.jpeg" alt="Ishan Technologies" class="sidebar-logo">
+            <a href="../index.html" class="back-link">← Training Hub</a>
+            <h2>CyberSecurity Training</h2>
+        </div>
+        <ul class="toc-nav">
+            <li ><a href="index.html"><span class="toc-num">1</span> Introduction</a></li>
+            <li ><a href="section2.html"><span class="toc-num">2</span> Legal Framework</a></li>
+            <li ><a href="section3.html"><span class="toc-num">3</span> Common Threats</a></li>
+            <li ><a href="section4.html"><span class="toc-num">4</span> Password Security</a></li>
+            <li ><a href="section5.html"><span class="toc-num">5</span> Data Protection</a></li>
+            <li class="active"><a href="section6.html"><span class="toc-num">6</span> Incident Response</a></li>
+            <li><a href="section7.html"><span class="toc-num">7</span> Consequences</a></li>
+            <li><a href="section8.html"><span class="toc-num">8</span> Best Practices</a></li>
+            <li><a href="quiz.html"><span class="toc-num">📄</span> Assessment Quiz</a></li>
+        </ul>
+        <div class="sidebar-progress">
+            <div class="progress-label">Progress: <span id="progressPercent">0%</span></div>
+            <div class="progress-bar-mini">
+                <div class="progress-fill-mini" id="progressFill"></div>
+            </div>
+        </div>
+    </nav>
+    <main class="main-content">
+        <div class="content-header">
+            <div class="breadcrumb">Module 6 of 8</div>
+            <h1>Incident Response</h1>
+            <p class="subtitle">What to do when you suspect a cyber security breach</p>
+        </div>
+        <div class="content-body">
+            <h2>What is a Cyber Incident?</h2>
+            <p>A cyber incident is any event that threatens the confidentiality, integrity, or availability of an information system or its data.</p>
+            <div class="info-card danger">
+                <div class="info-icon">🚨</div>
+                <div>
+                    <h3>Common Examples</h3>
+                    <ul>
+                        <li>Loss or theft of laptop or mobile device</li>
+                        <li>Suspicious login attempts or account lockouts</li>
+                        <li>Unusual system performance or unexpected pop-ups</li>
+                        <li>Clicking on a phishing link or downloading a suspicious file</li>
+                        <li>Receiving a ransomware message</li>
+                    </ul>
+                </div>
+            </div>
+            <h2>Immediate Actions</h2>
+            <p>If you suspect an incident, your first actions are critical to containing the threat.</p>
+            <div class="key-points-grid">
+                <div class="key-point-card">
+                    <div class="kp-icon">🚫</div>
+                    <h4>Do Not Power Off</h4>
+                    <p>Unless instructed, avoid shutting down your PC as it may erase forensic evidence</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">📶</div>
+                    <h4>Disconnect Wi-Fi</h4>
+                    <p>Disconnect from Wi-Fi or unplug the network cable to prevent the spread of malware</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">📞</div>
+                    <h4>Report Immediately</h4>
+                    <p>Contact the IT Helpdesk and your manager as soon as possible</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">🔇</div>
+                    <h4>Remain Discreet</h4>
+                    <p>Avoid discussing the incident on public channels until it is resolved</p>
+                </div>
+            </div>
+            <h2>How to Report</h2>
+            <div class="highlight-box">
+                <p>Use the following channels to report any security concerns:</p>
+                <ul>
+                    <li><strong>IT Helpdesk:</strong> it.helpdesk@ishantechnologies.com (Phone: +91-XXXX-XXXXXX)</li>
+                    <li><strong>Security Portal:</strong> internal.security.portal</li>
+                    <li><strong>Manager:</strong> Always keep your immediate supervisor informed</li>
+                </ul>
+            </div>
+            <div class="info-card warning">
+                <div class="info-icon">⏳</div>
+                <div>
+                    <h3>The 6-Hour Rule (CERT-In)</h3>
+                    <p>Under Indian regulations, certain security incidents must be reported to CERT-In within <strong>6 hours</strong>. Quick internal reporting is essential for the company to comply with the law.</p>
+                </div>
+            </div>
+            <div class="info-card success">
+                <div class="info-icon">✅</div>
+                <div>
+                    <h3>No Penalty for Honest Mistakes</h3>
+                    <p>The company encourages a "Reporting Culture." You will not be penalized for reporting an accidental click on a malicious link, provided you report it <strong>promptly</strong>.</p>
+                </div>
+            </div>
+        </div>
+        <div class="navigation-footer">
+            <a href="section5.html" class="nav-btn prev-btn">← Previous: Data Protection</a>
+            <a href="section7.html" class="nav-btn next-btn">Next: Consequences →</a>
+        </div>
+    </main>
+    <script>
+        const trainingId = 'cybersecurity';
+        const totalSections = 8;
+        let completedSections = JSON.parse(localStorage.getItem(trainingId + '_completed') || '[]');
+        if (!completedSections.includes(6)) {
+            completedSections.push(6);
+            localStorage.setItem(trainingId + '_completed', JSON.stringify(completedSections));
+        }
+        const progress = Math.round((completedSections.length / totalSections) * 100);
+        document.getElementById('progressPercent').textContent = progress + '%';
+        document.getElementById('progressFill').style.width = progress + '%';
+        document.querySelectorAll('.toc-nav li a').forEach(link => {
+            const span = link.querySelector('.toc-num');
+            if (span) {
+                const num = parseInt(span.innerText);
+                if (!isNaN(num) && completedSections.includes(num)) {
+                    link.parentElement.classList.add('completed');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

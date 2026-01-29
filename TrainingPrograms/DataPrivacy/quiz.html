@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assessment Quiz | Data Privacy Training</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Rubik:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            display: block;
+        }
+
+        .quiz-page {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ed 100%);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .quiz-header-bar {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .quiz-header-bar img {
+            height: 50px;
+        }
+
+        .quiz-progress-bar {
+            width: 200px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .quiz-progress-fill {
+            height: 100%;
+            background: #a5b4fc;
+            transition: width 0.3s ease;
+        }
+
+        .quiz-main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .quiz-card {
+            background: white;
+            border-radius: 24px;
+            padding: 50px;
+            max-width: 700px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        }
+
+        .question-number-badge {
+            display: inline-block;
+            background: #4f46e5;
+            color: white;
+            padding: 10px 25px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 25px;
+            font-family: 'Raleway', sans-serif;
+        }
+
+        .question-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #4f46e5;
+            line-height: 1.5;
+            margin-bottom: 35px;
+            font-family: 'Raleway', sans-serif;
+        }
+
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .option-card {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 20px 25px;
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .option-card:hover:not(.answered) {
+            border-color: #6366f1;
+            background: #eef2ff;
+            transform: translateX(5px);
+        }
+
+        .option-card.correct {
+            border-color: #22c55e;
+            background: #f0fdf4;
+        }
+
+        .option-card.incorrect {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .option-letter {
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #64748b;
+            flex-shrink: 0;
+            transition: all 0.3s;
+        }
+
+        .option-card.correct .option-letter {
+            background: #22c55e;
+            border-color: #22c55e;
+            color: white;
+        }
+
+        .option-card.incorrect .option-letter {
+            background: #ef4444;
+            border-color: #ef4444;
+            color: white;
+        }
+
+        .option-text {
+            font-size: 1.05rem;
+            color: #1e293b;
+        }
+
+        .quiz-navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .quiz-nav-btn {
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Raleway', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .quiz-nav-btn.secondary {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .quiz-nav-btn.secondary:hover {
+            background: #e2e8f0;
+        }
+
+        .quiz-nav-btn.primary {
+            background: #6366f1;
+            color: white;
+        }
+
+        .quiz-nav-btn.primary:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .quiz-nav-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .feedback-message {
+            margin-top: 20px;
+            padding: 15px 20px;
+            border-radius: 12px;
+            font-weight: 500;
+            display: none;
+        }
+
+        .feedback-message.correct {
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #86efac;
+            display: block;
+        }
+
+        .feedback-message.incorrect {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+            display: block;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+    <div class="quiz-page">
+        <div class="quiz-header-bar">
+            <img src="../ishantechnologies_logo.jpeg" alt="Ishan Technologies">
+            <div style="text-align: center;">
+                <div style="font-weight: 600; margin-bottom: 5px;">Data Privacy Training</div>
+                <div style="font-size: 0.85rem; opacity: 0.8;">Assessment Quiz</div>
+            </div>
+            <div>
+                <div style="font-size: 0.85rem; margin-bottom: 5px;">Progress</div>
+                <div class="quiz-progress-bar">
+                    <div class="quiz-progress-fill" id="quizProgress" style="width: 10%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="quiz-main">
+            <div class="quiz-card">
+                <div id="questionContainer"></div>
+                <div class="quiz-navigation">
+                    <button class="quiz-nav-btn secondary" id="prevBtn" onclick="prevQuestion()" disabled>←
+                        Previous</button>
+                    <button class="quiz-nav-btn primary" id="nextBtn" onclick="nextQuestion()" disabled>Next →</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://xrxsqivbytniuovblwqs.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyeHNxaXZieXRuaXVvdmJsd3FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1ODE5ODYsImV4cCI6MjA4NDE1Nzk4Nn0.BzfVg0dmrbHvKtTa3p53D7ptQC-ZT5OoAJeCl8UzKHo';
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const questionsData = [
+            { question: "What is \"Personal Data\" as defined under the DPDP Act 2023?", options: ["Only financial information", "Any data that can identify a living individual", "Only government-issued ID numbers", "Only medical records"], correctIndex: 1, explanation: { correct: "Correct! Personal data is any data that can identify a living individual.", incorrect: "Incorrect. Personal data means any data that can identify a living individual." } },
+            { question: "Which of the following is considered \"Sensitive Personal Data\"?", options: ["Your favorite color", "Your work email address", "Your biometric fingerprints", "The city you live in"], correctIndex: 2, explanation: { correct: "Correct! Biometric data like fingerprints is considered sensitive personal data.", incorrect: "Incorrect. Biometric fingerprints are classified as sensitive personal data." } },
+            { question: "What is the primary principle of \"Purpose Limitation\" in data privacy?", options: ["Collect as much data as possible", "Data should only be used for the purpose it was collected", "Share data with all departments", "Keep data indefinitely"], correctIndex: 1, explanation: { correct: "Correct! Purpose limitation means data should only be used for the collected purpose.", incorrect: "Incorrect. Data should only be used for the specific purpose it was collected for." } },
+            { question: "Under the DPDP Act, what is required before processing personal data?", options: ["Government approval", "Free, specific, informed, and unambiguous consent", "Payment from the data subject", "Nothing, consent is optional"], correctIndex: 1, explanation: { correct: "Correct! The DPDP Act requires free, specific, informed, and unambiguous consent.", incorrect: "Incorrect. Consent must be free, specific, informed, and unambiguous." } },
+            { question: "What is the \"Right to Erasure\" also known as?", options: ["Right to Copy", "Right to be Forgotten", "Right to Access", "Right to Portability"], correctIndex: 1, explanation: { correct: "Correct! The Right to Erasure is also known as the Right to be Forgotten.", incorrect: "Incorrect. It is called the Right to be Forgotten." } },
+            { question: "What does \"Data Minimization\" mean?", options: ["Delete all data immediately after collection", "Collect only the minimum data necessary for the purpose", "Compress data to save storage", "Store data in small files"], correctIndex: 1, explanation: { correct: "Correct! Data minimization means collecting only necessary data.", incorrect: "Incorrect. Data minimization means collecting only the minimum data necessary." } },
+            { question: "Who is a \"Data Fiduciary\" under the DPDP Act?", options: ["The person whose data is being collected", "The entity that determines the purpose and means of processing", "A government officer", "A data storage company"], correctIndex: 1, explanation: { correct: "Correct! A Data Fiduciary determines the purpose and means of processing.", incorrect: "Incorrect. The Data Fiduciary is the entity that determines processing purpose and means." } },
+            { question: "What should you do if you suspect a data breach?", options: ["Wait and see if it gets worse", "Ignore it if no harm is visible", "Report it immediately to your data protection officer", "Delete all evidence"], correctIndex: 2, explanation: { correct: "Correct! Data breaches must be reported immediately to the DPO.", incorrect: "Incorrect. You should report suspected breaches immediately to your DPO." } },
+            { question: "What is the maximum penalty for significant data breaches under the DPDP Act 2023?", options: ["₹1 Crore", "₹50 Crore", "₹250 Crore", "No penalty"], correctIndex: 2, explanation: { correct: "Correct! Maximum penalty under DPDP Act is ₹250 Crore.", incorrect: "Incorrect. The maximum penalty for significant breaches is ₹250 Crore." } },
+            { question: "Before transferring personal data outside India, what must be ensured?", options: ["Nothing special is required", "The recipient country is not on the restricted list and adequate protections exist", "Just get verbal approval from the data subject", "Cross-border transfers are always prohibited"], correctIndex: 1, explanation: { correct: "Correct! Cross-border transfers require adequate protections and no restrictions.", incorrect: "Incorrect. The recipient country must not be restricted and must have adequate protections." } }
+        ];
+
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        const shuffledQuestions = shuffleArray(questionsData).map(q => {
+            const optionsWithIndex = q.options.map((opt, idx) => ({ text: opt, isCorrect: idx === q.correctIndex }));
+            const shuffledOptions = shuffleArray(optionsWithIndex);
+            return { ...q, shuffledOptions, correctOptionIndex: shuffledOptions.findIndex(opt => opt.isCorrect) };
+        });
+
+        let currentQuestion = 0;
+        let userAnswers = {};
+        let answered = {};
+        const totalQuestions = shuffledQuestions.length;
+
+        function renderQuestion(index) {
+            const q = shuffledQuestions[index];
+            const letters = ['A', 'B', 'C', 'D'];
+            const container = document.getElementById('questionContainer');
+
+            let optionsHTML = q.shuffledOptions.map((opt, i) => `
+                <div class="option-card ${answered[index] ? 'answered' : ''} ${userAnswers[index] === i ? (i === q.correctOptionIndex ? 'correct' : 'incorrect') : ''} ${answered[index] && i === q.correctOptionIndex ? 'correct' : ''}" onclick="selectAnswer(${index}, ${i}, this)">
+                    <div class="option-letter">${letters[i]}</div>
+                    <div class="option-text">${opt.text}</div>
+                </div>
+            `).join('');
+
+            let feedbackHTML = '';
+            if (answered[index]) {
+                const isCorrect = userAnswers[index] === q.correctOptionIndex;
+                feedbackHTML = `<div class="feedback-message ${isCorrect ? 'correct' : 'incorrect'}">${isCorrect ? q.explanation.correct : q.explanation.incorrect}</div>`;
+            }
+
+            container.innerHTML = `
+                <div class="question-number-badge">Question ${index + 1} of ${totalQuestions}</div>
+                <div class="question-text">${q.question}</div>
+                <div class="options-container">${optionsHTML}</div>
+                ${feedbackHTML}
+            `;
+        }
+
+        function selectAnswer(questionIdx, answerIdx, element) {
+            if (answered[questionIdx]) return;
+            answered[questionIdx] = true;
+            userAnswers[questionIdx] = answerIdx;
+            renderQuestion(questionIdx);
+            document.getElementById('nextBtn').disabled = false;
+        }
+
+        function nextQuestion() {
+            if (currentQuestion < totalQuestions - 1) { currentQuestion++; renderQuestion(currentQuestion); updateNavigation(); }
+            else { showResults(); }
+        }
+
+        function prevQuestion() {
+            if (currentQuestion > 0) { currentQuestion--; renderQuestion(currentQuestion); updateNavigation(); }
+        }
+
+        function updateNavigation() {
+            document.getElementById('prevBtn').disabled = currentQuestion === 0;
+            document.getElementById('nextBtn').disabled = !answered[currentQuestion];
+            document.getElementById('nextBtn').textContent = currentQuestion === totalQuestions - 1 ? 'Submit Quiz →' : 'Next →';
+            document.getElementById('quizProgress').style.width = ((currentQuestion + 1) / totalQuestions * 100) + '%';
+        }
+
+        async function showResults() {
+            let score = 0;
+            for (let i = 0; i < totalQuestions; i++) { if (userAnswers[i] === shuffledQuestions[i].correctOptionIndex) score++; }
+            const passed = score >= 7;
+            localStorage.setItem('dataprivacy_score', score);
+            localStorage.setItem('dataprivacy_passed', passed);
+            localStorage.setItem('dataprivacy_date', new Date().toISOString());
+
+            try {
+                const { data: { user } } = await sb.auth.getUser();
+                if (user) {
+                    const { error } = await sb.from('user_progress').upsert({ user_id: user.id, module_id: 'dataprivacy', status: passed ? 'completed' : 'failed', score: score * 10, completed_at: new Date().toISOString() }, { onConflict: 'user_id,module_id' });
+                    if (error) console.error('Error saving progress:', error);
+                }
+            } catch (err) { console.error('Error saving to Supabase:', err); }
+            window.location.href = 'results.html';
+        }
+
+        window.selectAnswer = selectAnswer;
+        window.nextQuestion = nextQuestion;
+        window.prevQuestion = prevQuestion;
+        renderQuestion(0);
+        updateNavigation();
+    </script>
+</body>
+
+</html>

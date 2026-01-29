@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results | HSE Training</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Rubik:wght@400;500;600&display=swap"
+        rel="stylesheet">
+
+
+    <link rel="stylesheet" href="/dark-styles.css">
+</head>
+
+<body>
+    <div class="header-bar">
+        <img src="/aaplus_logo_colored.png" alt="AA Plus">
+        <div style="text-align: center;">
+            <div style="font-weight: 600;">HSE Training</div>
+            <div style="font-size: 0.85rem; opacity: 0.8;">Assessment Results</div>
+        </div>
+        <a href="/dashboard" style="color: white; text-decoration: none; font-size: 0.9rem;">← Back to Hub</a>
+    </div>
+
+    <div class="results-container">
+        <div class="result-card">
+            <div class="result-icon" id="resultIcon">🎉</div>
+            <h1 class="result-title pass" id="resultTitle">Congratulations!</h1>
+            <p class="result-subtitle" id="resultSubtitle">You have passed the assessment</p>
+
+            <div class="score-display">
+                <div class="score-item">
+                    <div class="score-number correct" id="correctCount">0</div>
+                    <div class="score-label">Correct</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-number incorrect" id="incorrectCount">0</div>
+                    <div class="score-label">Incorrect</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-number total">10</div>
+                    <div class="score-label">Total</div>
+                </div>
+            </div>
+
+            <p class="result-message" id="resultMessage">
+                You have demonstrated a strong understanding of HSE principles. Your certificate is ready below.
+            </p>
+
+            <div class="action-buttons">
+                <a href="quiz.html" class="action-btn secondary" id="retakeQuizBtn">🔄 Retake Quiz</a>
+                <button class="action-btn primary" id="certificateBtn" onclick="showCertificate()">📜 View
+                    Certificate</button>
+            </div>
+        </div>
+
+        <div class="certificate-section" id="certificateSection">
+            <div class="certificate-new" id="certificate">
+                <!-- Decorative Double Border -->
+                <div class="cert-border-frame"></div>
+
+                <!-- Close Button -->
+                <div class="cert-close-btn">
+                    <a href="/dashboard">Close</a>
+                </div>
+
+                <!-- Main Content -->
+                <div class="cert-content">
+                    <!-- Header -->
+                    <div class="cert-header">
+                        <div class="cert-logo-wrapper">
+                            <img src="/aaplus_logo_colored.png" alt="AA Plus Policy Training" class="cert-logo-new">
+                        </div>
+                        <h1 class="cert-title-new">Certificate</h1>
+                        <p class="cert-subtitle-new">of Completion</p>
+                        <div class="cert-title-bar"></div>
+                    </div>
+
+                    <!-- Recipient Section -->
+                    <div class="cert-recipient-section">
+                        <p class="cert-text-italic">This is to certify that</p>
+                        <h2 class="cert-name" id="recipientName">Training Participant</h2>
+                        <p class="cert-text-italic">Has successfully completed the training module</p>
+                        <h3 class="cert-module-title">Health, Safety & Environment Training Program</h3>
+                    </div>
+
+                    <!-- Signatures Footer -->
+                    <div class="cert-signatures">
+                        <div class="cert-sig-block">
+                            <div class="cert-sig-area">
+                                <img src="/papa_signature.jpg" alt="Authorized Signature" class="cert-signature-img">
+                            </div>
+                            <div class="cert-sig-line"></div>
+                            <p class="cert-sig-label">Authorized Signature</p>
+                        </div>
+                        <div class="cert-sig-block">
+                            <div class="cert-sig-area">
+                                <p class="cert-date-value" id="completionDate">January 29, 2026</p>
+                            </div>
+                            <div class="cert-sig-line"></div>
+                            <p class="cert-sig-label">Date Completed</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Watermark -->
+                <div class="cert-watermark">
+                    AA Plus Policy Training Platform • Proficiency Assessment Verified
+                </div>
+            </div>
+
+            <div class="print-instructions">
+                <strong>📄 To download:</strong> Click the Print button below and select "Save as PDF" as your printer.
+                <br><br>
+                <button class="action-btn primary" onclick="printCertificate()">🖨️ Print Certificate</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { supabase as sb } from '../auth.js';
+
+        // Check if accessed from Print Certificate on completed module
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromCertificate = urlParams.get('fromCertificate') === 'true';
+        if (fromCertificate) {
+            document.getElementById('retakeQuizBtn').style.display = 'none';
+        }
+
+        // Get results from localStorage
+        let score = parseInt(localStorage.getItem('hse_score') || '0');
+        let passedStr = localStorage.getItem('hse_passed');
+        let dateStr = localStorage.getItem('hse_date');
+        let quizTaken = passedStr !== null;
+        let passed = passedStr === 'true';
+
+        // Load from database if coming from certificate
+        async function loadFromDatabase() {
+            const { data: { user } } = await sb.auth.getUser();
+            if (user && fromCertificate) {
+                const { data } = await sb.from('user_progress').select('*').eq('user_id', user.id).eq('module_id', '1875f87e-8e89-4bab-80da-72a1925af152').single();
+                if (data) {
+                    score = data.quiz_score / 10;
+                    passed = data.status === 'completed';
+                    quizTaken = true;
+                    dateStr = data.completed_at;
+                    updateUI();
+                    showCertificate();
+                }
+            }
+        }
+        if (fromCertificate) loadFromDatabase();
+
+        function updateUI() {
+            document.getElementById('correctCount').textContent = score;
+            document.getElementById('incorrectCount').textContent = 10 - score;
+            if (!quizTaken) {
+                document.getElementById('resultIcon').textContent = '📋';
+                document.getElementById('resultTitle').textContent = 'Results Preview';
+                document.getElementById('resultTitle').className = 'result-title';
+                document.getElementById('resultTitle').style.color = '#01356f';
+                document.getElementById('resultSubtitle').textContent = 'Complete the quiz to see your actual results';
+                document.getElementById('resultMessage').textContent = 'This is a preview of the results page. Complete the quiz to see your actual score and receive your certificate.';
+                document.getElementById('certificateBtn').style.display = 'inline-flex';
+                document.getElementById('correctCount').textContent = '—';
+                document.getElementById('incorrectCount').textContent = '—';
+            } else if (passed) {
+                document.getElementById('resultIcon').textContent = '🎉';
+                document.getElementById('resultTitle').textContent = 'Congratulations!';
+                document.getElementById('resultTitle').className = 'result-title pass';
+                document.getElementById('resultSubtitle').textContent = 'You have PASSED the assessment';
+                document.getElementById('resultMessage').textContent = 'You have demonstrated a strong understanding of HSE principles. Your certificate is ready below.';
+                document.getElementById('certificateBtn').style.display = 'inline-flex';
+            } else {
+                document.getElementById('resultIcon').textContent = '📚';
+                document.getElementById('resultTitle').textContent = 'Not Passed';
+                document.getElementById('resultTitle').className = 'result-title fail';
+                document.getElementById('resultSubtitle').textContent = 'You need 70% or higher to pass';
+                document.getElementById('resultMessage').textContent = 'Please review the training material and try again. You need at least 7 correct answers (70%) to pass the assessment and receive your certificate.';
+                document.getElementById('certificateBtn').style.display = 'none';
+            }
+        }
+        updateUI();
+
+        async function showCertificate() {
+            const { data: { user } } = await sb.auth.getUser();
+            let name = 'Training Participant';
+            if (user) {
+                if (user.user_metadata?.full_name) {
+                    name = user.user_metadata.full_name;
+                } else if (user.user_metadata?.name) {
+                    name = user.user_metadata.name;
+                } else {
+                    const { data: invitation } = await sb.from('invitations').select('display_name').eq('email', user.email).single();
+                    if (invitation?.display_name) {
+                        name = invitation.display_name;
+                    } else if (user.email) {
+                        const emailPrefix = user.email.split('@')[0];
+                        const parts = emailPrefix.split('.');
+                        if (parts.length >= 2) {
+                            name = parts[1].charAt(0).toUpperCase() + parts[1].slice(1).toLowerCase() + ' ' + parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+                        } else {
+                            name = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+                        }
+                    }
+                }
+            }
+            document.getElementById('recipientName').textContent = name;
+            const date = dateStr ? new Date(dateStr) : new Date();
+            document.getElementById('completionDate').textContent = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('certificateSection').classList.add('visible');
+            document.getElementById('certificateSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function printCertificate() {
+            window.print();
+        }
+
+        window.showCertificate = showCertificate;
+        window.printCertificate = printCertificate;
+    </script>
+</body>
+
+</html>

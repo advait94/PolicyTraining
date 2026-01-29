@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legal Framework | Anti-Corruption Training</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Auth Guard -->
+    <script type="module" src="../auth.js"></script>
+</head>
+
+<body>
+    <!-- Sidebar TOC -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="../ishantechnologies_logo.jpeg" alt="Ishan Technologies" class="sidebar-logo">
+            <a href="../index.html" class="back-link">← Training Hub</a>
+            <h2>Anti-Corruption Training</h2>
+        </div>
+        <ul class="toc-nav">
+            <li ><a href="index.html"><span class="toc-num">1</span> Introduction</a></li>
+            <li class="active"><a href="section2.html"><span class="toc-num">2</span> Legal Framework</a></li>
+            <li><a href="section3.html"><span class="toc-num">3</span> Types of Corruption</a></li>
+            <li><a href="section4.html"><span class="toc-num">4</span> Red Flags</a></li>
+            <li><a href="section5.html"><span class="toc-num">5</span> Company Policies</a></li>
+            <li><a href="section6.html"><span class="toc-num">6</span> Reporting Mechanisms</a></li>
+            <li><a href="section7.html"><span class="toc-num">7</span> Consequences</a></li>
+            <li><a href="section8.html"><span class="toc-num">8</span> Best Practices</a></li>
+            <li><a href="quiz.html"><span class="toc-num">📄</span> Assessment Quiz</a></li>
+        </ul>
+        <div class="sidebar-progress">
+            <div class="progress-label">Progress: <span id="progressPercent">0%</span></div>
+            <div class="progress-bar-mini">
+                <div class="progress-fill-mini" id="progressFill" style="width: 0%"></div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="content-header">
+            <div class="breadcrumb">Module 2 of 8</div>
+            <h1>Legal Framework</h1>
+            <p class="subtitle">Understanding anti-corruption laws in India and internationally</p>
+        </div>
+
+        <div class="content-body">
+            <h2>The Prevention of Corruption Act, 1988 (PCA)</h2>
+            <p>The PCA is India's primary legislation for combating corruption. It applies to public servants and those
+                who bribe them.</p>
+
+            <div class="info-card primary">
+                <div class="info-icon">⚖️</div>
+                <div>
+                    <h3>Key Provisions of PCA</h3>
+                    <p>The Act criminalizes both giving and receiving bribes, with penalties including imprisonment and
+                        fines.</p>
+                </div>
+            </div>
+
+            <h3>Who is Covered?</h3>
+            <ul>
+                <li><strong>Public Servants:</strong> Government officials, employees of public sector undertakings</li>
+                <li><strong>Private Parties:</strong> Any person who gives or offers a bribe to a public servant</li>
+                <li><strong>Commercial Organizations:</strong> Companies can be held liable for bribery by employees
+                </li>
+            </ul>
+
+            <h3>Penalties Under PCA</h3>
+            <div class="highlight-box">
+                <ul>
+                    <li><strong>Bribery:</strong> Imprisonment of 3-7 years and fine</li>
+                    <li><strong>Habitual Offenders:</strong> Enhanced punishment</li>
+                    <li><strong>Commercial Organizations:</strong> Can face prosecution and penalties</li>
+                </ul>
+            </div>
+
+            <h2>US Foreign Corrupt Practices Act (FCPA)</h2>
+            <p>The FCPA applies to any company with US connections (listed on US exchanges, has US operations, or uses
+                US banking system).</p>
+
+            <div class="info-card warning">
+                <div class="info-icon">🇺🇸</div>
+                <div>
+                    <h3>FCPA Reach</h3>
+                    <p>The FCPA has extra-territorial jurisdiction. Indian companies with US business ties can be
+                        prosecuted for corrupt acts anywhere in the world.</p>
+                </div>
+            </div>
+
+            <h3>FCPA Key Elements</h3>
+            <div class="key-points-grid">
+                <div class="key-point-card">
+                    <div class="kp-icon">💰</div>
+                    <h4>Anti-Bribery</h4>
+                    <p>Prohibits bribing foreign officials to obtain/retain business</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">📋</div>
+                    <h4>Books & Records</h4>
+                    <p>Requires accurate and transparent accounting records</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">🔍</div>
+                    <h4>Internal Controls</h4>
+                    <p>Mandates effective internal compliance controls</p>
+                </div>
+            </div>
+
+            <h2>UK Bribery Act, 2010</h2>
+            <p>One of the strictest anti-corruption laws globally. It applies to UK companies and any company doing
+                business in the UK.</p>
+
+            <div class="info-card danger">
+                <div class="info-icon">🇬🇧</div>
+                <div>
+                    <h3>UK Bribery Act - Strict Liability</h3>
+                    <p>Unlike other laws, the UK Bribery Act creates a corporate offense for "<strong>failure to prevent
+                            bribery</strong>" - companies must prove they had adequate procedures in place.</p>
+                </div>
+            </div>
+
+            <h3>Key Features</h3>
+            <ul>
+                <li><strong>No "Facilitation Payments" Exception:</strong> Even small payments are prohibited</li>
+                <li><strong>Both Public and Private Sector:</strong> Covers bribery of private individuals too</li>
+                <li><strong>Unlimited Fines:</strong> No cap on financial penalties</li>
+                <li><strong>Imprisonment:</strong> Up to 10 years for individuals</li>
+            </ul>
+
+            <div class="info-card success">
+                <div class="info-icon">✅</div>
+                <div>
+                    <h3>Adequate Procedures Defense</h3>
+                    <p>Companies can defend themselves by demonstrating they had adequate procedures in place to prevent
+                        bribery. This is why compliance training is so important!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation-footer">
+            <a href="index.html" class="nav-btn prev-btn">← Previous: Introduction</a>
+            <a href="section3.html" class="nav-btn next-btn">Next: Types of Corruption →</a>
+        </div>
+    </main>
+
+    <script>
+        const trainingId = 'anticorruption';
+        const totalSections = 8;
+        let completedSections = JSON.parse(localStorage.getItem(trainingId + '_completed') || '[]');
+
+        if (!completedSections.includes(2)) {
+            completedSections.push(2);
+            localStorage.setItem(trainingId + '_completed', JSON.stringify(completedSections));
+        }
+
+        const progress = Math.round((completedSections.length / totalSections) * 100);
+        document.getElementById('progressPercent').textContent = progress + '%';
+        document.getElementById('progressFill').style.width = progress + '%';
+
+        // Update Sidebar
+        document.querySelectorAll('.toc-nav li a').forEach(link => {
+            const span = link.querySelector('.toc-num');
+            if (span) {
+                const num = parseInt(span.innerText);
+                if (!isNaN(num) && completedSections.includes(num)) {
+                    link.parentElement.classList.add('completed');
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

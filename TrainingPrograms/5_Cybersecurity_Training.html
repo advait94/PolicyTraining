@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Information & Cyber Security Training | Protecting Digital Assets</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="training-header" style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);">
+        <h1>🔒 Information & Cyber Security Training</h1>
+        <p class="subtitle">Protecting Our Digital Assets in an Evolving Threat Landscape</p>
+        <div class="meta">
+            <span>📅 Updated: January 2026</span>
+            <span>⏱️ Duration: 60-75 minutes</span>
+            <span>📊 12 Modules</span>
+        </div>
+    </header>
+
+    <!-- Progress Bar -->
+    <div class="progress-container">
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p class="progress-text"><span id="progressText">0</span>% Complete</p>
+    </div>
+
+    <!-- Main Content -->
+    <main class="training-content">
+        <!-- Table of Contents -->
+        <div class="toc">
+            <h3>📚 Table of Contents</h3>
+            <ul class="toc-list">
+                <li><a href="#section1"><span class="toc-number">1</span> Introduction - Why Cybersecurity Matters</a>
+                </li>
+                <li><a href="#section2"><span class="toc-number">2</span> Information Security vs Cybersecurity</a></li>
+                <li><a href="#section3"><span class="toc-number">3</span> The CIA Triad</a></li>
+                <li><a href="#section4"><span class="toc-number">4</span> Indian Legal Framework</a></li>
+                <li><a href="#section5"><span class="toc-number">5</span> Common Cyber Threats</a></li>
+                <li><a href="#section6"><span class="toc-number">6</span> Phishing & Social Engineering</a></li>
+                <li><a href="#section7"><span class="toc-number">7</span> Password & Access Security</a></li>
+                <li><a href="#section8"><span class="toc-number">8</span> Data Protection Best Practices</a></li>
+                <li><a href="#section9"><span class="toc-number">9</span> Physical & Device Security</a></li>
+                <li><a href="#section10"><span class="toc-number">10</span> Incident Response</a></li>
+                <li><a href="#section11"><span class="toc-number">11</span> Your Role in Security</a></li>
+                <li><a href="#quiz"><span class="toc-number">📝</span> Assessment Quiz</a></li>
+            </ul>
+        </div>
+
+        <!-- Section 1: Introduction -->
+        <section class="section" id="section1" data-section="1">
+            <div class="section-header">
+                <div class="section-number">1</div>
+                <div>
+                    <h2 class="section-title">Introduction - Why Cybersecurity Matters</h2>
+                    <p class="section-subtitle">Understanding the importance of protecting information</p>
+                </div>
+            </div>
+
+            <h3>The Digital World We Live In</h3>
+            <p>In today's interconnected world, data is a <strong>critical business asset</strong>. We store, process,
+                and transmit vast amounts of sensitive information – customer data, financial records, intellectual
+                property, and personal information.</p>
+
+            <div class="info-box danger">
+                <div class="info-box-title">⚠️ The Threat Landscape</div>
+                <ul>
+                    <li><strong>Cyberattacks are increasing:</strong> Both in frequency and sophistication</li>
+                    <li><strong>Anyone can be a target:</strong> Hackers target individuals, SMEs, and large
+                        corporations</li>
+                    <li><strong>Humans are the weakest link:</strong> Over 90% of successful breaches involve human
+                        error</li>
+                    <li><strong>Consequences are severe:</strong> Financial loss, reputational damage, legal penalties,
+                        and operational disruption</li>
+                </ul>
+            </div>
+
+            <h3>Training Objectives</h3>
+            <div class="key-points">
+                <div class="key-point">
+                    <div class="key-point-icon">📖</div>
+                    <h5>Understand Fundamentals</h5>
+                    <p>Learn key concepts of information security and cybersecurity</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">🎯</div>
+                    <h5>Recognize Threats</h5>
+                    <p>Identify common cyber threats like phishing, malware, and social engineering</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">⚖️</div>
+                    <h5>Know the Law</h5>
+                    <p>Understand Indian legal framework (IT Act, DPDP Act, CERT-In directives)</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">✅</div>
+                    <h5>Apply Best Practices</h5>
+                    <p>Implement practical steps for daily security hygiene</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: InfoSec vs CyberSec -->
+        <section class="section" id="section2" data-section="2">
+            <div class="section-header">
+                <div class="section-number">2</div>
+                <div>
+                    <h2 class="section-title">Information Security vs Cybersecurity</h2>
+                    <p class="section-subtitle">Understanding the relationship and differences</p>
+                </div>
+            </div>
+
+            <div class="key-points">
+                <div class="key-point">
+                    <div class="key-point-icon">📄</div>
+                    <h5>Information Security (InfoSec)</h5>
+                    <p>The practice of protecting <strong>all forms of information</strong> (digital and non-digital).
+                        Includes policies, procedures, and controls for protecting the confidentiality, integrity, and
+                        availability of information assets.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">💻</div>
+                    <h5>Cybersecurity</h5>
+                    <p>A <strong>subset of InfoSec</strong> focused specifically on protecting digital information,
+                        computer systems, networks, and devices from cyber threats. Often more technical and
+                        technology-focused.</p>
+                </div>
+            </div>
+
+            <div class="info-box primary">
+                <div class="info-box-title">🔍 The Relationship</div>
+                <p>Cybersecurity is part of the broader Information Security discipline. While cybersecurity focuses on
+                    digital threats, InfoSec also covers physical security of documents, verbal communications, and
+                    organizational policies.</p>
+            </div>
+
+            <h3>Key Security Areas</h3>
+            <ul>
+                <li><strong>Network Security:</strong> Protecting network infrastructure from unauthorized access</li>
+                <li><strong>Application Security:</strong> Securing software applications from vulnerabilities</li>
+                <li><strong>Endpoint Security:</strong> Protecting devices (laptops, mobiles, servers)</li>
+                <li><strong>Cloud Security:</strong> Securing data and applications in cloud environments</li>
+                <li><strong>Data Security:</strong> Protecting data at rest, in transit, and in use</li>
+                <li><strong>Operational Security:</strong> Day-to-day security practices and procedures</li>
+            </ul>
+        </section>
+
+        <!-- Section 3: CIA Triad -->
+        <section class="section" id="section3" data-section="3">
+            <div class="section-header">
+                <div class="section-number">3</div>
+                <div>
+                    <h2 class="section-title">The CIA Triad</h2>
+                    <p class="section-subtitle">The three pillars of information security</p>
+                </div>
+            </div>
+
+            <div class="info-box primary">
+                <div class="info-box-title">🔺 The Foundation of Information Security</div>
+                <p>The CIA Triad represents the three core objectives of information security. All security measures aim
+                    to protect one or more of these properties.</p>
+            </div>
+
+            <div class="key-points">
+                <div class="key-point">
+                    <div class="key-point-icon">🔒</div>
+                    <h5>Confidentiality</h5>
+                    <p>Ensuring that information is accessible <strong>only to authorized individuals</strong>.
+                        Protection against unauthorized disclosure. Achieved through: access controls, encryption, data
+                        classification.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">✓</div>
+                    <h5>Integrity</h5>
+                    <p>Ensuring that information is <strong>accurate and has not been tampered with</strong>. Protection
+                        against unauthorized modification. Achieved through: checksums, digital signatures, version
+                        control, audit trails.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">⚡</div>
+                    <h5>Availability</h5>
+                    <p>Ensuring that information and systems are <strong>accessible when needed</strong> by authorized
+                        users. Protection against disruption. Achieved through: redundancy, backups, disaster recovery,
+                        DDoS protection.</p>
+                </div>
+            </div>
+
+            <h3>Examples of CIA Violations</h3>
+            <table style="width:100%; border-collapse: collapse; margin: 20px 0;">
+                <tr style="background: #f8fafc;">
+                    <th style="padding: 12px; border: 1px solid #e2e8f0;">Principle</th>
+                    <th style="padding: 12px; border: 1px solid #e2e8f0;">Violation Example</th>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;"><strong>Confidentiality</strong></td>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;">Customer database leaked; employee shares
+                        password</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;"><strong>Integrity</strong></td>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;">Financial records altered; malware corrupts
+                        files</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;"><strong>Availability</strong></td>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;">Ransomware attack; DDoS takes website offline
+                    </td>
+                </tr>
+            </table>
+        </section>
+
+        <!-- Section 4: Legal Framework -->
+        <section class="section" id="section4" data-section="4">
+            <div class="section-header">
+                <div class="section-number">4</div>
+                <div>
+                    <h2 class="section-title">Indian Legal Framework</h2>
+                    <p class="section-subtitle">Key laws governing cybersecurity in India</p>
+                </div>
+            </div>
+
+            <h3>Information Technology Act, 2000 (IT Act)</h3>
+            <div class="info-box primary">
+                <div class="info-box-title">⚖️ Primary Cybersecurity Law in India</div>
+                <p>Amended in 2008. Provides legal framework for electronic governance, recognizes electronic contracts,
+                    and defines cyber offenses and penalties.</p>
+            </div>
+
+            <h4>Key Provisions Under IT Act</h4>
+            <div class="key-points">
+                <div class="key-point">
+                    <div class="key-point-icon">§66</div>
+                    <h5>Section 66</h5>
+                    <p>Computer-related offenses (hacking). Imprisonment up to 3 years and/or fine up to ₹5 lakh.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">§66C</div>
+                    <h5>Section 66C</h5>
+                    <p>Identity theft. Imprisonment up to 3 years and fine up to ₹1 lakh.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">§66D</div>
+                    <h5>Section 66D</h5>
+                    <p>Cheating by personation using computer resources. Imprisonment up to 3 years and/or fine up to ₹1
+                        lakh.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">§43A</div>
+                    <h5>Section 43A</h5>
+                    <p>Compensation for failure to protect sensitive personal data.</p>
+                </div>
+            </div>
+
+            <h3>CERT-In Directives (2022)</h3>
+            <div class="info-box warning">
+                <div class="info-box-title">🚨 Mandatory Reporting Requirements</div>
+                <ul>
+                    <li><strong>6-Hour Reporting:</strong> Cyber incidents must be reported to CERT-In within 6 hours of
+                        detection</li>
+                    <li><strong>Log Retention:</strong> Logs must be maintained for 180 days within Indian jurisdiction
+                    </li>
+                    <li><strong>VPN Providers:</strong> Must maintain user logs for 5 years</li>
+                    <li><strong>Synchronization:</strong> Systems must have synchronized clocks (NTP)</li>
+                </ul>
+            </div>
+
+            <h3>Digital Personal Data Protection Act, 2023</h3>
+            <p>India's comprehensive data privacy law (covered in detail in Data Privacy Training). Key cybersecurity
+                implications:</p>
+            <ul>
+                <li>Mandates <strong>reasonable security safeguards</strong> for personal data</li>
+                <li>Requires <strong>breach notification</strong> to Data Protection Board and affected individuals</li>
+                <li>Severe penalties (up to ₹250 Crore) for security failures</li>
+            </ul>
+        </section>
+
+        <!-- Section 5: Common Threats -->
+        <section class="section" id="section5" data-section="5">
+            <div class="section-header">
+                <div class="section-number">5</div>
+                <div>
+                    <h2 class="section-title">Common Cyber Threats</h2>
+                    <p class="section-subtitle">Understanding the enemy</p>
+                </div>
+            </div>
+
+            <h3>Malware (Malicious Software)</h3>
+            <div class="key-points">
+                <div class="key-point">
+                    <div class="key-point-icon">🦠</div>
+                    <h5>Viruses</h5>
+                    <p>Self-replicating code that attaches to legitimate programs. Spreads when infected file is
+                        executed.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">🐛</div>
+                    <h5>Worms</h5>
+                    <p>Self-replicating malware that spreads across networks without user action.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">🎭</div>
+                    <h5>Trojans</h5>
+                    <p>Malware disguised as legitimate software. Creates backdoors for attackers.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">💰</div>
+                    <h5>Ransomware</h5>
+                    <p>Encrypts files and demands ransom for decryption. Major threat to organizations.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">👁️</div>
+                    <h5>Spyware</h5>
+                    <p>Secretly monitors user activity and collects data (keyloggers, screen capture).</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">📢</div>
+                    <h5>Adware</h5>
+                    <p>Displays unwanted ads. Can track browsing habits and slow systems.</p>
+                </div>
+            </div>
+
+            <h3>Ransomware - A Growing Threat</h3>
+            <div class="info-box danger">
+                <div class="info-box-title">💰 Ransomware Attack Cycle</div>
+                <ol>
+                    <li><strong>Infection:</strong> Usually through phishing email or compromised website</li>
+                    <li><strong>Encryption:</strong> Files are encrypted with strong encryption</li>
+                    <li><strong>Ransom Demand:</strong> Attacker demands payment (usually cryptocurrency)</li>
+                    <li><strong>Data Exfiltration:</strong> Modern ransomware also steals data before encrypting</li>
+                </ol>
+                <p><strong>Prevention:</strong> Regular backups, patch management, email filtering, user awareness</p>
+            </div>
+
+            <h3>Other Threats</h3>
+            <ul>
+                <li><strong>DDoS Attacks:</strong> Overwhelm systems with traffic, causing unavailability</li>
+                <li><strong>Man-in-the-Middle (MitM):</strong> Intercepting communications between two parties</li>
+                <li><strong>SQL Injection:</strong> Exploiting vulnerabilities in web applications</li>
+                <li><strong>Zero-Day Exploits:</strong> Attacks on unknown vulnerabilities before patches exist</li>
+                <li><strong>Insider Threats:</strong> Malicious or negligent employees</li>
+            </ul>
+        </section>
+
+        <!-- Section 6: Phishing & Social Engineering -->
+        <section class="section" id="section6" data-section="6">
+            <div class="section-header">
+                <div class="section-number">6</div>
+                <div>
+                    <h2 class="section-title">Phishing & Social Engineering</h2>
+                    <p class="section-subtitle">The human element of hacking</p>
+                </div>
+            </div>
+
+            <h3>What is Social Engineering?</h3>
+            <div class="info-box primary">
+                <div class="info-box-title">🎭 Manipulating Humans, Not Machines</div>
+                <p>Social engineering is the art of <strong>psychologically manipulating people</strong> into performing
+                    actions or divulging confidential information. It exploits human trust, curiosity, fear, and
+                    helpfulness.</p>
+            </div>
+
+            <h3>Types of Phishing</h3>
+            <div class="key-points">
+                <div class="key-point">
+                    <div class="key-point-icon">📧</div>
+                    <h5>Email Phishing</h5>
+                    <p>Mass emails impersonating trusted entities (banks, IT support, HR) with malicious links or
+                        attachments.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">🎯</div>
+                    <h5>Spear Phishing</h5>
+                    <p>Targeted attacks on specific individuals using personalized information gathered from social
+                        media.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">🐋</div>
+                    <h5>Whaling</h5>
+                    <p>Spear phishing targeting high-level executives (CEOs, CFOs) for high-value fraud.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">📱</div>
+                    <h5>Smishing</h5>
+                    <p>Phishing via SMS text messages.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">📞</div>
+                    <h5>Vishing</h5>
+                    <p>Phishing via voice calls (e.g., fake bank/tech support calls).</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">🔗</div>
+                    <h5>Clone Phishing</h5>
+                    <p>Cloning a legitimate email and replacing links with malicious ones.</p>
+                </div>
+            </div>
+
+            <h3>How to Spot a Phishing Email</h3>
+            <div class="info-box warning">
+                <div class="info-box-title">🚩 Red Flags</div>
+                <ul>
+                    <li><strong>Suspicious Sender:</strong> Check the actual email address, not just the display name
+                    </li>
+                    <li><strong>Urgency/Threats:</strong> "Your account will be suspended in 24 hours!"</li>
+                    <li><strong>Generic Greeting:</strong> "Dear Customer" instead of your name</li>
+                    <li><strong>Grammar/Spelling Errors:</strong> Professional organizations proofread</li>
+                    <li><strong>Suspicious Links:</strong> Hover over links to see actual URL before clicking</li>
+                    <li><strong>Unexpected Attachments:</strong> Never open attachments you weren't expecting</li>
+                    <li><strong>Too Good to Be True:</strong> Lottery wins, unexpected refunds</li>
+                    <li><strong>Request for Sensitive Info:</strong> Passwords, OTPs, bank details</li>
+                </ul>
+            </div>
+
+            <h3>Other Social Engineering Techniques</h3>
+            <ul>
+                <li><strong>Pretexting:</strong> Creating a fabricated scenario to extract information</li>
+                <li><strong>Baiting:</strong> Offering something enticing (free USB, download) that is malicious</li>
+                <li><strong>Tailgating:</strong> Following authorized personnel into secure areas</li>
+                <li><strong>Quid Pro Quo:</strong> Offering fake tech support in exchange for login credentials</li>
+            </ul>
+        </section>
+
+        <!-- Section 7: Password Security -->
+        <section class="section" id="section7" data-section="7">
+            <div class="section-header">
+                <div class="section-number">7</div>
+                <div>
+                    <h2 class="section-title">Password & Access Security</h2>
+                    <p class="section-subtitle">Your first line of defense</p>
+                </div>
+            </div>
+
+            <h3>Creating Strong Passwords</h3>
+            <div class="info-box success">
+                <div class="info-box-title">✅ Strong Password Guidelines</div>
+                <ul>
+                    <li><strong>Length:</strong> At least 12-16 characters (longer is better)</li>
+                    <li><strong>Complexity:</strong> Mix of uppercase, lowercase, numbers, and special characters</li>
+                    <li><strong>Unique:</strong> Different password for each account (NEVER reuse passwords)</li>
+                    <li><strong>No Personal Info:</strong> Avoid names, birthdays, pet names, dictionary words</li>
+                    <li><strong>Passphrase:</strong> Consider a memorable phrase like "MyDog@te3Pizz@s!"</li>
+                </ul>
+            </div>
+
+            <h3>Password DON'Ts</h3>
+            <div class="info-box danger">
+                <div class="info-box-title">❌ Never Do These</div>
+                <ul>
+                    <li>Never share your password with anyone (including IT support)</li>
+                    <li>Never write passwords on sticky notes or store in plain text</li>
+                    <li>Never use the same password for work and personal accounts</li>
+                    <li>Never use simple patterns (123456, password, qwerty)</li>
+                    <li>Never send passwords via email or messaging apps</li>
+                    <li>Never enter passwords on unfamiliar devices or networks</li>
+                </ul>
+            </div>
+
+            <h3>Multi-Factor Authentication (MFA)</h3>
+            <div class="key-points">
+                <div class="key-point">
+                    <div class="key-point-icon">🔢</div>
+                    <h5>Something You Know</h5>
+                    <p>Password, PIN, security question</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">📱</div>
+                    <h5>Something You Have</h5>
+                    <p>Phone (OTP), hardware token, smart card</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">👆</div>
+                    <h5>Something You Are</h5>
+                    <p>Fingerprint, facial recognition, voice</p>
+                </div>
+            </div>
+
+            <div class="info-box primary">
+                <div class="info-box-title">💡 Enable MFA Everywhere</div>
+                <p>MFA significantly increases security. Even if a password is compromised, attackers cannot access the
+                    account without the second factor. Enable MFA on all accounts that support it!</p>
+            </div>
+
+            <h3>Access Control Principles</h3>
+            <ul>
+                <li><strong>Least Privilege:</strong> Only grant access necessary for the job function</li>
+                <li><strong>Need-to-Know:</strong> Access information only when required for work</li>
+                <li><strong>Segregation of Duties:</strong> Critical tasks require multiple approvers</li>
+                <li><strong>Regular Review:</strong> Periodically review and revoke unnecessary access</li>
+            </ul>
+        </section>
+
+        <!-- Section 8: Data Protection -->
+        <section class="section" id="section8" data-section="8">
+            <div class="section-header">
+                <div class="section-number">8</div>
+                <div>
+                    <h2 class="section-title">Data Protection Best Practices</h2>
+                    <p class="section-subtitle">Handling data securely</p>
+                </div>
+            </div>
+
+            <h3>Data Classification</h3>
+            <div class="key-points">
+                <div class="key-point">
+                    <div class="key-point-icon" style="background: #dc2626;">🔴</div>
+                    <h5>Confidential / Restricted</h5>
+                    <p>Highly sensitive (trade secrets, financial data, PII, customer data). Strictest controls.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon" style="background: #f59e0b;">🟡</div>
+                    <h5>Internal</h5>
+                    <p>Internal use only. Not for public disclosure but less sensitive.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon" style="background: #10b981;">🟢</div>
+                    <h5>Public</h5>
+                    <p>Can be freely shared (marketing materials, published content).</p>
+                </div>
+            </div>
+
+            <h3>Encryption</h3>
+            <div class="info-box primary">
+                <div class="info-box-title">🔐 Scrambling Data for Protection</div>
+                <ul>
+                    <li><strong>Data at Rest:</strong> Encrypt hard drives, databases, backups</li>
+                    <li><strong>Data in Transit:</strong> Use HTTPS, VPN, TLS/SSL for communications</li>
+                    <li><strong>Email Encryption:</strong> Encrypt sensitive email attachments</li>
+                    <li><strong>Full Disk Encryption:</strong> Protect laptops and mobile devices</li>
+                </ul>
+            </div>
+
+            <h3>Secure Data Disposal</h3>
+            <div class="info-box warning">
+                <div class="info-box-title">🗑️ Don't Just Delete - Destroy</div>
+                <ul>
+                    <li><strong>Physical Documents:</strong> Shred confidential papers (cross-cut shredder)</li>
+                    <li><strong>Digital Data:</strong> Use secure deletion tools (not just delete or format)</li>
+                    <li><strong>Storage Devices:</strong> Degauss or physically destroy before disposal</li>
+                    <li><strong>Old Equipment:</strong> Ensure data is wiped before recycling/disposing</li>
+                </ul>
+            </div>
+
+            <h3>Safe Internet & Email Practices</h3>
+            <ul>
+                <li>Verify email senders before clicking links or opening attachments</li>
+                <li>Never download software from untrusted sources</li>
+                <li>Check for HTTPS before entering sensitive information on websites</li>
+                <li>Be cautious on public Wi-Fi – use VPN for sensitive work</li>
+                <li>Don't overshare on social media (can be used for social engineering)</li>
+            </ul>
+        </section>
+
+        <!-- Section 9: Physical & Device Security -->
+        <section class="section" id="section9" data-section="9">
+            <div class="section-header">
+                <div class="section-number">9</div>
+                <div>
+                    <h2 class="section-title">Physical & Device Security</h2>
+                    <p class="section-subtitle">Protecting the tangible</p>
+                </div>
+            </div>
+
+            <h3>Physical Security Measures</h3>
+            <div class="key-points">
+                <div class="key-point">
+                    <div class="key-point-icon">🔐</div>
+                    <h5>Lock Your Workstation</h5>
+                    <p>Windows: Win+L | Mac: Ctrl+Cmd+Q. Always lock when stepping away.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">👁️</div>
+                    <h5>Clean Desk Policy</h5>
+                    <p>Clear sensitive documents at end of day. Lock in drawers.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">🚫</div>
+                    <h5>No Tailgating</h5>
+                    <p>Never let strangers follow you through secure doors. Challenge unknown persons.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">📛</div>
+                    <h5>Wear ID Badges</h5>
+                    <p>Display badges visibly. Report lost badges immediately.</p>
+                </div>
+            </div>
+
+            <h3>Mobile Device Security</h3>
+            <div class="info-box danger">
+                <div class="info-box-title">📱 Protect Your Mobile Devices</div>
+                <ul>
+                    <li>Use <strong>strong PIN/password/biometric</strong> lock</li>
+                    <li>Enable <strong>remote wipe</strong> capability</li>
+                    <li>Keep <strong>OS and apps updated</strong></li>
+                    <li>Only install apps from <strong>official stores</strong></li>
+                    <li>Avoid <strong>jailbreaking/rooting</strong></li>
+                    <li>Be cautious with <strong>public Wi-Fi</strong></li>
+                    <li><strong>Report lost/stolen devices immediately</strong></li>
+                </ul>
+            </div>
+
+            <h3>USB & Removable Media</h3>
+            <div class="info-box warning">
+                <div class="info-box-title">⚠️ USB Danger Zone</div>
+                <ul>
+                    <li>Never plug in <strong>unknown USB drives</strong></li>
+                    <li>Company data should only be on <strong>approved, encrypted drives</strong></li>
+                    <li>Disable autorun features</li>
+                    <li>Scan all removable media for malware before use</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Section 10: Incident Response -->
+        <section class="section" id="section10" data-section="10">
+            <div class="section-header">
+                <div class="section-number">10</div>
+                <div>
+                    <h2 class="section-title">Incident Response</h2>
+                    <p class="section-subtitle">When things go wrong</p>
+                </div>
+            </div>
+
+            <h3>What is a Security Incident?</h3>
+            <p>Any event that potentially compromises the confidentiality, integrity, or availability of information or
+                systems, including:</p>
+            <ul>
+                <li>Malware infection</li>
+                <li>Suspected phishing or social engineering</li>
+                <li>Unauthorized access attempts</li>
+                <li>Lost or stolen devices</li>
+                <li>Data breach or data leak</li>
+                <li>Suspicious system behavior</li>
+            </ul>
+
+            <h3>Your Role in Incident Response</h3>
+            <div class="info-box success">
+                <div class="info-box-title">✅ What to Do</div>
+                <ol>
+                    <li><strong>DON'T PANIC</strong> – Stay calm and act quickly</li>
+                    <li><strong>STOP:</strong> Disconnect from network if instructed (e.g., unplug Ethernet, disable
+                        Wi-Fi)</li>
+                    <li><strong>DON'T DELETE:</strong> Preserve evidence – do not delete files or emails</li>
+                    <li><strong>REPORT IMMEDIATELY:</strong> Contact IT Security / Helpdesk without delay</li>
+                    <li><strong>DOCUMENT:</strong> Note what happened, when, and what you observed</li>
+                    <li><strong>COOPERATE:</strong> Assist IT/Security team with investigation</li>
+                    <li><strong>DON'T INVESTIGATE:</strong> Leave forensics to experts</li>
+                </ol>
+            </div>
+
+            <h3>Incident Reporting Channels</h3>
+            <div class="key-points">
+                <div class="key-point">
+                    <div class="key-point-icon">📧</div>
+                    <h5>Email</h5>
+                    <p>security@yourcompany.com</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">📞</div>
+                    <h5>Phone</h5>
+                    <p>IT Security Hotline (available 24/7)</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">💬</div>
+                    <h5>Helpdesk</h5>
+                    <p>Raise a security incident ticket</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">👤</div>
+                    <h5>Manager</h5>
+                    <p>Inform your direct supervisor</p>
+                </div>
+            </div>
+
+            <h3>CERT-In Reporting</h3>
+            <div class="info-box warning">
+                <div class="info-box-title">🚨 6-Hour Mandate</div>
+                <p>Under CERT-In directives, organizations must report certain cyber incidents within <strong>6 hours of
+                        detection</strong>. This is handled by IT Security, but your quick reporting enables compliance.
+                </p>
+            </div>
+        </section>
+
+        <!-- Section 11: Your Role -->
+        <section class="section" id="section11" data-section="11">
+            <div class="section-header">
+                <div class="section-number">11</div>
+                <div>
+                    <h2 class="section-title">Your Role in Security</h2>
+                    <p class="section-subtitle">Security is everyone's responsibility</p>
+                </div>
+            </div>
+
+            <div class="info-box primary">
+                <div class="info-box-title">💡 You Are the First Line of Defense</div>
+                <p>Technology alone cannot prevent all attacks. <strong>Humans are both the greatest vulnerability and
+                        the strongest defense</strong>. Your vigilance, awareness, and responsible behavior are critical
+                    to our security posture.</p>
+            </div>
+
+            <h3>Daily Security Habits</h3>
+            <div class="key-points">
+                <div class="key-point">
+                    <div class="key-point-icon">🔒</div>
+                    <h5>Use Strong, Unique Passwords + MFA</h5>
+                    <p>Enable MFA on all accounts</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">🖥️</div>
+                    <h5>Lock Your Screen</h5>
+                    <p>Every time you step away</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">📧</div>
+                    <h5>Think Before You Click</h5>
+                    <p>Verify emails, links, and attachments</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">🔄</div>
+                    <h5>Keep Systems Updated</h5>
+                    <p>Apply security patches promptly</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">🚨</div>
+                    <h5>Report Suspicious Activity</h5>
+                    <p>When in doubt, report it</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-icon">📚</div>
+                    <h5>Stay Informed</h5>
+                    <p>Keep up with security awareness training</p>
+                </div>
+            </div>
+
+            <h3>Security Dos and Don'ts Summary</h3>
+            <table style="width:100%; border-collapse: collapse; margin: 20px 0;">
+                <tr style="background: #d1fae5;">
+                    <th style="padding: 12px; border: 1px solid #e2e8f0;">✅ DO</th>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;">Use strong, unique passwords and enable MFA
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;">Lock your screen when stepping away</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;">Report suspicious emails and activities
+                        immediately</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;">Keep software and systems updated</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;">Follow clean desk and clear screen policies
+                    </td>
+                </tr>
+            </table>
+
+            <table style="width:100%; border-collapse: collapse; margin: 20px 0;">
+                <tr style="background: #fecaca;">
+                    <th style="padding: 12px; border: 1px solid #e2e8f0;">❌ DON'T</th>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;">Don't share passwords or credentials</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;">Don't click on suspicious links or open
+                        unknown attachments</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;">Don't plug in unknown USB drives</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;">Don't leave devices unattended in public</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #e2e8f0;">Don't ignore security warnings or updates</td>
+                </tr>
+            </table>
+        </section>
+
+        <!-- Quiz Section -->
+        <section class="section quiz-section" id="quiz" data-section="12">
+            <div class="section-header">
+                <div class="section-number">📝</div>
+                <div>
+                    <h2 class="section-title">Assessment Quiz</h2>
+                    <p class="section-subtitle">Test your cybersecurity knowledge</p>
+                </div>
+            </div>
+
+            <div id="quizContainer">
+                <div class="quiz-question" data-question="1">
+                    <p class="question-text"><span class="question-number">1</span> What does CIA stand for in
+                        information security?</p>
+                    <div class="options">
+                        <div class="option" onclick="selectOption(this, 1)">
+                            <input type="radio" name="q1" value="a">
+                            <label>Computer Intelligence Agency</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 1)">
+                            <input type="radio" name="q1" value="b">
+                            <label>Confidentiality, Integrity, Availability</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 1)">
+                            <input type="radio" name="q1" value="c">
+                            <label>Cybersecurity Information Assurance</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 1)">
+                            <input type="radio" name="q1" value="d">
+                            <label>Central Information Authority</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quiz-question" data-question="2">
+                    <p class="question-text"><span class="question-number">2</span> What is phishing?</p>
+                    <div class="options">
+                        <div class="option" onclick="selectOption(this, 2)">
+                            <input type="radio" name="q2" value="a">
+                            <label>A type of firewall</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 2)">
+                            <input type="radio" name="q2" value="b">
+                            <label>Attempting to trick users into revealing sensitive information</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 2)">
+                            <input type="radio" name="q2" value="c">
+                            <label>A password encryption method</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 2)">
+                            <input type="radio" name="q2" value="d">
+                            <label>A network monitoring tool</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quiz-question" data-question="3">
+                    <p class="question-text"><span class="question-number">3</span> What is ransomware?</p>
+                    <div class="options">
+                        <div class="option" onclick="selectOption(this, 3)">
+                            <input type="radio" name="q3" value="a">
+                            <label>Software that protects against viruses</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 3)">
+                            <input type="radio" name="q3" value="b">
+                            <label>Malware that encrypts files and demands payment</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 3)">
+                            <input type="radio" name="q3" value="c">
+                            <label>A type of firewall</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 3)">
+                            <input type="radio" name="q3" value="d">
+                            <label>A legitimate software update</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quiz-question" data-question="4">
+                    <p class="question-text"><span class="question-number">4</span> How should a strong password be
+                        constructed?</p>
+                    <div class="options">
+                        <div class="option" onclick="selectOption(this, 4)">
+                            <input type="radio" name="q4" value="a">
+                            <label>Your name and birthdate</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 4)">
+                            <input type="radio" name="q4" value="b">
+                            <label>A common word from the dictionary</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 4)">
+                            <input type="radio" name="q4" value="c">
+                            <label>Long, with mix of uppercase, lowercase, numbers, and symbols</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 4)">
+                            <input type="radio" name="q4" value="d">
+                            <label>Same password for all accounts (easier to remember)</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quiz-question" data-question="5">
+                    <p class="question-text"><span class="question-number">5</span> What should you do if you receive a
+                        suspicious email?</p>
+                    <div class="options">
+                        <div class="option" onclick="selectOption(this, 5)">
+                            <input type="radio" name="q5" value="a">
+                            <label>Open attachments to verify</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 5)">
+                            <input type="radio" name="q5" value="b">
+                            <label>Click links to check where they go</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 5)">
+                            <input type="radio" name="q5" value="c">
+                            <label>Forward to all colleagues as a warning</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 5)">
+                            <input type="radio" name="q5" value="d">
+                            <label>Report to IT Security without clicking anything</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quiz-question" data-question="6">
+                    <p class="question-text"><span class="question-number">6</span> What is Multi-Factor Authentication
+                        (MFA)?</p>
+                    <div class="options">
+                        <div class="option" onclick="selectOption(this, 6)">
+                            <input type="radio" name="q6" value="a">
+                            <label>Using multiple passwords for one account</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 6)">
+                            <input type="radio" name="q6" value="b">
+                            <label>Using two or more verification methods (password + OTP, etc.)</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 6)">
+                            <input type="radio" name="q6" value="c">
+                            <label>A type of encryption</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 6)">
+                            <input type="radio" name="q6" value="d">
+                            <label>Sharing passwords with multiple people</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quiz-question" data-question="7">
+                    <p class="question-text"><span class="question-number">7</span> Within how many hours must cyber
+                        incidents be reported to CERT-In?</p>
+                    <div class="options">
+                        <div class="option" onclick="selectOption(this, 7)">
+                            <input type="radio" name="q7" value="a">
+                            <label>1 hour</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 7)">
+                            <input type="radio" name="q7" value="b">
+                            <label>6 hours</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 7)">
+                            <input type="radio" name="q7" value="c">
+                            <label>24 hours</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 7)">
+                            <input type="radio" name="q7" value="d">
+                            <label>72 hours</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quiz-question" data-question="8">
+                    <p class="question-text"><span class="question-number">8</span> What should you do if you find an
+                        unknown USB drive?</p>
+                    <div class="options">
+                        <div class="option" onclick="selectOption(this, 8)">
+                            <input type="radio" name="q8" value="a">
+                            <label>Plug it in to see what's on it</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 8)">
+                            <input type="radio" name="q8" value="b">
+                            <label>Give it to a colleague to check</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 8)">
+                            <input type="radio" name="q8" value="c">
+                            <label>Do not plug it in; report to IT Security</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 8)">
+                            <input type="radio" name="q8" value="d">
+                            <label>Keep it as it might be useful</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quiz-question" data-question="9">
+                    <p class="question-text"><span class="question-number">9</span> What is the keyboard shortcut to
+                        lock your Windows computer?</p>
+                    <div class="options">
+                        <div class="option" onclick="selectOption(this, 9)">
+                            <input type="radio" name="q9" value="a">
+                            <label>Ctrl+Alt+Del</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 9)">
+                            <input type="radio" name="q9" value="b">
+                            <label>Alt+F4</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 9)">
+                            <input type="radio" name="q9" value="c">
+                            <label>Windows+L</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 9)">
+                            <input type="radio" name="q9" value="d">
+                            <label>Ctrl+C</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quiz-question" data-question="10">
+                    <p class="question-text"><span class="question-number">10</span> What is the FIRST thing you should
+                        do if you suspect a security incident?</p>
+                    <div class="options">
+                        <div class="option" onclick="selectOption(this, 10)">
+                            <input type="radio" name="q10" value="a">
+                            <label>Try to fix it yourself</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 10)">
+                            <input type="radio" name="q10" value="b">
+                            <label>Delete the suspicious files</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 10)">
+                            <input type="radio" name="q10" value="c">
+                            <label>Wait and see if it gets worse</label>
+                        </div>
+                        <div class="option" onclick="selectOption(this, 10)">
+                            <input type="radio" name="q10" value="d">
+                            <label>Report to IT Security immediately</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="submitQuiz()">Submit Quiz</button>
+                    <button class="btn btn-secondary" onclick="resetQuiz()">Reset Quiz</button>
+                </div>
+            </div>
+
+            <div class="quiz-results" id="quizResults">
+                <div class="score-circle" style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);">
+                    <span class="score-value" id="scoreValue">0</span>
+                    <span class="score-label">out of 10</span>
+                </div>
+                <h3 class="result-message" id="resultMessage">Congratulations!</h3>
+                <p class="result-description" id="resultDescription">You have successfully completed the quiz.</p>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="resetQuiz()">Retake Quiz</button>
+                    <button class="btn btn-primary" onclick="printCertificate()">Download Certificate</button>
+                </div>
+
+                <div class="certificate" id="certificate">
+                    <div class="certificate-icon">🏆</div>
+                    <h3>Certificate of Completion</h3>
+                    <p>This certifies that</p>
+                    <h2 id="participantName">_________________</h2>
+                    <p>has successfully completed the</p>
+                    <h3>Information & Cyber Security Training Program</h3>
+                    <p>Date: <span id="completionDate"></span></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Key Takeaways -->
+        <section class="section" id="takeaways">
+            <div class="section-header">
+                <div class="section-number">✓</div>
+                <div>
+                    <h2 class="section-title">Key Takeaways</h2>
+                    <p class="section-subtitle">Remember these core principles</p>
+                </div>
+            </div>
+
+            <div class="info-box success">
+                <div class="info-box-title">🎯 Your Security Commitments</div>
+                <ol>
+                    <li><strong>Think Before You Click:</strong> Phishing is the #1 attack vector</li>
+                    <li><strong>Passwords + MFA:</strong> Strong, unique passwords with multi-factor authentication</li>
+                    <li><strong>Lock & Protect:</strong> Lock screen, secure devices, clean desk</li>
+                    <li><strong>Report Immediately:</strong> Every second counts in incident response</li>
+                    <li><strong>Stay Updated:</strong> Keep software patched and security knowledge current</li>
+                    <li><strong>You Are the Firewall:</strong> Your vigilance protects everyone</li>
+                </ol>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="training-footer">
+        <p>© 2026 Your Company Name | Information & Cyber Security Training Program</p>
+        <p>For security concerns, contact: security@yourcompany.com | Report Incidents: 24/7 Security Hotline</p>
+    </footer>
+
+    <script>
+        // Answer key
+        const answers = {
+            1: 'b', 2: 'b', 3: 'b', 4: 'c', 5: 'd',
+            6: 'b', 7: 'b', 8: 'c', 9: 'c', 10: 'd'
+        };
+
+        let userAnswers = {};
+
+        function updateProgress() {
+            const sections = document.querySelectorAll('.section');
+            const scrollPosition = window.scrollY + window.innerHeight / 2;
+            let completedSections = 0;
+
+            sections.forEach((section, index) => {
+                if (section.offsetTop < scrollPosition) {
+                    completedSections = index + 1;
+                }
+            });
+
+            const progress = Math.min(100, Math.round((completedSections / sections.length) * 100));
+            document.getElementById('progressFill').style.width = progress + '%';
+            document.getElementById('progressText').textContent = progress;
+        }
+
+        window.addEventListener('scroll', updateProgress);
+        updateProgress();
+
+        function selectOption(element, questionNum) {
+            const options = element.parentElement.querySelectorAll('.option');
+            options.forEach(opt => opt.classList.remove('selected'));
+            element.classList.add('selected');
+            element.querySelector('input').checked = true;
+            userAnswers[questionNum] = element.querySelector('input').value;
+        }
+
+        function submitQuiz() {
+            let score = 0;
+            const totalQuestions = Object.keys(answers).length;
+
+            if (Object.keys(userAnswers).length < totalQuestions) {
+                alert('Please answer all questions before submitting.');
+                return;
+            }
+
+            for (let q in answers) {
+                const options = document.querySelector(`[data-question="${q}"]`).querySelectorAll('.option');
+                options.forEach(opt => {
+                    const value = opt.querySelector('input').value;
+                    if (value === answers[q]) {
+                        opt.classList.add('correct');
+                        if (userAnswers[q] === value) score++;
+                    } else if (userAnswers[q] === value) {
+                        opt.classList.add('incorrect');
+                    }
+                });
+            }
+
+            document.getElementById('quizContainer').style.display = 'none';
+            document.getElementById('quizResults').style.display = 'block';
+            document.getElementById('scoreValue').textContent = score;
+
+            if (score >= 8) {
+                document.getElementById('resultMessage').textContent = '🎉 Excellent!';
+                document.getElementById('resultDescription').textContent = 'You have demonstrated excellent understanding of cybersecurity principles.';
+                document.getElementById('certificate').style.display = 'block';
+                document.getElementById('completionDate').textContent = new Date().toLocaleDateString();
+            } else if (score >= 6) {
+                document.getElementById('resultMessage').textContent = '👍 Good Job!';
+                document.getElementById('resultDescription').textContent = 'You have a good understanding. Review the topics for questions you missed.';
+            } else {
+                document.getElementById('resultMessage').textContent = '📚 Keep Learning!';
+                document.getElementById('resultDescription').textContent = 'Please review the training material and retake the quiz.';
+            }
+
+            document.getElementById('progressFill').style.width = '100%';
+            document.getElementById('progressText').textContent = '100';
+        }
+
+        function resetQuiz() {
+            userAnswers = {};
+            document.querySelectorAll('.option').forEach(opt => {
+                opt.classList.remove('selected', 'correct', 'incorrect');
+                opt.querySelector('input').checked = false;
+            });
+            document.getElementById('quizContainer').style.display = 'block';
+            document.getElementById('quizResults').style.display = 'none';
+            document.getElementById('certificate').style.display = 'none';
+        }
+
+        function printCertificate() {
+            const name = prompt('Enter your full name for the certificate:');
+            if (name) {
+                document.getElementById('participantName').textContent = name;
+                window.print();
+            }
+        }
+
+        document.querySelectorAll('.toc-list a').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>

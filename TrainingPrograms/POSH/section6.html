@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employer Obligations | POSH Training</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Rubik:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Auth Guard -->
+    <script type="module" src="../auth.js"></script>
+</head>
+
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="../ishantechnologies_logo.jpeg" alt="Ishan Technologies" class="sidebar-logo">
+            <a href="../index.html" class="back-link">← Training Hub</a>
+            <h2>POSH Act Training</h2>
+        </div>
+        <ul class="toc-nav">
+            <li ><a href="index.html"><span class="toc-num">1</span> Introduction</a></li>
+            <li ><a href="section2.html"><span class="toc-num">2</span> What is Sexual Harassment</a>
+            </li>
+            <li ><a href="section3.html"><span class="toc-num">3</span> POSH Act Overview</a></li>
+            <li ><a href="section4.html"><span class="toc-num">4</span> Internal Complaints
+                    Committee</a></li>
+            <li ><a href="section5.html"><span class="toc-num">5</span> Complaint Process</a></li>
+            <li class="active"><a href="section6.html"><span class="toc-num">6</span> Employer Obligations</a></li>
+            <li><a href="section7.html"><span class="toc-num">7</span> Prevention Measures</a></li>
+            <li><a href="section8.html"><span class="toc-num">8</span> Key Takeaways</a></li>
+            <li><a href="quiz.html"><span class="toc-num">📄</span> Assessment Quiz</a></li>
+        </ul>
+        <div class="sidebar-progress">
+            <div class="progress-label">Progress: <span id="progressPercent">0%</span></div>
+            <div class="progress-bar-mini">
+                <div class="progress-fill-mini" id="progressFill"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="content-header">
+            <div class="breadcrumb">Module 6 of 8</div>
+            <h1>Employer Obligations</h1>
+            <p class="subtitle">Duties of the employer under POSH Act</p>
+        </div>
+
+        <div class="content-body">
+            <h2>Mandatory Obligations</h2>
+            <div class="info-card primary">
+                <div class="info-icon">📋</div>
+                <div>
+                    <h3>Legal Requirements</h3>
+                    <p>Every employer is legally bound to take specific steps to prevent and address sexual harassment
+                        at the workplace.</p>
+                </div>
+            </div>
+
+            <h2>Key Employer Duties</h2>
+            <div class="key-points-grid">
+                <div class="key-point-card">
+                    <div class="kp-icon">⚖️</div>
+                    <h4>Constitute ICC</h4>
+                    <p>Form ICC with proper composition as per Act</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">📋</div>
+                    <h4>Awareness Programs</h4>
+                    <p>Conduct regular training and awareness sessions</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">📄</div>
+                    <h4>Display Policy</h4>
+                    <p>Display POSH policy at conspicuous places</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">📊</div>
+                    <h4>Annual Report</h4>
+                    <p>Include sexual harassment report in annual report</p>
+                </div>
+            </div>
+
+            <h2>Detailed Obligations</h2>
+            <ul>
+                <li><strong>Safe Environment:</strong> Provide a safe working environment free from harassment</li>
+                <li><strong>Display Information:</strong> Display penal consequences of harassment at prominent
+                    locations</li>
+                <li><strong>ICC Details:</strong> Display ICC composition and contact information</li>
+                <li><strong>Organize Training:</strong> Regular sensitization programs for employees and ICC members
+                </li>
+                <li><strong>Assist Complaints:</strong> Provide assistance if complainant wishes to file criminal
+                    complaint</li>
+                <li><strong>Treat as Misconduct:</strong> Include sexual harassment as misconduct in service rules</li>
+                <li><strong>Monitor Third Parties:</strong> Ensure third parties at workplace follow the policy</li>
+            </ul>
+
+            <h2>Action on ICC Recommendations</h2>
+            <div class="highlight-box">
+                <h3>⚡ Employer Must:</h3>
+                <ul>
+                    <li>Act on ICC recommendations within <strong>60 days</strong></li>
+                    <li>Implement recommended disciplinary action</li>
+                    <li>Ensure no retaliation against complainant</li>
+                    <li>Monitor situation post-resolution</li>
+                </ul>
+            </div>
+
+            <h2>Annual Compliance</h2>
+            <div class="info-card warning">
+                <div class="info-icon">📅</div>
+                <div>
+                    <h3>Annual Report Requirements</h3>
+                    <p>Employers must include in their annual report:</p>
+                    <ul style="margin-top: 10px;">
+                        <li>Number of complaints received</li>
+                        <li>Number of complaints disposed</li>
+                        <li>Number of cases pending for more than 90 days</li>
+                        <li>Nature of action taken</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="info-card success">
+                <div class="info-icon">✅</div>
+                <div>
+                    <h3>Ishan Technologies Commitment</h3>
+                    <p>We are committed to maintaining a harassment-free workplace and fully comply with all POSH Act
+                        requirements.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation-footer">
+            <a href="section5.html" class="nav-btn prev-btn">← Previous: Complaint Process</a>
+            <a href="section7.html" class="nav-btn next-btn">Next: Prevention Measures →</a>
+        </div>
+    </main>
+
+    <script>
+        const trainingId = 'posh';
+        const totalSections = 8;
+        let completedSections = JSON.parse(localStorage.getItem(trainingId + '_completed') || '[]');
+        if (!completedSections.includes(6)) {
+            completedSections.push(6);
+            localStorage.setItem(trainingId + '_completed', JSON.stringify(completedSections));
+        }
+        const progress = Math.round((completedSections.length / totalSections) * 100);
+        document.getElementById('progressPercent').textContent = progress + '%';
+        document.getElementById('progressFill').style.width = progress + '%';
+
+        // Update Sidebar
+        document.querySelectorAll('.toc-nav li a').forEach(link => {
+            const span = link.querySelector('.toc-num');
+            if (span) {
+                const num = parseInt(span.innerText);
+                if (!isNaN(num) && completedSections.includes(num)) {
+                    link.parentElement.classList.add('completed');
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

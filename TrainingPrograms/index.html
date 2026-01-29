@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Training Hub | Ishan Technologies</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary: #0f172a;
+            --secondary: #334155;
+            --accent: #0ea5e9;
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --success: #10b981;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            padding: 80px 20px 140px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            height: 90px;
+            margin-bottom: 24px;
+            background: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+        }
+
+        .hero p {
+            font-size: 1.1rem;
+            color: #94a3b8;
+            font-weight: 400;
+        }
+
+        .logout-btn {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: -80px auto 40px;
+            padding: 0 24px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .training-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #e2e8f0;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            padding: 24px 32px 0;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+
+        .icon-box {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+
+        .theme-ac .icon-box {
+            background: #eff6ff;
+            color: #3b82f6;
+        }
+
+        .theme-posh .icon-box {
+            background: #fdf2f8;
+            color: #db2777;
+        }
+
+        .theme-dp .icon-box {
+            background: #f0f9ff;
+            color: #0ea5e9;
+        }
+
+        .theme-hse .icon-box {
+            background: #ecfdf5;
+            color: #10b981;
+        }
+
+        .theme-cs .icon-box {
+            background: #fef2f2;
+            color: #ef4444;
+        }
+
+        .status-pill {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .status-available {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .card-body {
+            padding: 0 32px 32px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-body h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .card-body p {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-bottom: 24px;
+            flex: 1;
+        }
+
+        .meta-tags {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            font-size: 0.85rem;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .meta-tag {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-color);
+            color: var(--text-main);
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+
+        .card:hover .btn-link {
+            background: var(--primary);
+            color: white;
+        }
+
+        footer {
+            margin-top: auto;
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .card.completed {
+            pointer-events: none;
+            opacity: 0.9;
+            border-color: #86efac;
+            background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+        }
+
+        .card.completed:hover {
+            transform: none;
+        }
+
+        .card.completed .btn-link {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .card.completed:hover .btn-link {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-completed {
+            background: #dcfce7 !important;
+            color: #166534 !important;
+        }
+
+        .cert-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-decoration: none;
+            transition: all 0.2s;
+            margin-top: 12px;
+            pointer-events: auto;
+        }
+
+        .cert-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        @media (max-width: 640px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .container {
+                padding: 0 16px;
+            }
+
+            .card-header {
+                padding: 24px 24px 0;
+            }
+
+            .card-body {
+                padding: 0 24px 24px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="hero">
+        <button id="logoutBtn" class="logout-btn">Sign Out</button>
+        <div class="hero-content">
+            <img src="ishantechnologies_logo.jpeg" alt="Ishan Technologies" class="logo">
+            <h1>Training Hub</h1>
+            <p>Access your mandatory compliance and safety training modules below.</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Loading Spinner -->
+        <div id="loadingState" class="loader-container">
+            <span class="loader"></span>
+            <p class="loader-text">Loading your progress...</p>
+        </div>
+
+        <div class="training-grid hidden" id="trainingGrid">
+            <a href="AntiCorruption/index.html" class="card theme-ac">
+                <div class="card-header">
+                    <div class="icon-box">🛡️</div>
+                    <span class="status-pill status-available">Available</span>
+                </div>
+                <div class="card-body">
+                    <h3>Anti-Corruption & Bribery</h3>
+                    <p>Learn about Indian PCA, international FCPA regulations, red flags, and compliance best practices.
+                    </p>
+                    <div class="meta-tags">
+                        <span class="meta-tag">⏱️ 60m</span>
+                        <span class="meta-tag">📝 Quiz</span>
+                    </div>
+                    <div class="btn-link">Start Module →</div>
+                </div>
+            </a>
+
+            <a href="POSH/index.html" class="card theme-posh">
+                <div class="card-header">
+                    <div class="icon-box">⚖️</div>
+                    <span class="status-pill status-available">Available</span>
+                </div>
+                <div class="card-body">
+                    <h3>POSH Act Training</h3>
+                    <p>Understand the Prevention of Sexual Harassment Act, ICC procedures, and creating a safe
+                        workplace.</p>
+                    <div class="meta-tags">
+                        <span class="meta-tag">⏱️ 45m</span>
+                        <span class="meta-tag">📝 Quiz</span>
+                    </div>
+                    <div class="btn-link">Start Module →</div>
+                </div>
+            </a>
+
+            <a href="DataPrivacy/index.html" class="card theme-dp">
+                <div class="card-header">
+                    <div class="icon-box">🔐</div>
+                    <span class="status-pill status-available">Available</span>
+                </div>
+                <div class="card-body">
+                    <h3>Data Privacy & Protection</h3>
+                    <p>Master GDPR fundamentals and India's DPDP Act 2023, including data rights and breach reporting.
+                    </p>
+                    <div class="meta-tags">
+                        <span class="meta-tag">⏱️ 50m</span>
+                        <span class="meta-tag">📝 Quiz</span>
+                    </div>
+                    <div class="btn-link">Start Module →</div>
+                </div>
+            </a>
+
+            <a href="HSE/index.html" class="card theme-hse">
+                <div class="card-header">
+                    <div class="icon-box">⛑️</div>
+                    <span class="status-pill status-available">Available</span>
+                </div>
+                <div class="card-body">
+                    <h3>Health, Safety & Environment</h3>
+                    <p>Workplace safety protocols, hazard identification, emergency procedures, and environmental
+                        responsibility.</p>
+                    <div class="meta-tags">
+                        <span class="meta-tag">⏱️ 45m</span>
+                        <span class="meta-tag">📝 Quiz</span>
+                    </div>
+                    <div class="btn-link">Start Module →</div>
+                </div>
+            </a>
+
+            <a href="CyberSecurity/index.html" class="card theme-cs">
+                <div class="card-header">
+                    <div class="icon-box">💻</div>
+                    <span class="status-pill status-available">Available</span>
+                </div>
+                <div class="card-body">
+                    <h3>Cyber Security Awareness</h3>
+                    <p>Protect against phishing, malware, and social engineering. Learn password security and IT
+                        compliance.</p>
+                    <div class="meta-tags">
+                        <span class="meta-tag">⏱️ 45m</span>
+                        <span class="meta-tag">📝 Quiz</span>
+                    </div>
+                    <div class="btn-link">Start Module →</div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2026 Ishan Technologies. All rights reserved.</p>
+    </footer>
+
+    <script>
+        const SUPABASE_URL = 'https://xrxsqivbytniuovblwqs.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyeHNxaXZieXRuaXVvdmJsd3FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1ODE5ODYsImV4cCI6MjA4NDE1Nzk4Nn0.BzfVg0dmrbHvKtTa3p53D7ptQC-ZT5OoAJeCl8UzKHo';
+
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Check auth
+        async function checkAuth() {
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) {
+                window.location.href = '/';
+            }
+            return session;
+        }
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await sb.auth.signOut();
+            window.location.href = '/';
+        });
+
+        // Load progress
+        async function loadProgress() {
+            try {
+                const { data: { user } } = await sb.auth.getUser();
+                if (!user) return;
+
+                const { data: progressData } = await sb
+                    .from('user_progress')
+                    .select('*')
+                    .eq('user_id', user.id);
+
+                if (progressData) {
+                    const progressMap = {};
+                    progressData.forEach(p => progressMap[p.module_id] = p);
+
+                    updateCard('anticorruption', 'AntiCorruption', progressMap['anticorruption']);
+                    updateCard('posh', 'POSH', progressMap['posh']);
+                    updateCard('dataprivacy', 'DataPrivacy', progressMap['dataprivacy']);
+                    updateCard('hse', 'HSE', progressMap['hse']);
+                    updateCard('cybersecurity', 'CyberSecurity', progressMap['cybersecurity']);
+                }
+            } catch (error) {
+                console.error("Error loading progress:", error);
+            } finally {
+                // Hide loader and show grid ONE TIME after everything is ready
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('trainingGrid').classList.remove('hidden');
+            }
+        }
+
+        function updateCard(moduleId, hrefPrefix, data) {
+            const card = document.querySelector(`a[href^="${hrefPrefix}"]`);
+            if (!card) return;
+
+            const pill = card.querySelector('.status-pill');
+            const btnLink = card.querySelector('.btn-link');
+
+            if (data && data.status === 'completed') {
+                const completedDate = new Date(data.completed_at);
+                const validUntil = new Date(completedDate);
+                validUntil.setFullYear(validUntil.getFullYear() + 1);
+
+                if (new Date() < validUntil) {
+                    card.classList.add('completed');
+                    pill.className = 'status-pill status-completed';
+                    pill.textContent = `✓ Valid until ${validUntil.toLocaleDateString()}`;
+                    btnLink.innerHTML = '✓ Completed';
+
+                    if (!card.querySelector('.cert-btn')) {
+                        const certBtn = document.createElement('a');
+                        certBtn.href = `${hrefPrefix}/results.html?fromCertificate=true`;
+                        certBtn.className = 'cert-btn';
+                        certBtn.innerHTML = '🎓 Print Certificate';
+                        card.querySelector('.card-body').appendChild(certBtn);
+                    }
+                } else {
+                    pill.textContent = 'Expired';
+                    pill.style.background = '#fee2e2';
+                    pill.style.color = '#991b1b';
+                    btnLink.innerHTML = 'Retake Module →';
+                }
+            } else {
+                pill.textContent = 'Pending';
+                pill.style.background = '#ffedd5';
+                pill.style.color = '#9a3412';
+            }
+        }
+
+        checkAuth().then(loadProgress);
+    </script>
+</body>
+
+</html>

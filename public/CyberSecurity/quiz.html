@@ -1,0 +1,160 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assessment Quiz | Cybersecurity Training</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Rubik:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/dark-styles.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+    <div class="quiz-page">
+        <div class="quiz-header-bar">
+            <img src="/aaplus_logo_colored.png" alt="AA Plus">
+            <div style="text-align: center;">
+                <div style="font-weight: 600; margin-bottom: 5px;">Cybersecurity Training</div>
+                <div style="font-size: 0.85rem; opacity: 0.8;">Assessment Quiz</div>
+            </div>
+            <div>
+                <div style="font-size: 0.85rem; margin-bottom: 5px;">Progress</div>
+                <div class="quiz-progress-bar">
+                    <div class="quiz-progress-fill" id="quizProgress" style="width: 10%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="quiz-main">
+            <div class="quiz-card">
+                <div id="questionContainer"></div>
+                <div class="quiz-navigation">
+                    <button class="quiz-nav-btn secondary" id="prevBtn" onclick="prevQuestion()" disabled>←
+                        Previous</button>
+                    <button class="quiz-nav-btn primary" id="nextBtn" onclick="nextQuestion()" disabled>Next →</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://xrxsqivbytniuovblwqs.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyeHNxaXZieXRuaXVvdmJsd3FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1ODE5ODYsImV4cCI6MjA4NDE1Nzk4Nn0.BzfVg0dmrbHvKtTa3p53D7ptQC-ZT5OoAJeCl8UzKHo';
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const questionsData = [
+            { question: "Which of the following is the BEST practice for creating a strong password?", options: ["Using your birthdate and name", "Using a long passphrase with mixed characters", "Reusing a password from another site", "Using \"password123\""], correctIndex: 1, explanation: { correct: "Correct! Long passphrases with mixed characters are the most secure.", incorrect: "Incorrect. A long passphrase with mixed characters is the most secure option." } },
+            { question: "What should you do if you accidentally click a link in a suspicious email?", options: ["Ignore it and delete the email", "Report it to IT immediately and disconnect from the network", "Shut down the computer and go home", "Wait a few days to see if anything happens"], correctIndex: 1, explanation: { correct: "Correct! Immediately report to IT and disconnect to prevent spread.", incorrect: "Incorrect. You should report to IT immediately and disconnect from the network." } },
+            { question: "Multi-Factor Authentication (MFA) protects you primarily when:", options: ["Your password is stolen or compromised", "You forget your username", "You want to log in faster", "The internet is slow"], correctIndex: 0, explanation: { correct: "Correct! MFA provides an extra layer of protection when your password is compromised.", incorrect: "Incorrect. MFA protects you primarily when your password is stolen." } },
+            { question: "Under Section 70B of the IT Act, cyber incidents must be reported to CERT-In within:", options: ["24 Hours", "6 Hours", "1 Week", "30 Days"], correctIndex: 1, explanation: { correct: "Correct! CERT-In requires reporting within 6 hours.", incorrect: "Incorrect. The IT Act requires reporting cyber incidents to CERT-In within 6 hours." } },
+            { question: "\"Spear Phishing\" is best described as:", options: ["A random attack on everyone", "A targeted attack on a specific individual or company", "A type of computer hardware", "An antivirus software"], correctIndex: 1, explanation: { correct: "Correct! Spear phishing targets specific individuals or organizations.", incorrect: "Incorrect. Spear phishing is a targeted attack on specific individuals or companies." } },
+            { question: "What is \"Social Engineering\" in cybersecurity?", options: ["Building social media platforms", "Manipulating people into revealing confidential information", "Designing user interfaces", "A type of network cable"], correctIndex: 1, explanation: { correct: "Correct! Social engineering manipulates people to reveal confidential information.", incorrect: "Incorrect. Social engineering is manipulating people into revealing confidential information." } },
+            { question: "Which of the following is a safe practice when using public Wi-Fi?", options: ["Access your bank account directly", "Share sensitive files over the network", "Use a VPN to encrypt your connection", "Disable your firewall for faster speeds"], correctIndex: 2, explanation: { correct: "Correct! A VPN encrypts your connection on public Wi-Fi.", incorrect: "Incorrect. Using a VPN is the safest practice on public Wi-Fi." } },
+            { question: "What does \"Ransomware\" typically do to a victim's computer?", options: ["Speeds up the computer", "Encrypts files and demands payment for decryption", "Installs free software", "Improves internet connection"], correctIndex: 1, explanation: { correct: "Correct! Ransomware encrypts files and demands payment.", incorrect: "Incorrect. Ransomware encrypts your files and demands payment for decryption." } },
+            { question: "Why is it important to regularly update software and operating systems?", options: ["To get new themes and colors", "Updates are not important", "To patch security vulnerabilities and fix bugs", "To use more storage space"], correctIndex: 2, explanation: { correct: "Correct! Updates patch security vulnerabilities and fix bugs.", incorrect: "Incorrect. Updates are important to patch security vulnerabilities." } },
+            { question: "What is the best practice for backing up important data?", options: ["Keep only one copy on your computer", "Follow the 3-2-1 rule: 3 copies, 2 different media, 1 offsite", "Backups are not necessary", "Email all files to yourself"], correctIndex: 1, explanation: { correct: "Correct! The 3-2-1 rule is the best backup practice.", incorrect: "Incorrect. The 3-2-1 rule (3 copies, 2 media types, 1 offsite) is best practice." } }
+        ];
+
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        const shuffledQuestions = shuffleArray(questionsData).map(q => {
+            const optionsWithIndex = q.options.map((opt, idx) => ({ text: opt, isCorrect: idx === q.correctIndex }));
+            const shuffledOptions = shuffleArray(optionsWithIndex);
+            return { ...q, shuffledOptions, correctOptionIndex: shuffledOptions.findIndex(opt => opt.isCorrect) };
+        });
+
+        let currentQuestion = 0;
+        let userAnswers = {};
+        let answered = {};
+        const totalQuestions = shuffledQuestions.length;
+
+        function renderQuestion(index) {
+            const q = shuffledQuestions[index];
+            const letters = ['A', 'B', 'C', 'D'];
+            const container = document.getElementById('questionContainer');
+
+            let optionsHTML = q.shuffledOptions.map((opt, i) => `
+                <div class="option-card ${answered[index] ? 'answered' : ''} ${userAnswers[index] === i ? (i === q.correctOptionIndex ? 'correct' : 'incorrect') : ''} ${answered[index] && i === q.correctOptionIndex ? 'correct' : ''}" onclick="selectAnswer(${index}, ${i}, this)">
+                    <div class="option-letter">${letters[i]}</div>
+                    <div class="option-text">${opt.text}</div>
+                </div>
+            `).join('');
+
+            let feedbackHTML = '';
+            if (answered[index]) {
+                const isCorrect = userAnswers[index] === q.correctOptionIndex;
+                feedbackHTML = `<div class="feedback-message ${isCorrect ? 'correct' : 'incorrect'}">${isCorrect ? q.explanation.correct : q.explanation.incorrect}</div>`;
+            }
+
+            container.innerHTML = `
+                <div class="question-number-badge">Question ${index + 1} of ${totalQuestions}</div>
+                <div class="question-text">${q.question}</div>
+                <div class="options-container">${optionsHTML}</div>
+                ${feedbackHTML}
+            `;
+        }
+
+        function selectAnswer(questionIdx, answerIdx, element) {
+            if (answered[questionIdx]) return;
+            answered[questionIdx] = true;
+            userAnswers[questionIdx] = answerIdx;
+            renderQuestion(questionIdx);
+            document.getElementById('nextBtn').disabled = false;
+        }
+
+        function nextQuestion() {
+            if (currentQuestion < totalQuestions - 1) { currentQuestion++; renderQuestion(currentQuestion); updateNavigation(); }
+            else { showResults(); }
+        }
+
+        function prevQuestion() {
+            if (currentQuestion > 0) { currentQuestion--; renderQuestion(currentQuestion); updateNavigation(); }
+        }
+
+        function updateNavigation() {
+            document.getElementById('prevBtn').disabled = currentQuestion === 0;
+            document.getElementById('nextBtn').disabled = !answered[currentQuestion];
+            document.getElementById('nextBtn').textContent = currentQuestion === totalQuestions - 1 ? 'Submit Quiz →' : 'Next →';
+            document.getElementById('quizProgress').style.width = ((currentQuestion + 1) / totalQuestions * 100) + '%';
+        }
+
+        async function showResults() {
+            let score = 0;
+            for (let i = 0; i < totalQuestions; i++) { if (userAnswers[i] === shuffledQuestions[i].correctOptionIndex) score++; }
+            const passed = score >= 7;
+            localStorage.setItem('cybersecurity_score', score);
+            localStorage.setItem('cybersecurity_passed', passed);
+            localStorage.setItem('cybersecurity_date', new Date().toISOString());
+
+            try {
+                const { data: { user } } = await sb.auth.getUser();
+                if (user) {
+                    const { error } = await sb.from('user_progress').upsert({ user_id: user.id, module_id: 'cybersecurity', status: passed ? 'completed' : 'failed', score: score * 10, completed_at: new Date().toISOString() }, { onConflict: 'user_id,module_id' });
+                    if (error) console.error('Error saving progress:', error);
+                }
+            } catch (err) { console.error('Error saving to Supabase:', err); }
+            window.location.href = 'results.html';
+        }
+
+        window.selectAnswer = selectAnswer;
+        window.nextQuestion = nextQuestion;
+        window.prevQuestion = prevQuestion;
+        renderQuestion(0);
+        updateNavigation();
+    </script>
+</body>
+
+</html>
+
+

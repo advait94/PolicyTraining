@@ -1,0 +1,2 @@
+export const SUPABASE_URL = 'https://iamactvdegcjfwtmjvaj.supabase.co';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlhbWFjdHZkZWdjamZ3dG1qdmFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2Njk5ODEsImV4cCI6MjA4NTI0NTk4MX0.fBT1KbOdAuOi8Kv7AdaGn5Ldw8DDpyNc3X3Kyw3KNXc';

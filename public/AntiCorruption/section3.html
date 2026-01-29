@@ -1,0 +1,169 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Types of Corruption | Anti-Corruption Training</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/dark-styles.css">
+
+    <!-- Auth Guard -->
+    <script type="module" src="../auth.js"></script>
+</head>
+
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="/aaplus_logo_colored.png" alt="AA Plus" class="sidebar-logo">
+            <a href="/dashboard" class="back-link">← Training Hub</a>
+            <h2>Anti-Corruption Training</h2>
+        </div>
+        <ul class="toc-nav">
+            <li ><a href="index.html"><span class="toc-num">1</span> Introduction</a></li>
+            <li ><a href="section2.html"><span class="toc-num">2</span> Legal Framework</a></li>
+            <li class="active"><a href="section3.html"><span class="toc-num">3</span> Types of Corruption</a></li>
+            <li><a href="section4.html"><span class="toc-num">4</span> Red Flags</a></li>
+            <li><a href="section5.html"><span class="toc-num">5</span> Company Policies</a></li>
+            <li><a href="section6.html"><span class="toc-num">6</span> Reporting Mechanisms</a></li>
+            <li><a href="section7.html"><span class="toc-num">7</span> Consequences</a></li>
+            <li><a href="section8.html"><span class="toc-num">8</span> Best Practices</a></li>
+            <li><a href="quiz.html"><span class="toc-num">📄</span> Assessment Quiz</a></li>
+        </ul>
+        <div class="sidebar-progress">
+            <div class="progress-label">Progress: <span id="progressPercent">0%</span></div>
+            <div class="progress-bar-mini">
+                <div class="progress-fill-mini" id="progressFill"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="content-header">
+            <div class="breadcrumb">Module 3 of 8</div>
+            <h1>Types of Corruption</h1>
+            <p class="subtitle">Recognizing different forms of corrupt practices</p>
+        </div>
+
+        <div class="content-body">
+            <h2>What is Bribery?</h2>
+            <div class="info-card danger">
+                <div class="info-icon">💰</div>
+                <div>
+                    <h3>Definition</h3>
+                    <p>Bribery is offering, giving, receiving, or soliciting something of value to influence the actions
+                        of an official or other person in a position of authority.</p>
+                </div>
+            </div>
+
+            <h3>Forms of Bribery</h3>
+            <div class="key-points-grid">
+                <div class="key-point-card">
+                    <div class="kp-icon">💶</div>
+                    <h4>Cash Payments</h4>
+                    <p>Direct monetary payments or gifts</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">🎁</div>
+                    <h4>Gifts & Entertainment</h4>
+                    <p>Lavish gifts, trips, expensive dinners</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">💼</div>
+                    <h4>Employment Offers</h4>
+                    <p>Jobs for relatives or associates</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">🏠</div>
+                    <h4>Benefits in Kind</h4>
+                    <p>Use of assets, services, or favors</p>
+                </div>
+            </div>
+
+            <h2>Kickbacks</h2>
+            <p>A kickback is a form of bribery where a portion of the money received in a transaction is returned to the
+                person who facilitated or awarded the contract.</p>
+
+            <div class="highlight-box">
+                <h3>🔍 Example</h3>
+                <p>A procurement manager awards a contract to Vendor A at an inflated price. Vendor A then secretly pays
+                    back 10% of the contract value to the procurement manager.</p>
+            </div>
+
+            <h2>Facilitation Payments</h2>
+            <div class="info-card warning">
+                <div class="info-icon">⚠️</div>
+                <div>
+                    <h3>Also Known As "Grease Payments"</h3>
+                    <p>Small, unofficial payments made to speed up routine government actions (permits, licenses,
+                        customs clearance). While some jurisdictions have limited exceptions, many laws (including UK
+                        Bribery Act) prohibit them entirely.</p>
+                </div>
+            </div>
+
+            <h2>Conflicts of Interest</h2>
+            <p>A conflict of interest occurs when personal interests could improperly influence professional judgment or
+                actions.</p>
+
+            <h3>Examples:</h3>
+            <ul>
+                <li>Awarding contracts to companies owned by family members</li>
+                <li>Having a financial stake in a competing business</li>
+                <li>Making decisions that benefit a personal relationship</li>
+                <li>Accepting outside employment that conflicts with job duties</li>
+            </ul>
+
+            <h2>Fraud & Embezzlement</h2>
+            <div class="key-points-grid">
+                <div class="key-point-card">
+                    <div class="kp-icon">📄</div>
+                    <h4>Fraud</h4>
+                    <p>Deception for financial or personal gain (falsifying records, fake invoices)</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">🏦</div>
+                    <h4>Embezzlement</h4>
+                    <p>Theft or misappropriation of funds entrusted to one's care</p>
+                </div>
+            </div>
+
+            <h2>Extortion</h2>
+            <p>Using threats, intimidation, or abuse of power to obtain money, property, or services. Unlike bribery
+                (which involves mutual benefit), extortion involves coercion.</p>
+        </div>
+
+        <div class="navigation-footer">
+            <a href="section2.html" class="nav-btn prev-btn">← Previous: Legal Framework</a>
+            <a href="section4.html" class="nav-btn next-btn">Next: Red Flags →</a>
+        </div>
+    </main>
+
+    <script>
+        const trainingId = 'anticorruption';
+        const totalSections = 8;
+        let completedSections = JSON.parse(localStorage.getItem(trainingId + '_completed') || '[]');
+        if (!completedSections.includes(3)) {
+            completedSections.push(3);
+            localStorage.setItem(trainingId + '_completed', JSON.stringify(completedSections));
+        }
+        const progress = Math.round((completedSections.length / totalSections) * 100);
+        document.getElementById('progressPercent').textContent = progress + '%';
+        document.getElementById('progressFill').style.width = progress + '%';
+
+        // Update Sidebar
+        document.querySelectorAll('.toc-nav li a').forEach(link => {
+            const span = link.querySelector('.toc-num');
+            if (span) {
+                const num = parseInt(span.innerText);
+                if (!isNaN(num) && completedSections.includes(num)) {
+                    link.parentElement.classList.add('completed');
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
+
+
+

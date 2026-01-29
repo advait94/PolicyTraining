@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health, Safety & Environment (HSE) Training</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/dark-styles.css">
+
+    <!-- Auth Guard -->
+    <script type="module" src="../auth.js"></script>
+</head>
+
+<body>
+    <!-- Sidebar TOC -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="/aaplus_logo_colored.png" alt="Ishan Technologies" class="sidebar-logo">
+            <a href="/dashboard" class="back-link">← Training Hub</a>
+            <h2>HSE Training</h2>
+        </div>
+        <ul class="toc-nav">
+            <li class="active"><a href="index.html"><span class="toc-num">1</span> Introduction</a></li>
+            <li><a href="section2.html"><span class="toc-num">2</span> Legal Framework</a></li>
+            <li><a href="section3.html"><span class="toc-num">3</span> Workplace Hazards</a></li>
+            <li><a href="section4.html"><span class="toc-num">4</span> Fire Safety & PPE</a></li>
+            <li><a href="section5.html"><span class="toc-num">5</span> Emergency Procedures</a></li>
+            <li><a href="section6.html"><span class="toc-num">6</span> Environmental Responsibility</a></li>
+            <li><a href="section7.html"><span class="toc-num">7</span> Consequences</a></li>
+            <li><a href="section8.html"><span class="toc-num">8</span> Best Practices</a></li>
+            <li><a href="quiz.html"><span class="toc-num">📄</span> Assessment Quiz</a></li>
+        </ul>
+        <div class="sidebar-progress">
+            <div class="progress-label">Progress: <span id="progressPercent">0%</span></div>
+            <div class="progress-bar-mini">
+                <div class="progress-fill-mini" id="progressFill" style="width: 0%"></div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="content-header">
+            <div class="breadcrumb">Module 1 of 8</div>
+            <h1>Introduction - Why HSE Matters</h1>
+            <p class="subtitle">Ensuring a Safe, Healthy, and Environmentally Responsible Workplace</p>
+        </div>
+
+        <div class="content-body">
+            <div class="info-card primary">
+                <div class="info-icon">🛡️</div>
+                <div>
+                    <h3>Training Objectives</h3>
+                    <p>By the end of this training, you will understand HSE fundamentals, recognize workplace hazards,
+                        know emergency procedures, and understand your safety responsibilities.</p>
+                </div>
+            </div>
+
+            <h2>What is HSE?</h2>
+            <p>HSE is a multi-disciplinary area focused on ensuring the <strong>well-being of employees, the safety of
+                    operations, and the protection of the environment</strong>. It is integral to responsible business
+                operations.</p>
+
+            <div class="highlight-box">
+                <h3>🛡️ Why HSE is Important</h3>
+                <ul>
+                    <li><strong>Moral Responsibility:</strong> Protecting employees and communities from harm is our
+                        ethical duty</li>
+                    <li><strong>Legal Compliance:</strong> Non-compliance leads to penalties and prosecution</li>
+                    <li><strong>Economic Benefits:</strong> Reduced accidents mean lower costs and higher productivity
+                    </li>
+                    <li><strong>Company Reputation:</strong> Demonstrates care for stakeholders</li>
+                </ul>
+            </div>
+
+            <h2>Who Needs This Training?</h2>
+            <p>This training is for all employees who work in or visit our facilities. Safety is everyone's
+                responsibility.</p>
+
+            <div class="key-points-grid">
+                <div class="key-point-card">
+                    <div class="kp-icon">❤️</div>
+                    <h4>Health</h4>
+                    <p>Protecting workers from occupational illnesses</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">🛡️</div>
+                    <h4>Safety</h4>
+                    <p>Preventing accidents and injuries</p>
+                </div>
+                <div class="key-point-card">
+                    <div class="kp-icon">🌍</div>
+                    <h4>Environment</h4>
+                    <p>Minimizing impact on the natural environment</p>
+                </div>
+            </div>
+
+            <h2>What You Will Learn</h2>
+            <ol class="learning-list">
+                <li><strong>Legal Framework:</strong> Factories Act and Environmental Protection Act</li>
+                <li><strong>Workplace Hazards:</strong> Identifying physical and electrical risks</li>
+                <li><strong>Fire Safety & PPE:</strong> Prevention and protection equipment</li>
+                <li><strong>Emergency Procedures:</strong> Evacuation and incident response</li>
+                <li><strong>Environmental Responsibility:</strong> Waste management and sustainability</li>
+                <li><strong>Consequences:</strong> Legal and personal impacts of non-compliance</li>
+                <li><strong>Best Practices:</strong> Daily safety habits</li>
+            </ol>
+        </div>
+
+        <div class="navigation-footer">
+            <a href="/dashboard" class="nav-btn prev-btn">← Back to Hub</a>
+            <a href="section2.html" class="nav-btn next-btn">Next: Legal Framework →</a>
+        </div>
+    </main>
+
+    <script>
+        const trainingId = 'hse';
+        const totalSections = 8;
+
+        function resetProgress() {
+            // Reset progress when starting from the beginning (first section)
+            localStorage.removeItem(trainingId + '_completed');
+            let completedSections = [1];
+            localStorage.setItem(trainingId + '_completed', JSON.stringify(completedSections));
+
+            const progress = Math.round((completedSections.length / totalSections) * 100);
+            document.getElementById('progressPercent').textContent = progress + '%';
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        // Run immediately
+        resetProgress();
+
+        // Run when showing page from cache (back button)
+        window.addEventListener('pageshow', function (event) {
+            if (event.persisted) {
+                resetProgress();
+            }
+        });
+    </script>
+</body>
+
+</html>
