@@ -15,7 +15,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "react-jsx",
+    "jsx": "preserve",
     "incremental": true,
     "plugins": [
       {
@@ -38,6 +38,10 @@
   ],
   "exclude": [
     "node_modules",
-    "ui-ux-pro-max-skill"
+    "ui-ux-pro-max-skill",
+    "scripts",
+    "backup_node_only",
+    "scripts_temp",
+    "_local_scripts"
   ]
 }

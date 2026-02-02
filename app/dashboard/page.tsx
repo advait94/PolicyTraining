@@ -66,24 +66,39 @@ const MODULE_SLUGS: Record<string, string> = {
     'b91198d4-8edc-40fc-b30e-3f5ddaeecd66': 'AntiCorruption'
 }
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardPage() {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    const { data: modules, error } = await supabase
+    // Fetch modules
+    const { data: modulesData, error: modulesError } = await supabase
         .from('modules')
         .select(`
-      id,
-      title,
-      description,
-      sequence_order,
-      slides (id),
-      user_progress (is_completed, quiz_score)
-    `)
+            id,
+            title,
+            description,
+            sequence_order,
+            slides (id)
+        `)
         .order('sequence_order', { ascending: true })
 
-    if (error) {
+    // Fetch user progress explicitly to avoid RLS/nested relation ambiguities
+    const { data: progressData } = await supabase
+        .from('user_progress')
+        .select('*')
+        .eq('user_id', user?.id)
+
+    if (modulesError) {
         return <div className="p-8 text-center text-red-400">Error loading modules.</div>
     }
+
+    // Merge progress into modules
+    const modules = modulesData?.map((m: any) => ({
+        ...m,
+        user_progress: progressData?.filter((p: any) => p.module_id === m.id) || []
+    }))
 
     // Calculate overall progress
     const totalModules = modules?.length || 0
@@ -202,23 +217,21 @@ export default async function DashboardPage() {
                                     </CardContent>
 
                                     <CardFooter className="pt-4 pb-8 px-8 relative z-10">
-                                        <a href={`/${MODULE_SLUGS[mod.id] || 'AntiCorruption'}/index.html`} className="w-full">
-                                            <Button className={`w-full h-12 text-sm font-bold uppercase tracking-wider rounded-xl transition-all duration-300 cursor-pointer ${isCompleted
-                                                ? 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
-                                                : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] text-white border border-white/10'
-                                                }`}>
-                                                {isCompleted ? "Review Module" : (
+                                        {isCompleted ? (
+                                            <a href={`/certificate/${mod.id}`} className="w-full">
+                                                <Button className="w-full h-12 text-sm font-bold uppercase tracking-wider rounded-xl transition-all duration-300 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] text-white border border-white/10">
+                                                    <span className="flex items-center">
+                                                        <Trophy className="mr-2 w-4 h-4" /> View Certificate
+                                                    </span>
+                                                </Button>
+                                            </a>
+                                        ) : (
+                                            <a href={`/${MODULE_SLUGS[mod.id] || 'AntiCorruption'}/index.html`} className="w-full">
+                                                <Button className="w-full h-12 text-sm font-bold uppercase tracking-wider rounded-xl transition-all duration-300 cursor-pointer bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] text-white border border-white/10">
                                                     <span className="flex items-center">
                                                         Start Training <ArrowRight className="ml-2 w-4 h-4" />
                                                     </span>
-                                                )}
-                                            </Button>
-                                        </a>
-                                        {isCompleted && (
-                                            <a href={`/certificate/${mod.id}`} className="w-full mt-3 block text-center">
-                                                <span className="text-xs font-semibold text-slate-500 hover:text-cyan-400 transition-colors flex items-center justify-center gap-1 cursor-pointer">
-                                                    <Trophy className="w-3 h-3" /> View Certificate
-                                                </span>
+                                                </Button>
                                             </a>
                                         )}
                                     </CardFooter>

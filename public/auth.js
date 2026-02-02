@@ -28,7 +28,7 @@ export async function checkAdminAuth() {
     }
 
     const { data: { user } } = await supabase.auth.getUser();
-    const isAdmin = user?.user_metadata?.is_admin === true || user?.email === 'gautam.advait@ishantechnologies.com';
+    const isAdmin = user?.user_metadata?.is_admin === true || user?.email === 'adgautam94@gmail.com';
 
     if (!isAdmin) {
         // Not an admin - Redirect to training hub

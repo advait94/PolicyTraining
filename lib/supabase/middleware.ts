@@ -29,7 +29,12 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
-    await supabase.auth.getUser()
+    try {
+        await supabase.auth.getUser()
+    } catch (error) {
+        console.error('Middleware: Error updating session:', error)
+        // We still return the response even if auth check fails to prevent 500 error
+    }
 
     return response
 }
