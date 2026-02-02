@@ -65,7 +65,7 @@ export function LoginForm() {
                 <div className="space-y-2">
                     <div className="flex justify-between items-center">
                         <Label htmlFor="password" className="text-slate-300 font-medium ml-1">Password</Label>
-                        <a href="#" className="text-xs font-medium text-purple-400 hover:text-purple-300 transition-colors">Forgot password?</a>
+                        <a href="/auth/reset-password" className="text-xs font-medium text-purple-400 hover:text-purple-300 transition-colors">Forgot password?</a>
                     </div>
                     <Input
                         id="password"
