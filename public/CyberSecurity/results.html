@@ -87,7 +87,7 @@
                         <h3 class="cert-module-title">Cyber Security Training Program</h3>
                     </div>
 
-                    <!-- Signatures Footer -->
+                    <!-- Signatures & Date -->
                     <div class="cert-signatures">
                         <div class="cert-sig-block">
                             <div class="cert-sig-area">
@@ -103,7 +103,15 @@
                             <div class="cert-sig-line"></div>
                             <p class="cert-sig-label">Date Completed</p>
                         </div>
+                        <div class="cert-sig-block">
+                            <div class="cert-sig-area">
+                                <p class="cert-date-value" id="validTillDate"></p>
+                            </div>
+                            <div class="cert-sig-line"></div>
+                            <p class="cert-sig-label">Valid Till</p>
+                        </div>
                     </div>
+                    <div class="cert-id-display" id="certificateIdDisplay"></div>
                 </div>
 
                 <!-- Watermark -->
@@ -140,7 +148,7 @@
             const { data: { user } } = await sb.auth.getUser();
             if (user && fromCertificate) {
                 const { data } = await sb.from('user_progress').select('*').eq('user_id', user.id).eq('module_id', 'cybersecurity').single();
-                if (data) { score = data.score / 10; passed = data.status === 'completed'; quizTaken = true; dateStr = data.completed_at; updateUI(); showCertificate(); }
+                if (data) { score = data.quiz_score / 10; passed = data.status === 'completed'; quizTaken = true; dateStr = data.completed_at; updateUI(); showCertificate(); }
             }
         }
         if (fromCertificate) loadFromDatabase();
@@ -154,7 +162,7 @@
                 document.getElementById('resultTitle').className = 'result-title';
                 document.getElementById('resultTitle').style.color = '#01356f';
                 document.getElementById('resultSubtitle').textContent = 'Complete the quiz to see your actual results';
-                document.getElementById('resultMessage').textContent = 'This is a preview of the results page.';
+                document.getElementById('resultMessage').textContent = 'This is a preview of the results page. Complete the quiz to see your actual score and receive your certificate.';
                 document.getElementById('certificateBtn').style.display = 'inline-flex';
                 document.getElementById('correctCount').textContent = '—';
                 document.getElementById('incorrectCount').textContent = '—';
@@ -192,10 +200,22 @@
                 }
             }
             document.getElementById('recipientName').textContent = name;
-            document.getElementById('certScore').textContent = (quizTaken ? score : 'N/A') + '/10';
+
             const date = dateStr ? new Date(dateStr) : new Date();
-            document.getElementById('completionDate').textContent = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-            document.getElementById('certificateId').textContent = 'CS-' + date.getFullYear() + '-' + Math.random().toString(36).substr(2, 5).toUpperCase();
+            const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('completionDate').textContent = date.toLocaleDateString('en-US', dateOptions);
+
+            // Validity Date
+            const validTillDate = new Date(date);
+            validTillDate.setFullYear(validTillDate.getFullYear() + 1);
+            document.getElementById('validTillDate').textContent = `Valid Till: ${validTillDate.toLocaleDateString('en-US', dateOptions)}`;
+
+            // Certificate ID
+            const certId = localStorage.getItem('cybersecurity_certificate_id');
+            if (certId) {
+                document.getElementById('certificateIdDisplay').innerHTML = `Certificate ID: <span style="font-family: monospace;">${certId}</span>`;
+            }
+
             document.getElementById('certificateSection').classList.add('visible');
             document.getElementById('certificateSection').scrollIntoView({ behavior: 'smooth' });
         }

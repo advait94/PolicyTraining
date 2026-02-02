@@ -271,13 +271,28 @@
             const { data: { user } } = await sb.auth.getUser();
             if (user) {
                 const { data } = await sb.from('user_progress')
-                    .select('is_completed')
+                    .select('is_completed, attempts, certificate_id, completed_at')
                     .eq('user_id', user.id)
                     .eq('module_id', '510e88a4-f501-4ba7-acc4-4f687fff65cc')
                     .single();
 
-                if (data?.is_completed) {
-                    window.location.href = 'results.html';
+                if (data) {
+                    if (data.is_completed) {
+                        // Ensure local storage is synced for results page
+                        localStorage.setItem('posh_score', '10');
+                        localStorage.setItem('posh_passed', 'true');
+                        localStorage.setItem('posh_date', data.completed_at);
+                        if (data.certificate_id) localStorage.setItem('posh_certificate_id', data.certificate_id);
+
+                        window.location.href = 'results.html';
+                        return;
+                    }
+
+                    if (data.attempts >= 3) {
+                        alert('You have reached the maximum number of attempts (3). Please contact support or wait for the next training cycle.');
+                        window.location.href = '/dashboard';
+                        return;
+                    }
                 }
             }
         }
@@ -290,15 +305,25 @@
             }
 
             const passed = score >= 7;
+            const completionDate = new Date().toISOString();
 
             localStorage.setItem('posh_score', score);
             localStorage.setItem('posh_passed', passed);
-            localStorage.setItem('posh_date', new Date().toISOString());
+            localStorage.setItem('posh_date', completionDate);
 
             try {
                 const { data: { user } } = await sb.auth.getUser();
                 if (user) {
                     const percentageScore = score * 10;
+
+                    // First get current attempts
+                    const { data: currentData } = await sb.from('user_progress')
+                        .select('attempts')
+                        .eq('user_id', user.id)
+                        .eq('module_id', '510e88a4-f501-4ba7-acc4-4f687fff65cc')
+                        .single();
+
+                    const newAttempts = (currentData?.attempts || 0) + 1;
 
                     // Prepare update object
                     const updateData = {
@@ -306,13 +331,16 @@
                         module_id: '510e88a4-f501-4ba7-acc4-4f687fff65cc',
                         quiz_score: percentageScore,
                         is_completed: passed,
-                        completed_at: new Date().toISOString()
+                        completed_at: completionDate,
+                        attempts: newAttempts
                     };
 
                     // Access global crypto for UUID if passed
                     if (passed) {
                         // @ts-ignore
-                        updateData.certificate_id = crypto.randomUUID();
+                        const certId = crypto.randomUUID();
+                        updateData.certificate_id = certId;
+                        localStorage.setItem('posh_certificate_id', certId);
                     }
 
                     const { error } = await sb.from('user_progress').upsert(updateData, { onConflict: 'user_id,module_id' });

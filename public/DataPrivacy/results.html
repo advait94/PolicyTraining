@@ -86,7 +86,7 @@
                         <h3 class="cert-module-title">Data Privacy Training Program</h3>
                     </div>
 
-                    <!-- Signatures Footer -->
+                    <!-- Signatures & Date -->
                     <div class="cert-signatures">
                         <div class="cert-sig-block">
                             <div class="cert-sig-area">
@@ -102,7 +102,15 @@
                             <div class="cert-sig-line"></div>
                             <p class="cert-sig-label">Date Completed</p>
                         </div>
+                        <div class="cert-sig-block">
+                            <div class="cert-sig-area">
+                                <p class="cert-date-value" id="validTillDate"></p>
+                            </div>
+                            <div class="cert-sig-line"></div>
+                            <p class="cert-sig-label">Valid Till</p>
+                        </div>
                     </div>
+                    <div class="cert-id-display" id="certificateIdDisplay"></div>
                 </div>
 
                 <!-- Watermark -->
@@ -151,7 +159,7 @@
                 document.getElementById('resultTitle').className = 'result-title';
                 document.getElementById('resultTitle').style.color = '#01356f';
                 document.getElementById('resultSubtitle').textContent = 'Complete the quiz to see your actual results';
-                document.getElementById('resultMessage').textContent = 'This is a preview of the results page.';
+                document.getElementById('resultMessage').textContent = 'This is a preview of the results page. Complete the quiz to see your actual score and receive your certificate.';
                 document.getElementById('certificateBtn').style.display = 'inline-flex';
                 document.getElementById('correctCount').textContent = '—';
                 document.getElementById('incorrectCount').textContent = '—';
@@ -197,8 +205,22 @@
                 }
             }
             document.getElementById('recipientName').textContent = name;
+
             const date = dateStr ? new Date(dateStr) : new Date();
-            document.getElementById('completionDate').textContent = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('completionDate').textContent = date.toLocaleDateString('en-US', dateOptions);
+
+            // Validity Date
+            const validTillDate = new Date(date);
+            validTillDate.setFullYear(validTillDate.getFullYear() + 1);
+            document.getElementById('validTillDate').textContent = `Valid Till: ${validTillDate.toLocaleDateString('en-US', dateOptions)}`;
+
+            // Certificate ID
+            const certId = localStorage.getItem('dataprivacy_certificate_id');
+            if (certId) {
+                document.getElementById('certificateIdDisplay').innerHTML = `Certificate ID: <span style="font-family: monospace;">${certId}</span>`;
+            }
+
             document.getElementById('certificateSection').classList.add('visible');
             document.getElementById('certificateSection').scrollIntoView({ behavior: 'smooth' });
         }
