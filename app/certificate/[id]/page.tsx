@@ -80,10 +80,10 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
                 </div>
 
                 {/* Main Content Area */}
-                <div className="flex-1 flex flex-col items-center justify-between w-full h-full py-16 px-20 z-10">
+                <div className="flex-1 flex flex-col items-center w-full h-full py-16 px-20 z-10 relative">
 
                     {/* 1. Header Section */}
-                    <div className="w-full flex flex-col items-center space-y-6">
+                    <div className="w-full flex flex-col items-center space-y-6 flex-none">
                         {/* Logo - Bigger & Original Color */}
                         <div className="w-64 h-28 relative mb-4">
                             <img src="/aaplus_logo_colored.png" alt="AA Plus Policy Training" className="w-full h-full object-contain" />
@@ -101,8 +101,8 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
                         </div>
                     </div>
 
-                    {/* 2. Recipient Section */}
-                    <div className="w-full flex flex-col items-center space-y-4">
+                    {/* 2. Recipient Section - Grows to fill space */}
+                    <div className="w-full flex flex-col items-center justify-center flex-1 space-y-4 my-8">
                         <p className="text-lg text-slate-500 italic font-serif">This is to certify that</p>
 
                         <h2 className="text-5xl font-bold text-slate-900 font-serif border-b-2 border-slate-300 pb-2 px-12 inline-block min-w-[500px] text-center">
@@ -118,8 +118,8 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
                         </h3>
                     </div>
 
-                    {/* 3. Signatures Footer */}
-                    <div className="w-full grid grid-cols-2 gap-32 items-end pt-8">
+                    {/* 3. Signatures Footer - Fixed at bottom of flow */}
+                    <div className="w-full grid grid-cols-2 gap-32 items-end pt-8 flex-none mb-12">
                         {/* Authorized Signature */}
                         <div className="flex flex-col items-center">
                             <div className="h-24 w-56 relative mb-2 flex items-end justify-center">
@@ -139,16 +139,16 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
                             <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mt-2">Date Completed</p>
                         </div>
                     </div>
-                </div>
 
-                {/* Bottom Watermark & ID */}
-                <div className="absolute bottom-10 left-0 w-full flex flex-col items-center text-center space-y-1">
-                    <p className="text-[10px] text-slate-300 uppercase tracking-widest">
-                        Certificate ID: <span className="font-mono">{certificateId}</span>
-                    </p>
-                    <p className="text-[10px] text-slate-300 uppercase tracking-widest">
-                        AA Plus Policy Training Platform • Proficiency Assessment Verified
-                    </p>
+                    {/* Bottom Watermark & ID - In flow */}
+                    <div className="w-full flex flex-col items-center text-center space-y-1 flex-none">
+                        <p className="text-[10px] text-slate-300 uppercase tracking-widest">
+                            Certificate ID: <span className="font-mono">{certificateId}</span>
+                        </p>
+                        <p className="text-[10px] text-slate-300 uppercase tracking-widest">
+                            AA Plus Policy Training Platform • Proficiency Assessment Verified
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
