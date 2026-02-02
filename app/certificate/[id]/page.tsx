@@ -36,8 +36,27 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
         return <div className="p-8 text-center text-red-500">Certificate not available. Please complete the module first.</div>
     }
 
+    // Lazy Generate Certificate ID if missing
+    let certificateId = progress.certificate_id
+    if (!certificateId && progress.is_completed) {
+        certificateId = crypto.randomUUID()
+        // Save back to DB
+        await supabase
+            .from('user_progress')
+            .update({ certificate_id: certificateId })
+            .eq('id', progress.id)
+    }
+
     const studentName = userData?.display_name || user.email || 'Student'
-    const dateStr = new Date(progress.completed_at || Date.now()).toLocaleDateString('en-US', {
+    const completionDate = new Date(progress.completed_at || Date.now())
+    const dateStr = completionDate.toLocaleDateString('en-US', {
+        dateStyle: 'long'
+    })
+
+    // Calculate Validity (1 Year)
+    const validTillDate = new Date(completionDate)
+    validTillDate.setFullYear(validTillDate.getFullYear() + 1)
+    const validTillStr = validTillDate.toLocaleDateString('en-US', {
         dateStyle: 'long'
     })
 
@@ -110,10 +129,11 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
                             <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mt-2">Authorized Signature</p>
                         </div>
 
-                        {/* Date */}
+                        {/* Date & Validity */}
                         <div className="flex flex-col items-center">
-                            <div className="h-24 w-full flex items-end justify-center mb-2">
-                                <p className="text-2xl font-serif text-slate-900 pb-2">{dateStr}</p>
+                            <div className="h-24 w-full flex flex-col items-center justify-end mb-2">
+                                <p className="text-2xl font-serif text-slate-900 pb-1">{dateStr}</p>
+                                <p className="text-xs text-slate-500 uppercase tracking-widest">Valid Till: {validTillStr}</p>
                             </div>
                             <div className="border-t-2 border-slate-400 w-full"></div>
                             <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mt-2">Date Completed</p>
@@ -121,8 +141,11 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
                     </div>
                 </div>
 
-                {/* Bottom Watermark */}
-                <div className="absolute bottom-4 left-0 w-full text-center">
+                {/* Bottom Watermark & ID */}
+                <div className="absolute bottom-10 left-0 w-full flex flex-col items-center text-center space-y-1">
+                    <p className="text-[10px] text-slate-300 uppercase tracking-widest">
+                        Certificate ID: <span className="font-mono">{certificateId}</span>
+                    </p>
                     <p className="text-[10px] text-slate-300 uppercase tracking-widest">
                         AA Plus Policy Training Platform • Proficiency Assessment Verified
                     </p>

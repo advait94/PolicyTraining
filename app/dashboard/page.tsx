@@ -209,9 +209,16 @@ export default async function DashboardPage() {
                                         <div className="flex items-center justify-between text-xs font-medium text-slate-500 border-t border-white/5 pt-4">
                                             <span>{slideCount} Slides</span>
                                             {score !== null && score !== undefined && (
-                                                <span className={`${score >= 80 ? 'text-green-400' : 'text-orange-400'} font-bold`}>
-                                                    Score: {score}%
-                                                </span>
+                                                <div className="text-right">
+                                                    <span className={`${score >= 80 ? 'text-green-400' : 'text-orange-400'} font-bold block`}>
+                                                        Score: {score}%
+                                                    </span>
+                                                    {isCompleted && (
+                                                        <span className="text-[10px] text-slate-500 uppercase tracking-wider block mt-1">
+                                                            Valid Till: {new Date(new Date(progress.completed_at || Date.now()).setFullYear(new Date(progress.completed_at || Date.now()).getFullYear() + 1)).toLocaleDateString()}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     </CardContent>

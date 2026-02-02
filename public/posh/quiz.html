@@ -266,6 +266,23 @@
             document.getElementById('quizProgress').style.width = ((currentQuestion + 1) / totalQuestions * 100) + '%';
         }
 
+        // Check status on load
+        async function checkStatus() {
+            const { data: { user } } = await sb.auth.getUser();
+            if (user) {
+                const { data } = await sb.from('user_progress')
+                    .select('is_completed')
+                    .eq('user_id', user.id)
+                    .eq('module_id', '510e88a4-f501-4ba7-acc4-4f687fff65cc')
+                    .single();
+
+                if (data?.is_completed) {
+                    window.location.href = 'results.html';
+                }
+            }
+        }
+        checkStatus();
+
         async function showResults() {
             let score = 0;
             for (let i = 0; i < totalQuestions; i++) {
@@ -282,20 +299,38 @@
                 const { data: { user } } = await sb.auth.getUser();
                 if (user) {
                     const percentageScore = score * 10;
-                    const { error } = await sb.from('user_progress').upsert({
+
+                    // Prepare update object
+                    const updateData = {
                         user_id: user.id,
-                        module_id: 'posh',
+                        module_id: '510e88a4-f501-4ba7-acc4-4f687fff65cc',
                         quiz_score: percentageScore,
                         is_completed: passed,
                         completed_at: new Date().toISOString()
-                    }, { onConflict: 'user_id,module_id' });
+                    };
+
+                    // Access global crypto for UUID if passed
+                    if (passed) {
+                        // @ts-ignore
+                        updateData.certificate_id = crypto.randomUUID();
+                    }
+
+                    const { error } = await sb.from('user_progress').upsert(updateData, { onConflict: 'user_id,module_id' });
 
                     if (error) {
                         console.error('Error saving progress:', error);
+                        alert('Error saving progress to database: ' + error.message);
+                    } else {
+                        // Success - explicit logs
+                        console.log('Progress saved successfully');
                     }
+                } else {
+                    console.error('No user found');
+                    alert('Error: You are not logged in. Progress cannot be saved.');
                 }
             } catch (err) {
                 console.error('Error saving to Supabase:', err);
+                alert('System Error saving progress: ' + err.message);
             }
 
             window.location.href = 'results.html';
