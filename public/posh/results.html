@@ -46,84 +46,12 @@
             </div>
 
             <p class="result-message" id="resultMessage">
-                You have demonstrated a strong understanding of anti-corruption principles and company policies. Your
-                certificate is ready below.
+                You have demonstrated a strong understanding of anti-corruption principles and company policies.
             </p>
 
             <div class="action-buttons">
                 <a href="quiz.html" class="action-btn secondary" id="retakeQuizBtn">🔄 Retake Quiz</a>
-                <button class="action-btn primary" id="certificateBtn" onclick="showCertificate()">📜 View
-                    Certificate</button>
-            </div>
-        </div>
-
-        <div class="certificate-section" id="certificateSection">
-            <div class="certificate-new" id="certificate">
-                <!-- Decorative Double Border -->
-                <div class="cert-border-frame"></div>
-
-                <!-- Close Button -->
-                <div class="cert-close-btn">
-                    <a href="/dashboard">Close</a>
-                </div>
-
-                <!-- Main Content -->
-                <div class="cert-content">
-                    <!-- Header -->
-                    <div class="cert-header">
-                        <div class="cert-logo-wrapper">
-                            <img src="/aaplus_logo_colored.png" alt="AA Plus Policy Training" class="cert-logo-new">
-                        </div>
-                        <h1 class="cert-title-new">Certificate</h1>
-                        <p class="cert-subtitle-new">of Completion</p>
-                        <div class="cert-title-bar"></div>
-                    </div>
-
-                    <!-- Recipient Section -->
-                    <div class="cert-recipient-section">
-                        <p class="cert-text-italic">This is to certify that</p>
-                        <h2 class="cert-name" id="recipientName">Training Participant</h2>
-                        <p class="cert-text-italic">Has successfully completed the training module</p>
-                        <h3 class="cert-module-title">POSH Act Training Program</h3>
-                    </div>
-
-                    <!-- Signatures & Date -->
-                    <div class="cert-signatures">
-                        <div class="cert-sig-block">
-                            <div class="cert-sig-area">
-                                <img src="/papa_signature.jpg" alt="Authorized Signature" class="cert-signature-img">
-                            </div>
-                            <div class="cert-sig-line"></div>
-                            <p class="cert-sig-label">Authorized Signature</p>
-                        </div>
-                        <div class="cert-sig-block">
-                            <div class="cert-sig-area">
-                                <p class="cert-date-value" id="completionDate">January 29, 2026</p>
-                            </div>
-                            <div class="cert-sig-line"></div>
-                            <p class="cert-sig-label">Date Completed</p>
-                        </div>
-                        <div class="cert-sig-block">
-                            <div class="cert-sig-area">
-                                <p class="cert-date-value" id="validTillDate"></p>
-                            </div>
-                            <div class="cert-sig-line"></div>
-                            <p class="cert-sig-label">Valid Till</p>
-                        </div>
-                    </div>
-                    <div class="cert-id-display" id="certificateIdDisplay"></div>
-                </div>
-
-                <!-- Watermark -->
-                <div class="cert-watermark">
-                    AA Plus Policy Training Platform • Proficiency Assessment Verified
-                </div>
-            </div>
-
-            <div class="print-instructions">
-                <strong>📄 To download:</strong> Click the Print button below and select "Save as PDF" as your printer.
-                <br><br>
-                <button class="action-btn primary" onclick="printCertificate()">🖨️ Print Certificate</button>
+                <a href="/dashboard" class="action-btn primary" id="dashboardBtn">🏠 Go to Dashboard</a>
             </div>
         </div>
     </div>
@@ -156,7 +84,6 @@
                     quizTaken = true;
                     dateStr = data.completed_at;
                     updateUI();
-                    showCertificate();
                 }
             }
         }
@@ -172,7 +99,7 @@
                 document.getElementById('resultTitle').style.color = '#01356f';
                 document.getElementById('resultSubtitle').textContent = 'Complete the quiz to see your actual results';
                 document.getElementById('resultMessage').textContent = 'This is a preview of the results page. Complete the quiz to see your actual score and receive your certificate.';
-                document.getElementById('certificateBtn').style.display = 'inline-flex';
+                document.getElementById('dashboardBtn').style.display = 'inline-flex';
                 document.getElementById('correctCount').textContent = '—';
                 document.getElementById('incorrectCount').textContent = '—';
             } else if (passed) {
@@ -180,69 +107,18 @@
                 document.getElementById('resultTitle').textContent = 'Congratulations!';
                 document.getElementById('resultTitle').className = 'result-title pass';
                 document.getElementById('resultSubtitle').textContent = 'You have PASSED the assessment';
-                document.getElementById('resultMessage').textContent = 'You have demonstrated a strong understanding of POSH principles and workplace safety policies. Your certificate is ready below.';
-                document.getElementById('certificateBtn').style.display = 'inline-flex';
+                document.getElementById('resultMessage').textContent = 'You have demonstrated a strong understanding of POSH principles and workplace safety policies.';
+                document.getElementById('dashboardBtn').style.display = 'inline-flex';
             } else {
                 document.getElementById('resultIcon').textContent = '📚';
                 document.getElementById('resultTitle').textContent = 'Not Passed';
                 document.getElementById('resultTitle').className = 'result-title fail';
                 document.getElementById('resultSubtitle').textContent = 'You need 70% or higher to pass';
-                document.getElementById('resultMessage').textContent = 'Please review the training material and try again. You need at least 7 correct answers (70%) to pass the assessment and receive your certificate.';
-                document.getElementById('certificateBtn').style.display = 'none';
+                document.getElementById('resultMessage').textContent = 'Please review the training material and try again. You need at least 7 correct answers (70%) to pass the assessment.';
+                document.getElementById('dashboardBtn').style.display = 'none';
             }
         }
         updateUI();
-
-        async function showCertificate() {
-            const { data: { user } } = await sb.auth.getUser();
-            let name = 'Training Participant';
-            if (user) {
-                if (user.user_metadata?.full_name) {
-                    name = user.user_metadata.full_name;
-                } else if (user.user_metadata?.name) {
-                    name = user.user_metadata.name;
-                } else {
-                    const { data: invitation } = await sb.from('invitations').select('display_name').eq('email', user.email).single();
-                    if (invitation?.display_name) {
-                        name = invitation.display_name;
-                    } else if (user.email) {
-                        const emailPrefix = user.email.split('@')[0];
-                        const parts = emailPrefix.split('.');
-                        if (parts.length >= 2) {
-                            name = parts[1].charAt(0).toUpperCase() + parts[1].slice(1).toLowerCase() + ' ' + parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
-                        } else {
-                            name = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
-                        }
-                    }
-                }
-            }
-            document.getElementById('recipientName').textContent = name;
-
-            const date = dateStr ? new Date(dateStr) : new Date();
-            const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
-            document.getElementById('completionDate').textContent = date.toLocaleDateString('en-US', dateOptions);
-
-            // Validity Date
-            const validTillDate = new Date(date);
-            validTillDate.setFullYear(validTillDate.getFullYear() + 1);
-            document.getElementById('validTillDate').textContent = `Valid Till: ${validTillDate.toLocaleDateString('en-US', dateOptions)}`;
-
-            // Certificate ID
-            const certId = localStorage.getItem('posh_certificate_id');
-            if (certId) {
-                document.getElementById('certificateIdDisplay').innerHTML = `Certificate ID: <span style="font-family: monospace;">${certId}</span>`;
-            }
-
-            document.getElementById('certificateSection').classList.add('visible');
-            document.getElementById('certificateSection').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        function printCertificate() {
-            window.print();
-        }
-
-        window.showCertificate = showCertificate;
-        window.printCertificate = printCertificate;
     </script>
 </body>
 
