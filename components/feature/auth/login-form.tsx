@@ -167,7 +167,7 @@ export function LoginForm() {
 
             <div className="text-center pt-2">
                 <p className="text-xs text-slate-500 flex items-center justify-center gap-1">
-                    <Lock className="w-3 h-3" /> Secure 256-bit Encryption
+                    <Lock className="w-3 h-3" /> Secure 256-bit Encryption • System v2.1
                 </p>
             </div>
         </div>
