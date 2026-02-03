@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ShieldCheck, ArrowRight, Loader2 } from 'lucide-react'
 
-export default function VerifyInvitePage() {
+import { Suspense } from 'react'
+
+function VerifyInviteContent() {
     const searchParams = useSearchParams()
     const router = useRouter()
     const [targetUrl, setTargetUrl] = useState<string | null>(null)
@@ -89,5 +91,17 @@ export default function VerifyInvitePage() {
                 </CardContent>
             </Card>
         </div>
+    )
+}
+
+export default function VerifyInvitePage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center">
+                <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
+            </div>
+        }>
+            <VerifyInviteContent />
+        </Suspense>
     )
 }
