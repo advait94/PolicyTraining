@@ -1,8 +1,8 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. Tenants Table
-CREATE TABLE public.tenants (
+-- 1. Organizations Table (formerly Tenants)
+CREATE TABLE public.organizations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
   code TEXT UNIQUE NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE public.tenants (
 -- 2. Users Table (extends auth.users)
 CREATE TABLE public.users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE,
+  organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE,
   display_name TEXT,
   role TEXT CHECK (role IN ('admin', 'learner')) DEFAULT 'learner',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -68,7 +68,7 @@ CREATE TABLE public.user_progress (
 
 -- RLS POLICIES ------------------------------------------------
 
-ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.modules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.slides ENABLE ROW LEVEL SECURITY;
@@ -76,26 +76,23 @@ ALTER TABLE public.questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.answers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_progress ENABLE ROW LEVEL SECURITY;
 
--- Helper function to get current user's tenant_id
-CREATE OR REPLACE FUNCTION get_current_tenant_id()
+-- Helper function to get current user's organization_id
+CREATE OR REPLACE FUNCTION get_auth_organization_id()
 RETURNS UUID AS $$
-  SELECT tenant_id FROM public.users WHERE id = auth.uid()
+  SELECT organization_id FROM public.users WHERE id = auth.uid()
 $$ LANGUAGE sql SECURITY DEFINER;
 
--- Tenants: Users can view their own tenant
-CREATE POLICY "Users can view their own tenant" ON public.tenants
-  FOR SELECT USING (id = get_current_tenant_id());
+-- Organizations: Users can view their own organization
+CREATE POLICY "Users can view their own organization" ON public.organizations
+  FOR SELECT USING (id = get_auth_organization_id());
 
--- Users: Users can view users in same tenant (or just themselves?)
--- For now, let's say users can view themselves.
-CREATE POLICY "Users can view own profile" ON public.users
-  FOR SELECT USING (id = auth.uid());
+-- Users: Users can view members of their organization
+CREATE POLICY "Users can view members of their organization" ON public.users
+  FOR SELECT USING (
+    organization_id = get_auth_organization_id() OR id = auth.uid()
+  );
 
--- Modules/Slides/Questions/Answers: Publicly readable for authenticated users?
--- Or should they be tenant-specific?
--- Requirement: "handling data of multiple clients" implies content might be shared OR bespoke.
--- Implementation Plan said: "Users can see all Modules/Slides/Questions (Public content)"
--- So we'll make course content readable by any authenticated user.
+-- Modules/Slides/Questions/Answers: Publicly readable for authenticated users
 CREATE POLICY "Auth users can view modules" ON public.modules FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Auth users can view slides" ON public.slides FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Auth users can view questions" ON public.questions FOR SELECT TO authenticated USING (true);

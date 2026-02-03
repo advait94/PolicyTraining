@@ -4,7 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Trophy, BookOpen, Award, RefreshCw, Loader2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Trophy, BookOpen, Award, RefreshCw, Loader2, Download } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
 
 type Question = {
     id: string
@@ -104,6 +106,41 @@ export function QuizPlayer({
         }
     }
 
+    const [isGeneratingCert, setIsGeneratingCert] = useState(false)
+
+    const handleViewCertificate = async () => {
+        setIsGeneratingCert(true)
+        try {
+            const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+
+            if (!user) {
+                toast.error('User not authenticated')
+                return
+            }
+
+            const { data, error } = await supabase.functions.invoke('generate-certificate', {
+                body: {
+                    user_id: user.id,
+                    module_id: moduleId
+                }
+            })
+
+            if (error) throw error
+
+            if (data?.url) {
+                window.open(data.url, '_blank')
+            } else {
+                toast.error('Failed to get certificate URL')
+            }
+        } catch (error: any) {
+            console.error('Certificate Error:', error)
+            toast.error('Failed to generate certificate')
+        } finally {
+            setIsGeneratingCert(false)
+        }
+    }
+
     // Results Screen
     if (showResult) {
         const percentage = Math.round((score / questions.length) * 100)
@@ -177,11 +214,16 @@ export function QuizPlayer({
                             {passed ? (
                                 <>
                                     <button
-                                        onClick={() => router.push(`/certificate/${moduleId}`)}
-                                        className="action-btn success cursor-pointer"
+                                        onClick={handleViewCertificate}
+                                        disabled={isGeneratingCert}
+                                        className="action-btn success cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        <Award className="w-5 h-5" />
-                                        View Certificate
+                                        {isGeneratingCert ? (
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                        ) : (
+                                            <Award className="w-5 h-5" />
+                                        )}
+                                        {isGeneratingCert ? 'Generating...' : 'View Certificate'}
                                     </button>
                                     <button
                                         onClick={() => router.push('/dashboard')}

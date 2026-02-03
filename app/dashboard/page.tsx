@@ -4,6 +4,7 @@ import { AuthSync } from '@/components/feature/auth/auth-sync'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { BookOpen, CheckCircle, Lock, PlayCircle, Star, Trophy, Shield, HeartPulse, Scale, FileText, Globe, ArrowRight } from 'lucide-react'
 import Image from 'next/image'
 
@@ -71,6 +72,17 @@ export const dynamic = 'force-dynamic'
 export default async function DashboardPage() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
+
+    // Role Check & Redirect
+    const { data: userRole } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user?.id)
+        .single()
+
+    if (userRole?.role === 'admin') {
+        redirect('/admin/dashboard')
+    }
 
     // Fetch modules
     const { data: modulesData, error: modulesError } = await supabase

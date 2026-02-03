@@ -4,6 +4,8 @@ import './globals.css'
 import { Toaster } from 'sonner'
 import { cn } from '@/lib/utils'
 
+import { AuthSync } from '@/components/feature/auth/auth-sync'
+
 const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' })
 const raleway = Raleway({ subsets: ['latin'], variable: '--font-raleway' })
 const rubik = Rubik({ subsets: ['latin'], variable: '--font-rubik' })
@@ -26,6 +28,7 @@ export default function RootLayout({
         rubik.variable,
         "font-sans antialiased"
       )}>
+        <AuthSync />
         {children}
         <Toaster position="top-center" richColors />
       </body>

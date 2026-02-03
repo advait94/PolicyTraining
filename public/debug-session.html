@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Session Debugger</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #000;
+            color: #0f0;
+            line-height: 1.5;
+        }
+
+        h2 {
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Supabase Session Debugger</h2>
+    <pre id="output">Loading...</pre>
+    <script>
+        const SUPABASE_URL = 'https://iamactvdegcjfwtmjvaj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlhbWFjdHZkZWdjamZ3dG1qdmFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2Njk5ODEsImV4cCI6MjA4NTI0NTk4MX0.fBT1KbOdAuOi8Kv7AdaGn5Ldw8DDpyNc3X3Kyw3KNXc';
+
+        async function debug() {
+            const out = document.getElementById('output');
+            let log = '';
+
+            // 1. LocalStorage
+            log += '--- LocalStorage Keys ---\n';
+            let foundKey = false;
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.includes('sb-')) {
+                    foundKey = true;
+                    const val = localStorage.getItem(key);
+                    log += `[${key}]: ${val.substring(0, 30)}... (Length: ${val.length})\n`;
+                }
+            }
+            if (!foundKey) log += 'No Supabase keys found in LocalStorage.\n';
+
+            // 2. Supabase Auth
+            try {
+                const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                const { data: { session }, error } = await sb.auth.getSession();
+
+                log += '\n--- Supabase Auth Client ---\n';
+                if (error) log += `Error: ${error.message}\n`;
+
+                if (session) {
+                    log += `Status: LOGGED IN\n`;
+                    log += `User Email: ${session.user.email}\n`;
+                    log += `User ID: ${session.user.id}\n`;
+                    log += `Role: ${session.user.role}\n`;
+
+                    if (session.user.email === 'support@aaplusconsultants.com') {
+                        log += `\n>> SUCCESS: Support user session is ACTIVE.\n`;
+                    } else {
+                        log += `\n>> WARNING: Session is NOT support user.\n`;
+                    }
+                } else {
+                    log += 'Status: LOGGED OUT (No active session)\n';
+                }
+            } catch (e) {
+                log += `Crash: ${e.message}\n`;
+            }
+
+            out.innerText = log;
+        }
+        debug();
+    </script>
+    <br><br>
+    <button onclick="clearSession()"
+        style="padding: 10px 20px; background: #f00; color: #fff; border: none; cursor: pointer; font-size: 16px;">CLEAR
+        SESSION & RELOAD</button>
+    <script>
+        function clearSession() {
+            localStorage.clear();
+            alert('Session cleared! Now go to /login and log in again.');
+            window.location.href = '/login';
+        }
+    </script>
+</body>
+
+</html>

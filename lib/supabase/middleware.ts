@@ -29,11 +29,43 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
-    try {
-        await supabase.auth.getUser()
-    } catch (error) {
-        console.error('Middleware: Error updating session:', error)
-        // We still return the response even if auth check fails to prevent 500 error
+    const { data: { user } } = await supabase.auth.getUser()
+
+    // Protected Routes Logic
+    if (user) {
+        // Skip check for auth-related paths and public assets
+        const path = request.nextUrl.pathname
+        if (
+            path.startsWith('/auth') ||
+            path.startsWith('/login') ||
+            path === '/unauthorized' ||
+            path.startsWith('/_next') ||
+            // Only skip specific static assets, NOT all files (so .html pages are protected)
+            path.match(/\.(ico|png|jpg|jpeg|svg|css|js|woff|woff2|ttf|eot)$/)
+        ) {
+            return response
+        }
+
+        // Check organization membership
+        // We use a lightweight check. effectively caching could be better but this is safe default.
+        const { data: membership } = await supabase
+            .from('organization_members')
+            .select('organization_id')
+            .eq('user_id', user.id)
+            .single()
+
+        if (!membership) {
+            // User is "Homeless"
+            console.warn('Middleware: User has no organization, redirecting to unauthorized', user.email)
+            return NextResponse.redirect(new URL('/unauthorized', request.url))
+        }
+    } else {
+        // Optional: Redirect unauthenticated users trying to access protected routes to login
+        // For now, we leave existing behavior (pages likely handle it or we add it here)
+        const path = request.nextUrl.pathname
+        if (path.startsWith('/admin') || path.startsWith('/dashboard') || path.startsWith('/modules')) {
+            return NextResponse.redirect(new URL('/login', request.url))
+        }
     }
 
     return response

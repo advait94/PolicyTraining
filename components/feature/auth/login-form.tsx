@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,17 @@ export function LoginForm() {
     const [error, setError] = useState<string | null>(null)
     const router = useRouter()
     const supabase = createClient()
+
+    // Clear legacy auth tokens on mount to ensure clean slate
+    useEffect(() => {
+        // Clear any potential Supabase keys generically
+        Object.keys(localStorage).forEach(k => {
+            if (k.startsWith('sb-') || k.includes('auth-token') || k.includes('supabase.auth.token')) {
+                localStorage.removeItem(k)
+            }
+        })
+        console.log('Login: Cleared stale local sessions')
+    }, [])
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -39,6 +50,30 @@ export function LoginForm() {
                 router.push('/dashboard')
             }
             router.refresh()
+        }
+    }
+
+    const handleSocialLogin = async (provider: 'google' | 'azure') => {
+        setLoading(true)
+        setError(null)
+
+        try {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: provider,
+                options: {
+                    redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+                    // Microsoft often requires explicit scope for email to be returned in the ID token
+                    scopes: provider === 'azure' ? 'openid profile email User.Read offline_access' : 'openid profile email',
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent',
+                    },
+                },
+            })
+            if (error) throw error
+        } catch (error: any) {
+            setError(error.message)
+            setLoading(false)
         }
     }
 
@@ -101,6 +136,34 @@ export function LoginForm() {
                     )}
                 </Button>
             </form>
+
+            <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-white/10" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-[#0B0F19] px-2 text-slate-500">Or continue with</span>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                <Button
+                    variant="outline"
+                    onClick={() => handleSocialLogin('google')}
+                    className="bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white"
+                >
+                    <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path></svg>
+                    Google
+                </Button>
+                <Button
+                    variant="outline"
+                    onClick={() => handleSocialLogin('azure')}
+                    className="bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white"
+                >
+                    <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="microsoft" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path fill="currentColor" d="M0 32h214.6v214.6H0V32zm233.4 0H448v214.6H233.4V32zM0 265.4h214.6V480H0V265.4zm233.4 0H448V480H233.4V265.4z"></path></svg>
+                    Microsoft
+                </Button>
+            </div>
 
             <div className="text-center pt-2">
                 <p className="text-xs text-slate-500 flex items-center justify-center gap-1">
