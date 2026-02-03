@@ -42,6 +42,7 @@
     "scripts",
     "backup_node_only",
     "scripts_temp",
-    "_local_scripts"
+    "_local_scripts",
+    "supabase"
   ]
 }
