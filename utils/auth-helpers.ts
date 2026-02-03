@@ -23,6 +23,6 @@ export async function getUserOrganization(supabase: SupabaseClient) {
     return {
         organization_id: memberRecord.organization_id,
         role: memberRecord.role,
-        organization_name: memberRecord.organizations?.name
+        organization_name: Array.isArray(memberRecord.organizations) ? memberRecord.organizations[0]?.name : (memberRecord.organizations as any)?.name
     }
 }
