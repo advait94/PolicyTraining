@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Outfit, Raleway, Rubik } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'sonner'
+import { OrganizationProvider } from "@/components/providers/organization-provider"
 import { cn } from '@/lib/utils'
 
 import { AuthSync } from '@/components/feature/auth/auth-sync'
@@ -28,9 +29,11 @@ export default function RootLayout({
         rubik.variable,
         "font-sans antialiased"
       )}>
-        <AuthSync />
-        {children}
-        <Toaster position="top-center" richColors />
+        <OrganizationProvider>
+          <AuthSync />
+          {children}
+          <Toaster position="top-center" richColors />
+        </OrganizationProvider>
       </body>
     </html>
   )

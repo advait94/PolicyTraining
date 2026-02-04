@@ -20,6 +20,7 @@ export default function AdminDashboard() {
 
     // Stats State
     const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
+    const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false)
     const [stats, setStats] = useState<any>(null)
     const [users, setUsers] = useState<any[]>([])
     const [loadingStats, setLoadingStats] = useState(true)
@@ -109,6 +110,10 @@ export default function AdminDashboard() {
                 router.push('/login')
                 return
             }
+
+            // Check Superadmin status
+            const { data: superAdminCheck } = await supabase.rpc('is_super_admin')
+            setIsSuperAdmin(!!superAdminCheck)
 
             // Verify admin role in public table
             const { data: userData } = await supabase
@@ -210,14 +215,34 @@ export default function AdminDashboard() {
                     <h1 className="text-4xl font-bold text-white mb-2">Admin Dashboard</h1>
                     <p className="text-slate-400">Manage users and monitor training compliance.</p>
                 </div>
-                <Button
-                    variant="ghost"
-                    onClick={handleLogout}
-                    className="text-slate-400 hover:text-white hover:bg-white/10 rounded-lg"
-                >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Sign Out
-                </Button>
+                <div className="flex gap-4">
+                    {isSuperAdmin && (
+                        <Button
+                            variant="outline"
+                            onClick={() => router.push('/superadmin')}
+                            className="text-purple-400 border-purple-500/30 hover:bg-purple-500/10 rounded-lg"
+                        >
+                            <span className="mr-2">🛡️</span>
+                            Switch to Superadmin
+                        </Button>
+                    )}
+                    <Button
+                        variant="ghost"
+                        onClick={() => router.push('/admin/settings')}
+                        className="text-slate-300 hover:text-white hover:bg-white/10 rounded-lg"
+                    >
+                        <span className="mr-2">⚙️</span>
+                        Settings
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        onClick={handleLogout}
+                        className="text-slate-400 hover:text-white hover:bg-white/10 rounded-lg"
+                    >
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Sign Out
+                    </Button>
+                </div>
             </div>
 
             <Tabs defaultValue="overview" className="space-y-8">

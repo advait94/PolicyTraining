@@ -81,19 +81,48 @@ export async function inviteUser(prevState: any, formData: FormData) {
         return { success: false, message: 'Unauthorized' }
     }
 
-    // Get Admin's Organization
-    const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('organization_id, role')
-        .eq('id', user.id)
-        .single()
+    // Role Check: Superadmin vs Org Admin
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
 
-    if (userError || !userData || userData.role !== 'admin') {
-        return { success: false, message: 'Unauthorized or not an admin' }
+    let targetOrgId = ''
+    let invitedBy = user.id
+
+    if (isSuperAdmin) {
+        // Superadmin: Can specify Org ID
+        targetOrgId = formData.get('organizationId') as string
+        if (!targetOrgId) {
+            // Optional: If not provided, maybe they are inviting another Superadmin? 
+            // For now, require it for normal user invites.
+            // Or fetch from form if the UI provides it.
+        }
+    } else {
+        // Org Admin: MUST use own Org ID
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('organization_id, role')
+            .eq('id', user.id)
+            .single()
+
+        if (userError || !userData || userData.role !== 'admin') {
+            return { success: false, message: 'Unauthorized or not an admin' }
+        }
+        targetOrgId = userData.organization_id
+    }
+
+    if (!isSuperAdmin && !targetOrgId) {
+        return { success: false, message: 'Organization ID missing' }
+    }
+
+    // If Superadmin and no orgId provided, we can't invite a "learner" without an org context usually.
+    // Assuming UI handles it. For now, if missing, we return error if superadmin.
+    if (isSuperAdmin && !targetOrgId) {
+        // Unless inviting a Superadmin? 
+        return { success: false, message: 'Organization ID required' }
     }
 
     const email = formData.get('email') as string
     const fullName = formData.get('fullName') as string
+    const role = (formData.get('role') as string) || 'learner'
 
     if (!email || !fullName) {
         return { success: false, message: 'Email and Name are required' }
@@ -116,9 +145,9 @@ export async function inviteUser(prevState: any, formData: FormData) {
                 redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/update-password?email=${encodeURIComponent(email)}`,
                 data: {
                     full_name: fullName,
-                    organization_id: userData.organization_id,
-                    role: 'learner',
-                    invited_by: user.id
+                    organization_id: targetOrgId, // SECURE: Enforced or Privileged
+                    role: role,
+                    invited_by: invitedBy
                 }
             })
         })

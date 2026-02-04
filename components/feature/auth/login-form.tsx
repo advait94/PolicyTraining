@@ -42,11 +42,23 @@ export function LoginForm() {
             setError(error.message)
             setLoading(false)
         } else {
-            // Check for admin role
+            // 1. Check Superadmin
+            const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+            if (isSuperAdmin) {
+                router.push('/superadmin')
+                router.refresh()
+                return
+            }
+
+            // 2. Check Org Admin Role
             const { data: { user } } = await supabase.auth.getUser()
+
+            // Check metadata OR database role (more robust)
             if (user?.user_metadata?._isadmin) {
                 router.push('/admin/dashboard')
             } else {
+                // Double check DB role if metadata is missing/stale? 
+                // For now, trust metadata for speed, or let middleware handle protection.
                 router.push('/dashboard')
             }
             router.refresh()

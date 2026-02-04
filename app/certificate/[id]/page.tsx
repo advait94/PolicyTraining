@@ -28,7 +28,12 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
 
     const { data: userData } = await supabase
         .from('users')
-        .select('display_name')
+        .select(`
+            display_name,
+            organizations (
+                logo_url
+            )
+        `)
         .eq('id', user.id)
         .single()
 
@@ -47,7 +52,12 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
             .eq('id', progress.id)
     }
 
+    // Verify data access - organizations is likely returned as an array by the query builder if not 1:1 inferred perfectly
+    // or just safe access it. Based on error it is an array.
     const studentName = userData?.display_name || user.email || 'Student'
+    const orgData = Array.isArray(userData?.organizations) ? userData.organizations[0] : userData?.organizations
+    const orgLogoUrl = orgData?.logo_url
+
     const completionDate = new Date(progress.completed_at || Date.now())
     const dateStr = completionDate.toLocaleDateString('en-US', {
         dateStyle: 'long'
@@ -84,9 +94,30 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
 
                     {/* 1. Header Section */}
                     <div className="w-full flex flex-col items-center space-y-6 flex-none">
-                        {/* Logo - Bigger & Original Color */}
-                        <div className="w-64 h-28 relative mb-4">
-                            <img src="/aaplus_logo_colored.png" alt="AA Plus Policy Training" className="w-full h-full object-contain" />
+
+                        {/* Logos Area */}
+                        <div className="w-full flex items-center justify-center gap-12 mb-4 h-28">
+                            {orgLogoUrl ? (
+                                <>
+                                    {/* AA Plus Logo */}
+                                    <div className="h-full relative flex items-center justify-center">
+                                        <img src="/aaplus_logo_colored.png" alt="AA Plus" className="max-h-full w-auto object-contain" />
+                                    </div>
+
+                                    {/* Divider */}
+                                    <div className="h-12 w-px bg-slate-300"></div>
+
+                                    {/* Org Logo */}
+                                    <div className="h-full relative flex items-center justify-center">
+                                        <img src={orgLogoUrl} alt="Organization Logo" className="max-h-full w-auto object-contain" />
+                                    </div>
+                                </>
+                            ) : (
+                                /* AA Plus Logo Only */
+                                <div className="h-full relative flex items-center justify-center">
+                                    <img src="/aaplus_logo_colored.png" alt="AA Plus Policy Training" className="max-h-full w-auto object-contain" />
+                                </div>
+                            )}
                         </div>
 
                         {/* Title */}

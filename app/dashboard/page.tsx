@@ -74,6 +74,11 @@ export default async function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser()
 
     // Role Check & Redirect
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    if (isSuperAdmin) {
+        redirect('/superadmin')
+    }
+
     const { data: userRole } = await supabase
         .from('users')
         .select('role')
