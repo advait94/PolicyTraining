@@ -140,12 +140,19 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
 
         console.log('User created:', createUserData.user.id);
 
-        // 3. Generate magic link for password setup
+        // 3. Calculate Redirect URL FIRST
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+        const desiredRedirect = `${appUrl}/auth/update-password?email=${encodeURIComponent(email)}`;
+        const finalRedirect = redirectTo || desiredRedirect;
+
+        console.log('Generating magic link with redirect:', finalRedirect);
+
+        // 4. Generate magic link for password setup
         const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
             type: 'magiclink',
             email,
             options: {
-                redirectTo,
+                redirectTo: finalRedirect,
                 data: userData
             }
         });
@@ -157,18 +164,8 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
             throw new Error('Failed to generate invitation link (no action_link returned)');
         }
 
-        // --- OVERRIDE REDIRECT URL ---
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
-        const desiredRedirect = `${appUrl}/auth/update-password?email=${encodeURIComponent(email)}`;
-
-        // Parse the invite link URL and replace the redirect_to parameter
-        const inviteLinkUrl = new URL(inviteLink);
-
-        // Use the passed redirectTo if valid, otherwise fallback to default
-        const finalRedirect = redirectTo || desiredRedirect;
-
-        inviteLinkUrl.searchParams.set('redirect_to', finalRedirect);
-        const correctedInviteLink = inviteLinkUrl.toString();
+        // Use the link as returned by Supabase (it already has the correct redirect_to)
+        const correctedInviteLink = inviteLink;
 
         // --- SAFE LINK IMPLEMENTATION ---
         const safeLink = `${appUrl}/auth/verify-invite?target=${encodeURIComponent(correctedInviteLink)}`;
