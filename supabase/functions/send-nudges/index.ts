@@ -48,7 +48,7 @@ serve(async (req) => {
                 // For now, we just send.
 
                 const { data, error } = await resend.emails.send({
-                    from: "PolicyTraining <onboarding@resend.dev>",
+                    from: "Policy Training <support@aaplusconsultants.com>",
                     to: [email],
                     subject: "Action Required: Training Due Soon",
                     html: `

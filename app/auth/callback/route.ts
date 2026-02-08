@@ -47,7 +47,12 @@ export async function GET(request: Request) {
         if (!error && session) {
             // Forward email param if present (critical for session crossover detection)
             let destination = `${origin}${next}`
-            const emailParam = searchParams.get('email')
+            const emailParam = searchParams.get('email') || session.user.email
+
+            // Check if this is an invite flow (from metadata)
+            if (session.user.user_metadata?.is_invite) {
+                destination = `${origin}/auth/update-password`
+            }
 
             // Check if destination path is absolute or relative
             // Actually, 'next' usually is relative e.g. /dashboard
@@ -56,7 +61,7 @@ export async function GET(request: Request) {
                 const separator = destination.includes('?') ? '&' : '?'
                 // Prevent duplicate email params if next already has it
                 if (!destination.includes('email=')) {
-                    destination = `${destination}${separator}email=${encodeURIComponent(emailParam)}`
+                    destination = `${destination}${separator}email=${encodeURIComponent(emailParam || '')}`
                 }
             }
 

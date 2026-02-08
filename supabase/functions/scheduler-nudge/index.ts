@@ -70,7 +70,7 @@ serve(async (req) => {
                             'Authorization': `Bearer ${RESEND_API_KEY}`
                         },
                         body: JSON.stringify({
-                            from: 'PolicyTraining <onboarding@resend.dev>', // Update with verify domain
+                            from: 'Policy Training <support@aaplusconsultants.com>', // Verified domain
                             to: [user.email],
                             subject: `Action Required: Complete your training - ${record.modules.title}`,
                             html: `

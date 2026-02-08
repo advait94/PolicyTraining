@@ -71,6 +71,11 @@ function ImplicitCallbackContent() {
                 // This is critical for UpdatePasswordPage to detect session crossovers
                 const intendedEmail = searchParams.get('email') || session.user.email
 
+                // Check invite flow via metadata
+                if (session.user.user_metadata?.is_invite) {
+                    destination = '/auth/update-password'
+                }
+
                 if (intendedEmail && !destination.includes('email=')) {
                     const separator = destination.includes('?') ? '&' : '?'
                     destination = `${destination}${separator}email=${encodeURIComponent(intendedEmail)}`

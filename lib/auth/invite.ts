@@ -125,12 +125,15 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
             throw new Error(`Failed to create invitation record: ${inviteError.message}`);
         }
 
-        // 2. Create the user account first
+        // 3. Create the user account first
         console.log('Creating user account...');
         const { data: createUserData, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
             email,
-            email_confirm: false,
-            user_metadata: userData
+            email_confirm: true, // Auto-confirm so magic link works for login
+            user_metadata: {
+                ...userData,
+                is_invite: true // Flag for callback routing
+            }
         });
 
         if (createUserError) {
@@ -140,20 +143,19 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
 
         console.log('User created:', createUserData.user.id);
 
-        // 3. Calculate Redirect URL FIRST
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
-        const desiredRedirect = `${appUrl}/auth/update-password?email=${encodeURIComponent(email)}`;
-        const finalRedirect = redirectTo || desiredRedirect;
+        // 4. Generate magic link (Simplified Redirect)
+        // We redirect to /auth/callback cleanly. The callback handler will check user_metadata.is_invite
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const finalRedirect = `${appUrl}/auth/callback`;
 
-        console.log('Generating magic link with redirect:', finalRedirect);
+        console.log('Generating magic link with simplified redirect:', finalRedirect);
 
-        // 4. Generate magic link for password setup
         const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
             type: 'magiclink',
             email,
             options: {
                 redirectTo: finalRedirect,
-                data: userData
+                // data: userData // Not needed here as we baked it into createUser
             }
         });
 
@@ -164,7 +166,7 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
             throw new Error('Failed to generate invitation link (no action_link returned)');
         }
 
-        // Use the link as returned by Supabase (it already has the correct redirect_to)
+        // Use the link as returned by Supabase
         const correctedInviteLink = inviteLink;
 
         // --- SAFE LINK IMPLEMENTATION ---
