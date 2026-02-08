@@ -52,7 +52,16 @@ function CallbackContent() {
             }
 
             // 3. Successful Exchange/Session
-            router.push(next)
+            let destination = next
+            // Ensure we carry over the email param if it was passed to callback but dropped from 'next'
+            // This is critical for UpdatePasswordPage to detect session crossovers
+            const intendedEmail = searchParams.get('email')
+            if (intendedEmail && !destination.includes('email=')) {
+                const separator = destination.includes('?') ? '&' : '?'
+                destination = `${destination}${separator}email=${encodeURIComponent(intendedEmail)}`
+            }
+
+            router.push(destination)
             router.refresh()
         }
 
