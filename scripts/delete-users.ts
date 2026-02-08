@@ -27,9 +27,9 @@ const usersToDelete = [
 ]
 
 async function deleteUsers() {
-    console.log('Fetching users...')
+    console.log('Starting cleanup process...')
 
-    // pagination might be needed if there are many users, but for now listUsers defaults to 50
+    // 1. Fetch all auth users to find IDs
     const { data: { users }, error } = await supabase.auth.admin.listUsers()
 
     if (error) {
@@ -38,19 +38,98 @@ async function deleteUsers() {
     }
 
     for (const email of usersToDelete) {
+        console.log(`\nProcessing ${email}...`)
+
+        // Find auth user
         const user = users.find(u => u.email?.toLowerCase() === email.toLowerCase())
 
         if (user) {
-            console.log(`Found user ${email} (ID: ${user.id}). Deleting...`)
+            console.log(`Found Auth User ID: ${user.id}`)
+
+            // 2. Delete from dependent tables (Public Schema)
+
+            // Organization Members
+            const { error: memberError } = await supabase
+                .from('organization_members')
+                .delete()
+                .eq('user_id', user.id)
+
+            if (memberError) console.error(`Error deleting org members for ${email}:`, memberError.message)
+            else console.log(`Deleted organization_members`)
+
+            // User Progress
+            const { error: progressError } = await supabase
+                .from('user_progress')
+                .delete()
+                .eq('user_id', user.id)
+
+            if (progressError) console.error(`Error deleting progress for ${email}:`, progressError.message)
+            else console.log(`Deleted user_progress`)
+
+            // Public Profile (public.users)
+            const { error: profileError } = await supabase
+                .from('users')
+                .delete()
+                .eq('id', user.id)
+
+            if (profileError) console.error(`Error deleting profile for ${email}:`, profileError.message)
+            else console.log(`Deleted public.users profile`)
+
+            // Invitations (by email - received)
+            const { error: inviteError } = await supabase
+                .from('invitations')
+                .delete()
+                .eq('email', email)
+
+            if (inviteError) console.error(`Error deleting invitations for ${email}:`, inviteError.message)
+            else console.log(`Deleted invitations (received)`)
+
+            // Invitations (by invited_by - sent)
+            try {
+                // We attempt this blindly. passing a filter on a column that doesn't exist *might* error, 
+                // but supabase-js usually handles it by returning an error object.
+                const { error: sentInviteError } = await supabase
+                    .from('invitations')
+                    .delete()
+                    .eq('invited_by', user.id)
+
+                if (sentInviteError) {
+                    console.error(`Error deleting sent invitations (or column missing):`, sentInviteError.message)
+                } else {
+                    console.log(`Deleted invitations (sent by user)`)
+                }
+            } catch (e) {
+                console.log('Exception checking sent invitations:', e)
+            }
+
+            // Super Admins
+            const { error: superAdminError } = await supabase
+                .from('super_admins')
+                .delete()
+                .eq('user_id', user.id)
+
+            if (superAdminError) console.error(`Error deleting super_admins:`, superAdminError.message)
+            else console.log(`Deleted super_admins record`)
+
+
+            // 3. Delete Auth User (Supabase Auth)
             const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id)
 
             if (deleteError) {
-                console.error(`Failed to delete user ${email}:`, deleteError)
+                console.error(`Failed to delete auth user ${email}:`, deleteError.message)
             } else {
-                console.log(`Successfully deleted user ${email}`)
+                console.log(`Successfully deleted auth user ${email}`)
             }
+
         } else {
-            console.log(`User ${email} not found.`)
+            console.log(`Auth user for ${email} not found.`)
+            // Try to delete invitation anyway
+            const { error: inviteError } = await supabase
+                .from('invitations')
+                .delete()
+                .eq('email', email)
+
+            if (!inviteError) console.log(`Deleted invitations (if any)`)
         }
     }
 }
