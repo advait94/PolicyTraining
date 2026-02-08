@@ -18,19 +18,9 @@ function VerifyInviteContent() {
     useEffect(() => {
         const target = searchParams.get('target')
         if (target) {
-            // Decode it just in case it's double encoded (common with email providers/redirects)
-            // But be careful not to decode the query params *inside* the target
-            try {
-                const decoded = decodeURIComponent(target)
-                // Basic check if it looks like a URL
-                if (decoded.startsWith('http')) {
-                    setTargetUrl(decoded)
-                } else {
-                    setTargetUrl(target)
-                }
-            } catch {
-                setTargetUrl(target)
-            }
+            // Next.js searchParams already decodes the value once.
+            // We should NOT decode again, as it might corrupt the inner URL params (e.g. token signatures)
+            setTargetUrl(target)
         }
         setChecking(false)
     }, [searchParams])
