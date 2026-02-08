@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient as createBrowserClient } from '@/lib/supabase/client'
 import { Loader2 } from 'lucide-react'
 
-export default function AuthCallbackPage() {
+function CallbackContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [error, setError] = useState<string | null>(null)
@@ -25,11 +25,6 @@ export default function AuthCallbackPage() {
             const supabase = createBrowserClient()
 
             // 1. Handle PKCE Code exchange (if code exists)
-            // Note: client-side exchange sets the cookies via fetch to middleware/server??
-            // Actually, newer supabase-ssr client handles cookie syncing automatically?
-            // Wait, createBrowserClient uses cookies-next or similar logic?
-            // Usually, client exchange sets cookies visible to server.
-
             if (code) {
                 const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
                 if (exchangeError) {
@@ -38,8 +33,6 @@ export default function AuthCallbackPage() {
                 }
             } else {
                 // 2. Handle Implicit Flow (Hash Fragment)
-                // supabase.auth.getSession() usually parses the hash automatically on load in client components
-                // and sets the session.
                 const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
                 if (sessionError) {
@@ -48,16 +41,10 @@ export default function AuthCallbackPage() {
                 }
 
                 if (!session) {
-                    // If no code and no session, and no error, maybe just wait or fail?
-                    // It might be that getSession is async and hash parsing happens.
-                    // But typically, if we land here without code, we rely on supabase-js handling hash.
-
                     // Optimization: check if there's a hash
                     if (window.location.hash && window.location.hash.includes('access_token')) {
                         // Let Supabase process it (it does on init)
-                        // We might need to wait for onAuthStateChange
                     } else {
-                        // No code, no hash?
                         setError('No authorization code or token found.')
                         return
                     }
@@ -65,7 +52,6 @@ export default function AuthCallbackPage() {
             }
 
             // 3. Successful Exchange/Session
-            // Force a hard refresh or router push to the next page to ensure cookies are sent
             router.push(next)
             router.refresh()
         }
@@ -97,5 +83,17 @@ export default function AuthCallbackPage() {
                 <p className="text-slate-400 animate-pulse">Completing sign in...</p>
             </div>
         </div>
+    )
+}
+
+export default function AuthCallbackPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center">
+                <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
+            </div>
+        }>
+            <CallbackContent />
+        </Suspense>
     )
 }
