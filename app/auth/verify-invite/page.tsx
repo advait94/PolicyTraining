@@ -13,12 +13,26 @@ function VerifyInviteContent() {
     const router = useRouter()
     const [targetUrl, setTargetUrl] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
+    const [checking, setChecking] = useState(true)
 
     useEffect(() => {
         const target = searchParams.get('target')
         if (target) {
-            setTargetUrl(target)
+            // Decode it just in case it's double encoded (common with email providers/redirects)
+            // But be careful not to decode the query params *inside* the target
+            try {
+                const decoded = decodeURIComponent(target)
+                // Basic check if it looks like a URL
+                if (decoded.startsWith('http')) {
+                    setTargetUrl(decoded)
+                } else {
+                    setTargetUrl(target)
+                }
+            } catch {
+                setTargetUrl(target)
+            }
         }
+        setChecking(false)
     }, [searchParams])
 
     const handleAccept = () => {
@@ -27,6 +41,14 @@ function VerifyInviteContent() {
         // Redirect to the actual Supabase action link
         // This is the moment the token is consumed
         window.location.href = targetUrl
+    }
+
+    if (checking) {
+        return (
+            <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center p-4">
+                <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
+            </div>
+        )
     }
 
     if (!targetUrl) {

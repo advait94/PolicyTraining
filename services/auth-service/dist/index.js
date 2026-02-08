@@ -1,46 +1,54 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import path from 'path';
-import { createClient } from '@supabase/supabase-js';
-
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const cors_1 = __importDefault(require("cors"));
+const dotenv_1 = __importDefault(require("dotenv"));
+const path_1 = __importDefault(require("path"));
+const supabase_js_1 = require("@supabase/supabase-js");
 // Load env from root .env.local
 // Assumption: CWD is services/auth-service
-const envPath = path.resolve(process.cwd(), '../../.env.local');
+const envPath = path_1.default.resolve(process.cwd(), '../../.env.local');
 console.log('Current Working Directory:', process.cwd());
 console.log('Loading env from:', envPath);
-dotenv.config({ path: envPath });
-
-const app = express();
+dotenv_1.default.config({ path: envPath });
+const app = (0, express_1.default)();
 const port = process.env.AUTH_SERVICE_PORT || 4006; // Changed to 4006 to avoid conflicts
-
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-
 console.log('Supabase URL:', supabaseUrl ? 'Found' : 'Missing');
 console.log('Service Key:', supabaseServiceKey ? 'Found' : 'Missing');
-
-let supabaseAdmin: any;
-
+let supabaseAdmin;
 if (supabaseUrl && supabaseServiceKey) {
     try {
-        supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+        supabaseAdmin = (0, supabase_js_1.createClient)(supabaseUrl, supabaseServiceKey, {
             auth: {
                 autoRefreshToken: false,
                 persistSession: false
             }
         });
         console.log('Supabase Admin Client initialized');
-    } catch (err) {
+    }
+    catch (err) {
         console.error('Failed to initialize Supabase client:', err);
     }
-} else {
+}
+else {
     console.error('CRITICAL: Missing Supabase URL or Service Role Key. Client not initialized.');
 }
-
-app.use(cors());
-app.use(express.json());
-
+app.use((0, cors_1.default)());
+app.use(express_1.default.json());
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
@@ -48,64 +56,56 @@ app.get('/health', (req, res) => {
         supabaseConfigured: !!supabaseAdmin
     });
 });
-
-app.post('/invite', async (req, res) => {
+app.post('/invite', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
     if (!supabaseAdmin) {
         return res.status(500).json({ error: 'Supabase client not configured' });
     }
-
     const { email, redirectTo, data: userData } = req.body;
-
     if (!email) {
         return res.status(400).json({ error: 'Email is required' });
     }
-
     try {
         // 0. Check if user already exists
         let existingUser;
         try {
-            const result = await supabaseAdmin.auth.admin.getUserByEmail(email);
+            const result = yield supabaseAdmin.auth.admin.getUserByEmail(email);
             if (result.data && result.data.user) {
                 existingUser = result.data.user;
             }
-        } catch (e) {
+        }
+        catch (e) {
             // Ignore error, user doesn't exist
         }
-
         if (existingUser) {
             console.log(`User ${email} already exists. Adding directly to organization...`);
-
             // 1A. Ensure public.users record exists
-            await supabaseAdmin
+            yield supabaseAdmin
                 .from('users')
                 .upsert({
-                    id: existingUser.id,
-                    email: email,
-                    display_name: userData.full_name || email.split('@')[0],
-                    role: userData.role || 'learner',
-                    organization_id: userData.organization_id // Link Org
-                })
+                id: existingUser.id,
+                email: email,
+                display_name: userData.full_name || email.split('@')[0],
+                role: userData.role || 'learner',
+                organization_id: userData.organization_id // Link Org
+            })
                 .select();
-
             // 1B. Add to Organization Members
-            const { error: memberError } = await supabaseAdmin
+            const { error: memberError } = yield supabaseAdmin
                 .from('organization_members')
                 .upsert({
-                    organization_id: userData.organization_id,
-                    user_id: existingUser.id,
-                    role: userData.role || 'learner'
-                }, { onConflict: 'organization_id,user_id' });
-
+                organization_id: userData.organization_id,
+                user_id: existingUser.id,
+                role: userData.role || 'learner'
+            }, { onConflict: 'organization_id,user_id' });
             if (memberError) {
                 console.error('Failed to add existing user to org:', memberError);
                 throw new Error(`Failed to add user to organization: ${memberError.message}`);
             }
-
             // 1C. Send "Added" Email (Simple Notification)
             const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
             const dashboardLink = `${appUrl}/dashboard`;
-
-            await fetch('http://localhost:4002/send', {
+            yield fetch('http://localhost:4002/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -128,95 +128,54 @@ app.post('/invite', async (req, res) => {
                     text: `You have been added to an organization. Login here: ${dashboardLink}`
                 })
             });
-
             return res.json({ success: true, message: 'User added to organization correctly.' });
         }
-
         // --- NEW USER FLOW ---
-
         console.log(`Generating invite link for ${email}...`);
-
         // 1. Upsert into public.invitations (CRITICAL for Gatekeeper Trigger)
-        const { data: inviteRecord, error: inviteError } = await supabaseAdmin
+        const { data: inviteRecord, error: inviteError } = yield supabaseAdmin
             .from('invitations')
             .upsert({
-                email,
-                organization_id: userData.organization_id,
-                role: userData.role || 'learner',
-                invited_by: userData.invited_by,
-                status: 'pending'
-            }, { onConflict: 'email' })
+            email,
+            organization_id: userData.organization_id,
+            role: userData.role || 'learner',
+            invited_by: userData.invited_by,
+            status: 'pending'
+        }, { onConflict: 'email' })
             .select()
             .single();
-
         if (inviteError) {
             console.error('Failed to create invitation record:', inviteError);
             throw new Error(`Failed to create invitation record: ${inviteError.message}`);
         }
-
         console.log('Invitation record created:', inviteRecord.id);
-
-        // 2. Create the user account first (required for recovery link)
-        console.log('Creating user account...');
-        const { data: createUserData, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
-            email,
-            email_confirm: false, // User needs to click link to confirm
-            user_metadata: userData
-        });
-
-        if (createUserError) {
-            console.error('Failed to create user:', createUserError);
-            throw new Error(`Failed to create user: ${createUserError.message}`);
-        }
-
-        console.log('User created:', createUserData.user.id);
-
-        // 3. Generate magic link for password setup
-        // Magic links provide better redirect control than recovery links
-        const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-            type: 'magiclink',
+        // 2. Generate Invite Link using 'recovery' type for better session handling
+        // The 'recovery' type creates a proper authenticated session that allows password setting
+        const { data, error } = yield supabaseAdmin.auth.admin.generateLink({
+            type: 'recovery',
             email,
             options: {
                 redirectTo,
                 data: userData
             }
         });
-
-        if (error) throw error;
-
-        const inviteLink = data.properties?.action_link;
+        if (error)
+            throw error;
+        const inviteLink = (_a = data.properties) === null || _a === void 0 ? void 0 : _a.action_link;
         if (!inviteLink) {
             throw new Error('Failed to generate invitation link (no action_link returned)');
         }
-
-        // --- OVERRIDE REDIRECT URL ---
-        // Supabase generateLink ignores our redirectTo and uses the project's Site URL
-        // We need to manually replace the redirect_to parameter in the URL
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
-        const desiredRedirect = `${appUrl}/auth/update-password?email=${encodeURIComponent(email)}`;
-
-        // Parse the invite link URL and replace the redirect_to parameter
-        const inviteLinkUrl = new URL(inviteLink);
-
-        // Use the passed redirectTo if valid, otherwise fallback to default
-        const finalRedirect = redirectTo || desiredRedirect;
-
-        inviteLinkUrl.searchParams.set('redirect_to', finalRedirect);
-        const correctedInviteLink = inviteLinkUrl.toString();
-
         // --- SAFE LINK IMPLEMENTATION ---
         // We wrap the real link in a redirect param to our frontend intermediate page.
         // This prevents email scanners (Safe Links) from consuming the token.
-        const safeLink = `${appUrl}/auth/verify-invite?target=${encodeURIComponent(correctedInviteLink)}`;
-
-        console.log('Invite Raw Link (original):', inviteLink);
-        console.log('Invite Raw Link (corrected):', correctedInviteLink);
+        // Frontend URL: http://localhost:3001/auth/verify-invite?target=...
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+        const safeLink = `${appUrl}/auth/verify-invite?target=${encodeURIComponent(inviteLink)}`;
+        console.log('Invite Raw Link:', inviteLink);
         console.log('Safe Link Generated:', safeLink);
-
         console.log('Sending email via email-service...');
-
         // 2. Send Email via Email Service (Resend)
-        const emailResponse = await fetch('http://localhost:4002/send', {
+        const emailResponse = yield fetch('http://localhost:4002/send', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -246,17 +205,15 @@ app.post('/invite', async (req, res) => {
                 text: `Welcome to Policy Training Platform! Set up your account password here: ${safeLink}`
             })
         });
-
         if (!emailResponse.ok) {
-            const errorText = await emailResponse.text();
+            const errorText = yield emailResponse.text();
             throw new Error(`Email service failed: ${errorText}`);
         }
-
-        const emailResult = await emailResponse.json();
+        const emailResult = yield emailResponse.json();
         console.log('Email sent successfully:', emailResult);
-
-        res.json({ success: true, data: { user: data.user, emailId: emailResult.data?.id } });
-    } catch (error: any) {
+        res.json({ success: true, data: { user: data.user, emailId: (_b = emailResult.data) === null || _b === void 0 ? void 0 : _b.id } });
+    }
+    catch (error) {
         console.error('Invite Error Full Details:', {
             message: error.message,
             code: error.code,
@@ -271,25 +228,22 @@ app.post('/invite', async (req, res) => {
             }
         });
     }
-});
-
-app.get('/users', async (req, res) => {
+}));
+app.get('/users', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     if (!supabaseAdmin) {
         return res.status(500).json({ error: 'Supabase client not configured' });
     }
-
     try {
-        const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
-
-        if (error) throw error;
-
+        const { data: { users }, error } = yield supabaseAdmin.auth.admin.listUsers();
+        if (error)
+            throw error;
         res.json({ success: true, users });
-    } catch (error: any) {
+    }
+    catch (error) {
         console.error('List Users Error:', error);
         res.status(500).json({ error: error.message });
     }
-});
-
+}));
 app.listen(port, () => {
     console.log(`[auth-service] listening on port ${port}`);
 });

@@ -63,7 +63,14 @@ export async function updateSession(request: NextRequest) {
         // Optional: Redirect unauthenticated users trying to access protected routes to login
         // For now, we leave existing behavior (pages likely handle it or we add it here)
         const path = request.nextUrl.pathname
+
+        // DEBUG LOGGING
+        if (path.startsWith('/auth/update-password')) {
+            console.log('Middleware: Unauthenticated access to update-password. User is null. Cookies:', request.cookies.getAll().map(c => c.name))
+        }
+
         if (path.startsWith('/admin') || path.startsWith('/dashboard') || path.startsWith('/modules')) {
+            console.log('Middleware: Redirecting unauthenticated user to login from:', path)
             return NextResponse.redirect(new URL('/login', request.url))
         }
     }

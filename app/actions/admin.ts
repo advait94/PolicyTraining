@@ -36,7 +36,7 @@ export async function bulkInviteUsers(users: { name: string, email: string }[]) 
             // Basic validation
             if (!u.email || !u.name) return
 
-            const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/update-password?email=${encodeURIComponent(u.email)}`;
+            const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/auth/update-password&email=${encodeURIComponent(u.email)}`;
 
             const response = await fetch('http://localhost:4006/invite', {
                 method: 'POST',
@@ -129,7 +129,7 @@ export async function inviteUser(prevState: any, formData: FormData) {
     }
 
     try {
-        const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/update-password?email=${encodeURIComponent(email)}`;
+        const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/auth/update-password&email=${encodeURIComponent(email)}`;
         console.log('Sending invitation via auth-service to:', email);
         console.log('Redirect URL:', redirectUrl);
 
@@ -142,7 +142,7 @@ export async function inviteUser(prevState: any, formData: FormData) {
             body: JSON.stringify({
                 email,
                 // Redirect directly to the client page which can handle the #access_token hash
-                redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/update-password?email=${encodeURIComponent(email)}`,
+                redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/auth/update-password&email=${encodeURIComponent(email)}`,
                 data: {
                     full_name: fullName,
                     organization_id: targetOrgId, // SECURE: Enforced or Privileged

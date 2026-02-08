@@ -42,10 +42,13 @@ export async function GET(request: Request) {
         const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code)
 
         if (!error && session) {
+            console.log('Auth Callback: Session established for', session.user.email)
             const email = session.user.email ? encodeURIComponent(session.user.email) : ''
             const finalRedirect = `${origin}${next}${next.includes('?') ? '&' : '?'}email=${email}`
+            console.log('Auth Callback: Redirecting to', finalRedirect)
             return NextResponse.redirect(finalRedirect)
         } else if (error) {
+            console.error('Auth Callback: Exchange failed', error)
             return NextResponse.redirect(`${origin}/auth/auth-code-error?error=exchange_failed&error_description=${encodeURIComponent(error.message)}`)
         }
     }

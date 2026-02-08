@@ -34,21 +34,44 @@ export default function UpdatePasswordPage() {
 
             const { data: { session: initialSession } } = await supabase.auth.getSession()
 
-            // 1. Validate session integrity (Check if user actually exists on server)
-            if (initialSession) {
-                const { error: verifyError } = await supabase.auth.getUser()
-                // If Supabase says "User not found" or "Token invalid", purge immediately
-                if (verifyError) {
-                    console.error('UpdatePassword: Stale session detected (User invalid)! Purging...', verifyError)
-                    await supabase.auth.signOut({ scope: 'local' })
-                    localStorage.clear()
-                    if (mounted) window.location.reload()
-                    return
+            // 1.5 CHECK HASH FOR TOKEN (Implicit Flow / Magic Link Direct Redirect)
+            // If we have a hash, it MIGHT be a different user than the cookie session.
+            if (window.location.hash && window.location.hash.includes('access_token')) {
+                const hashParams = new URLSearchParams(window.location.hash.substring(1))
+                const accessToken = hashParams.get('access_token')
+
+                if (accessToken) {
+                    try {
+                        // Decode JWT payload (Part 2) to get email without library
+                        const payload = JSON.parse(atob(accessToken.split('.')[1]))
+                        const tokenEmail = payload.email
+
+                        // If we have a session AND a token, check if they match
+                        if (initialSession && tokenEmail && initialSession.user.email !== tokenEmail) {
+                            console.warn('UpdatePassword: Crossover - Cookie User', initialSession.user.email, '!= Token User', tokenEmail)
+                            console.log('Purging old session to use token...')
+
+                            // Sign out and clear everything
+                            await supabase.auth.signOut({ scope: 'local' })
+                            localStorage.clear()
+
+                            // Rely on the fallback logic below to consume the token
+                            // We do NOT reload here, because reloading might lose the Hash if not careful, 
+                            // though usually hash persists. But let's just let the flow continue down.
+                            // Force clear variable to ensure logic proceeds
+                            // initialSession = null; // Can't reassign const, so we handle logic flow.
+                        }
+                    } catch (e) {
+                        console.error('Error decoding token:', e)
+                    }
                 }
             }
 
-            // 2. Surgical check for crossover session (Email mismatch)
-            if (initialSession && intendedEmail && initialSession.user.email !== intendedEmail) {
+            // Re-fetch session in case we just killed it (Logic flow optimization)
+            const { data: { session: currentSession } } = await supabase.auth.getSession()
+
+            // 2. Surgical check for crossover session (Email mismatch from URL param)
+            if (currentSession && intendedEmail && currentSession.user.email !== intendedEmail) {
                 console.error('UpdatePassword: Crossover session detected! Purging...')
                 await supabase.auth.signOut({ scope: 'local' })
                 Object.keys(localStorage).forEach(key => {
@@ -58,7 +81,7 @@ export default function UpdatePasswordPage() {
                 return
             }
 
-            // 2. Clear junk
+            // 3. Clear junk
             const progressKeys = [
                 'anticorruption_score', 'anticorruption_passed', 'anticorruption_date',
                 'dataprivacy_score', 'dataprivacy_passed', 'dataprivacy_date',
@@ -70,10 +93,12 @@ export default function UpdatePasswordPage() {
                 if (typeof window !== 'undefined') localStorage.removeItem(key)
             })
 
-            // 3. Check if we have a valid session immediately
-            if (initialSession) {
+            // 4. Check if we have a valid session immediately
+            if (currentSession) {
+                // Double check we didn't just decide it was invalid above (implicit check via if-else structure desirable but this works)
+                // If we detected crossover in 1.5, currentSession is null.
                 if (mounted) {
-                    setUserEmail(initialSession.user.email ?? null)
+                    setUserEmail(currentSession.user.email ?? null)
                     setIsInitializing(false)
                 }
                 return

@@ -47,7 +47,7 @@ export default async function SuperAdminPage() {
                                     <div className="text-slate-500 text-xs font-mono mt-1">{org.id}</div>
                                 </div>
                                 <span className="px-2 py-1 bg-white/10 border border-white/5 rounded text-xs text-slate-300 font-mono">
-                                    {org.slug}
+                                    {org.code}
                                 </span>
                             </div>
                         ))}

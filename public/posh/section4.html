@@ -12,6 +12,7 @@
 
     <!-- Auth Guard -->
     <script type="module" src="../auth.js"></script>
+    <script type="module" src="/dynamic-content.js"></script>
 </head>
 
 <body>
@@ -22,10 +23,10 @@
             <h2>POSH Act Training</h2>
         </div>
         <ul class="toc-nav">
-            <li ><a href="index.html"><span class="toc-num">1</span> Introduction</a></li>
-            <li ><a href="section2.html"><span class="toc-num">2</span> What is Sexual Harassment</a>
+            <li><a href="index.html"><span class="toc-num">1</span> Introduction</a></li>
+            <li><a href="section2.html"><span class="toc-num">2</span> What is Sexual Harassment</a>
             </li>
-            <li ><a href="section3.html"><span class="toc-num">3</span> POSH Act Overview</a></li>
+            <li><a href="section3.html"><span class="toc-num">3</span> POSH Act Overview</a></li>
             <li class="active"><a href="section4.html"><span class="toc-num">4</span> Internal Complaints Committee</a>
             </li>
             <li><a href="section5.html"><span class="toc-num">5</span> Complaint Process</a></li>
@@ -106,13 +107,21 @@
                 <li>Attempt conciliation if requested by complainant</li>
             </ul>
 
-            <h2>ICC at AA Plus</h2>
+            <h2 id="icc-header">ICC at <span class="dynamic-org-name">Your Organization</span></h2>
+
             <div class="info-card success">
-                <div class="info-icon">📋</div>
-                <div>
+                <div class="icon-box">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                    </svg>
+                </div>
+                <div class="content">
                     <h3>Contact ICC</h3>
-                    <p>Our ICC details are displayed at prominent locations in the office. You can reach the ICC at
-                        <strong>compliance@aaplus.com</strong> or contact any ICC member directly.</p>
+                    <p>Our ICC details are displayed at prominent locations in the office. You can reach the ICC at <a
+                            href="#" class="dynamic-posh-email"><strong>loading...</strong></a> or contact any ICC
+                        member directly.</p>
                 </div>
             </div>
 
@@ -158,6 +167,3 @@
 </body>
 
 </html>
-
-
-

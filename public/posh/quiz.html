@@ -9,6 +9,7 @@
         href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Rubik:wght@400;500;600&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="/dark-styles.css">
+    <script type="module" src="../dynamic-content.js"></script>
 </head>
 
 <body>
@@ -274,7 +275,9 @@
                     .select('is_completed, attempts, certificate_id, completed_at')
                     .eq('user_id', user.id)
                     .eq('module_id', '510e88a4-f501-4ba7-acc4-4f687fff65cc')
-                    .single();
+                    .maybeSingle();
+
+                console.log('Quiz Status:', data);
 
                 if (data) {
                     if (data.is_completed) {
