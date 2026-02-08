@@ -169,10 +169,11 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
         // Use the link as returned by Supabase
         const correctedInviteLink = inviteLink;
 
-        // --- SAFE LINK IMPLEMENTATION ---
-        const safeLink = `${appUrl}/auth/verify-invite?target=${encodeURIComponent(correctedInviteLink)}`;
+        // --- DIRECT LINK FOR DEBUGGING ---
+        // Bypassing verify-invite to isolate if the intermediate page is causing token corruption or scanner issues.
+        const safeLink = correctedInviteLink; // DIRECT LINK
 
-        console.log('Safe Link Generated:', safeLink);
+        console.log('Direct Link Used:', safeLink);
 
         // 4. Send Email
         const emailResult = await sendEmail({
@@ -193,7 +194,7 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
                         <a href="${safeLink}">${safeLink}</a>
                     </p>
                         <p style="color: #999; font-size: 12px; margin-top: 30px;">
-                        This link will expire in 24 hours. If the button doesn't work, copy the link above.
+                        This link will expire in 24 hours.
                     </p>
                 </div>
             `,
