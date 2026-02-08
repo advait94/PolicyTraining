@@ -21,6 +21,17 @@ function ImplicitCallbackContent() {
                 return
             }
 
+            // Check hash for error (Critical for unexpected server redirects preserving hash)
+            if (window.location.hash) {
+                const hashParams = new URLSearchParams(window.location.hash.substring(1))
+                const hashError = hashParams.get('error')
+                const hashErrorDesc = hashParams.get('error_description')
+                if (hashError) {
+                    setError(hashErrorDesc || hashError)
+                    return
+                }
+            }
+
             const supabase = createBrowserClient()
 
             // 1. Handle Implicit Flow (Hash Fragment)
