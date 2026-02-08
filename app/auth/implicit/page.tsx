@@ -102,7 +102,59 @@ function ImplicitCallbackContent() {
                 proceed(session)
             }
 
-            function proceed(session: any) {
+            async function proceed(session: any) {
+                // --- USER SYNC (Client-side for implicit flow) ---
+                // Ensure user exists in public.users
+                try {
+                    const { data: existingUser } = await supabase
+                        .from('users')
+                        .select('id')
+                        .eq('id', session.user.id)
+                        .single()
+
+                    if (!existingUser) {
+                        // User not in public.users - check for pending invitation
+                        const { data: invite } = await supabase
+                            .from('invitations')
+                            .select('*')
+                            .eq('email', session.user.email?.toLowerCase())
+                            .eq('status', 'pending')
+                            .limit(1)
+                            .single()
+
+                        if (invite) {
+                            // Complete the invitation handshake
+                            const displayName = session.user.user_metadata?.full_name ||
+                                session.user.user_metadata?.name ||
+                                session.user.email?.split('@')[0] || 'User'
+
+                            await supabase.from('users').upsert({
+                                id: session.user.id,
+                                email: session.user.email,
+                                display_name: displayName,
+                                role: invite.role || 'learner',
+                                organization_id: invite.organization_id
+                            })
+
+                            await supabase.from('organization_members').upsert({
+                                organization_id: invite.organization_id,
+                                user_id: session.user.id,
+                                role: invite.role || 'member'
+                            })
+
+                            await supabase.from('invitations')
+                                .update({ status: 'accepted' })
+                                .eq('id', invite.id)
+
+                            console.log(`[implicit] Synced user ${session.user.email} to org ${invite.organization_id}`)
+                        }
+                    }
+                } catch (syncError) {
+                    console.error('[implicit] User sync error:', syncError)
+                    // Non-fatal, continue to redirect
+                }
+                // --- END USER SYNC ---
+
                 // 3. Successful Exchange/Session
                 let destination = next
                 // Ensure we carry over the email param if it was passed to callback but dropped from 'next'

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 
 export async function GET(request: Request) {
     const requestUrl = new URL(request.url)
@@ -45,6 +46,66 @@ export async function GET(request: Request) {
         const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code)
 
         if (!error && session) {
+            // --- USER SYNC ---
+            // Ensure user exists in public.users (handles SSO users who bypass invite trigger)
+            try {
+                const adminClient = createClient(
+                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                    process.env.SUPABASE_SERVICE_ROLE_KEY!
+                )
+
+                // Check if user exists in public.users
+                const { data: existingUser } = await adminClient
+                    .from('users')
+                    .select('id, organization_id')
+                    .eq('id', session.user.id)
+                    .single()
+
+                if (!existingUser) {
+                    // User not in public.users - check for pending invitation
+                    const { data: invite } = await adminClient
+                        .from('invitations')
+                        .select('*')
+                        .eq('email', session.user.email?.toLowerCase())
+                        .eq('status', 'pending')
+                        .limit(1)
+                        .single()
+
+                    if (invite) {
+                        // Complete the invitation handshake
+                        const displayName = session.user.user_metadata?.full_name ||
+                            session.user.user_metadata?.name ||
+                            session.user.email?.split('@')[0] || 'User'
+
+                        await adminClient.from('users').upsert({
+                            id: session.user.id,
+                            email: session.user.email,
+                            display_name: displayName,
+                            role: invite.role || 'learner',
+                            organization_id: invite.organization_id
+                        }, { onConflict: 'id' })
+
+                        await adminClient.from('organization_members').upsert({
+                            organization_id: invite.organization_id,
+                            user_id: session.user.id,
+                            role: invite.role || 'member'
+                        }, { onConflict: 'organization_id,user_id' })
+
+                        await adminClient.from('invitations')
+                            .update({ status: 'accepted' })
+                            .eq('id', invite.id)
+
+                        console.log(`[callback] Synced SSO user ${session.user.email} to org ${invite.organization_id}`)
+                    } else {
+                        console.log(`[callback] No invitation found for SSO user ${session.user.email}`)
+                    }
+                }
+            } catch (syncError) {
+                console.error('[callback] User sync error:', syncError)
+                // Non-fatal, continue to redirect
+            }
+            // --- END USER SYNC ---
+
             // Forward email param if present (critical for session crossover detection)
             let destination = `${origin}${next}`
             const emailParam = searchParams.get('email') || session.user.email
