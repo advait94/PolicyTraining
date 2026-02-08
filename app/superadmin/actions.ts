@@ -16,8 +16,10 @@ export async function createOrganization(prevState: any, formData: FormData) {
     try {
         // 1. Check Superadmin permission
         const supabase = await createServerClient()
+        const { data: { user } } = await supabase.auth.getUser()
         const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
-        if (!isSuperAdmin) {
+
+        if (!isSuperAdmin || !user) {
             return { success: false, message: '', error: 'Unauthorized' }
         }
 
@@ -38,6 +40,14 @@ export async function createOrganization(prevState: any, formData: FormData) {
         if (orgError) throw new Error('Failed to create org: ' + orgError.message)
 
         // 4. Create Invitation Record (Critical for the Trigger logic)
+        // Note: We don't really need to do this manually if inviteUser does it, 
+        // but keeping it for now to ensure the ID is reserved or flow is same.
+        // Actually, inviteUser does an upsert on invitations, so this Step 4 is redundant 
+        // AND potentially conflicting if we don't pass the same data. 
+        // But let's just fix the invited_by. 
+        // Wait, step 4 insert below DOES NOT have invited_by, so it might work fine until inviteUser updates it.
+        // But the error likely comes from inviteUser update.
+
         const { error: inviteError } = await supabaseAdmin
             .from('invitations')
             .insert({
@@ -60,7 +70,7 @@ export async function createOrganization(prevState: any, formData: FormData) {
                     full_name: email.split('@')[0],
                     organization_id: org.id,
                     role: 'admin',
-                    invited_by: 'superadmin' // Context
+                    invited_by: user.id // Pass the actual UUID
                 }
             });
 

@@ -26,8 +26,8 @@ export async function testInvite(formData: FormData) {
             redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
             data: {
                 organization_id: 'd500364f-8455-452b-9dad-bfaef19717bed', // AA Plus Demo Org ID
-                role: 'learner',
-                invited_by: 'debug-tool'
+                role: 'learner'
+                // invited_by: 'debug-tool' // Removing to avoid UUID error since we don't have auth context here easily
             }
         });
 
