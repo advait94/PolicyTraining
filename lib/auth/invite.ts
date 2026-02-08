@@ -169,11 +169,12 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
         // Use the link as returned by Supabase
         const correctedInviteLink = inviteLink;
 
-        // --- DIRECT LINK FOR DEBUGGING ---
-        // Bypassing verify-invite to isolate if the intermediate page is causing token corruption or scanner issues.
-        const safeLink = correctedInviteLink; // DIRECT LINK
+        // --- SAFE LINK PROTECTION ---
+        // Wrap the magic link in an intermediate page that requires user action.
+        // This protects against email security scanners that pre-click links.
+        const safeLink = `${appUrl}/auth/verify-invite?target=${encodeURIComponent(correctedInviteLink)}`;
 
-        console.log('Direct Link Used:', safeLink);
+        console.log('Safe Link Generated:', safeLink);
 
         // 4. Send Email
         const emailResult = await sendEmail({
