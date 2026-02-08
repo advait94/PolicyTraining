@@ -47,6 +47,29 @@ function ImplicitCallbackContent() {
             if (!session) {
                 // Optimization: check if there's a hash
                 if (window.location.hash && window.location.hash.includes('access_token')) {
+                    // Manual Hash Parsing - Force set session from URL tokens
+                    const hashParams = new URLSearchParams(window.location.hash.substring(1))
+                    const accessToken = hashParams.get('access_token')
+                    const refreshToken = hashParams.get('refresh_token')
+
+                    if (accessToken && refreshToken) {
+                        // Manually set the session
+                        const { data, error } = await supabase.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken
+                        })
+
+                        if (error) {
+                            setError(error.message)
+                            return
+                        }
+
+                        if (data.session) {
+                            proceed(data.session)
+                            return
+                        }
+                    }
+
                     // Let Supabase process it. It fires events when it parses the hash.
                     let processed = false
 
@@ -69,10 +92,6 @@ function ImplicitCallbackContent() {
                             processed = true
                             proceed(retrySession)
                             subscription.unsubscribe()
-                        } else {
-                            // If still nothing after 4 seconds and we have a hash, likely an error occurred that update the UI
-                            // But let's check if the hash is still there.
-                            // Sometimes supabase clears the hash on error.
                         }
                     }, 4000)
                 } else {
