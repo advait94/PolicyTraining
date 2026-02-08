@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { inviteUser } from '@/lib/auth/invite'
 
 export async function createOrganization(prevState: any, formData: FormData) {
     const name = formData.get('name') as string
@@ -48,35 +49,27 @@ export async function createOrganization(prevState: any, formData: FormData) {
 
         if (inviteError) throw new Error('Failed to create invitation: ' + inviteError.message)
 
-        // 5. Send Invite via Auth Service (for consistent handling)
+        // 5. Send Invite via Internal Logic (Resend + Supabase Admin)
         try {
             const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/auth/update-password&email=${encodeURIComponent(email)}`;
-            const response = await fetch('http://localhost:4006/invite', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email,
-                    redirectTo: redirectUrl,
-                    data: {
-                        full_name: email.split('@')[0], // Basic name from email
-                        organization_id: org.id,
-                        role: 'admin'
-                    }
-                })
+
+            await inviteUser({
+                email,
+                redirectTo: redirectUrl,
+                data: {
+                    full_name: email.split('@')[0],
+                    organization_id: org.id,
+                    role: 'admin',
+                    invited_by: 'superadmin' // Context
+                }
             });
 
-            const result = await response.json();
-
-            if (!response.ok) {
-                console.error('Auth service invite failed:', result.error);
-                throw new Error(result.error || 'Failed to send invitation');
-            }
-
-            console.log('Invitation sent successfully via auth-service');
+            console.log('Invitation sent successfully via internal logic');
         } catch (inviteError: any) {
             console.error('Failed to send invitation:', inviteError);
             // Don't fail the whole operation - org and invitation record are created
             // Admin can manually resend if needed
+            // Ideally we should return a warning here
         }
 
         revalidatePath('/superadmin')
