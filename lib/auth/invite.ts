@@ -169,12 +169,28 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
         // Use the link as returned by Supabase
         const correctedInviteLink = inviteLink;
 
-        // --- SAFE LINK PROTECTION ---
-        // Wrap the magic link in an intermediate page that requires user action.
-        // This protects against email security scanners that pre-click links.
-        const safeLink = `${appUrl}/auth/verify-invite?target=${encodeURIComponent(correctedInviteLink)}`;
+        // --- SAFE LINK PROTECTION v2 ---
+        // Store magic link in database, only expose token ID to prevent scanner access
+        // Scanners cannot find the magic link because it's never in the URL
+        const { data: tokenRecord, error: tokenError } = await supabaseAdmin
+            .from('safe_link_tokens')
+            .insert({
+                magic_link: correctedInviteLink,
+                email: email.toLowerCase(),
+                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+            })
+            .select('id')
+            .single();
 
-        console.log('Safe Link Generated:', safeLink);
+        if (tokenError || !tokenRecord) {
+            console.error('Failed to create safe link token:', tokenError);
+            throw new Error('Failed to create secure invitation link');
+        }
+
+        // The safe link only contains the token ID, not the magic link
+        const safeLink = `${appUrl}/auth/verify-invite?token=${tokenRecord.id}`;
+
+        console.log('Safe Token Link Generated:', safeLink);
 
         // 4. Send Email
         const emailResult = await sendEmail({

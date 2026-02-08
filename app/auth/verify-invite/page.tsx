@@ -1,52 +1,77 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ShieldCheck, ArrowRight, Loader2 } from 'lucide-react'
-
+import { ShieldCheck, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
 import { Suspense } from 'react'
 
 function VerifyInviteContent() {
     const searchParams = useSearchParams()
-    const router = useRouter()
-    const [targetUrl, setTargetUrl] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
-    const [checking, setChecking] = useState(true)
+    const [error, setError] = useState<string | null>(null)
 
-    useEffect(() => {
-        const target = searchParams.get('target')
-        if (target) {
-            // Next.js searchParams already decodes the value once.
-            // We should NOT decode again, as it might corrupt the inner URL params (e.g. token signatures)
-            setTargetUrl(target)
-        }
-        setChecking(false)
-    }, [searchParams])
+    // Get the token ID from the URL (not the magic link itself!)
+    const tokenId = searchParams.get('token')
+    // Legacy support for old links with 'target' param
+    const legacyTarget = searchParams.get('target')
 
-    const handleAccept = () => {
-        if (!targetUrl) return
+    const handleAccept = async () => {
         setLoading(true)
-        // Redirect to the actual Supabase action link
-        // This is the moment the token is consumed
-        window.location.href = targetUrl
+        setError(null)
+
+        // Legacy support: if we have a 'target' param, use it directly
+        if (legacyTarget) {
+            window.location.href = legacyTarget
+            return
+        }
+
+        if (!tokenId) {
+            setError('Invalid invitation link')
+            setLoading(false)
+            return
+        }
+
+        try {
+            // Call the API to retrieve the magic link
+            // This is a POST request, so scanners cannot trigger it
+            const response = await fetch('/api/auth/claim-invite', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tokenId })
+            })
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                setError(data.error || 'Failed to process invitation')
+                setLoading(false)
+                return
+            }
+
+            if (data.success && data.magicLink) {
+                // Redirect to the magic link
+                window.location.href = data.magicLink
+            } else {
+                setError('Unexpected response from server')
+                setLoading(false)
+            }
+        } catch (err) {
+            console.error('Error claiming invite:', err)
+            setError('Network error. Please try again.')
+            setLoading(false)
+        }
     }
 
-    if (checking) {
-        return (
-            <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center p-4">
-                <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
-            </div>
-        )
-    }
-
-    if (!targetUrl) {
+    // No token provided
+    if (!tokenId && !legacyTarget) {
         return (
             <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center p-4">
                 <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md max-w-md w-full">
                     <CardHeader>
                         <CardTitle className="text-red-400 flex items-center gap-2">
+                            <AlertCircle className="w-5 h-5" />
                             Invalid Link
                         </CardTitle>
                     </CardHeader>
@@ -73,6 +98,15 @@ function VerifyInviteContent() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6 pt-6">
+                    {error && (
+                        <div className="p-4 bg-red-900/20 rounded-lg border border-red-500/20">
+                            <p className="text-sm text-red-300 flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4" />
+                                {error}
+                            </p>
+                        </div>
+                    )}
+
                     <div className="p-4 bg-purple-900/10 rounded-lg border border-purple-500/10 text-center">
                         <p className="text-sm text-purple-200">
                             Clicking the button below will verify your email and set up your account.
@@ -98,7 +132,7 @@ function VerifyInviteContent() {
                     </Button>
 
                     <p className="text-xs text-center text-slate-500">
-                        This step protects your one-time link from security scanners.
+                        This step protects your invitation from automated security scans.
                     </p>
                 </CardContent>
             </Card>
