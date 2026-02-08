@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { inviteUser as inviteUserInternal } from '@/lib/auth/invite'
 
 // Bulk Invite Action
 export async function bulkInviteUsers(users: { name: string, email: string }[]) {
@@ -38,25 +38,17 @@ export async function bulkInviteUsers(users: { name: string, email: string }[]) 
 
             const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/auth/update-password&email=${encodeURIComponent(u.email)}`;
 
-            const response = await fetch('http://localhost:4006/invite', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: u.email,
-                    redirectTo: redirectUrl,
-                    data: {
-                        full_name: u.name,
-                        organization_id: userData.organization_id,
-                        role: 'learner',
-                        invited_by: user.id
-                    }
-                })
+            // Direct call to internal invite logic
+            await inviteUserInternal({
+                email: u.email,
+                redirectTo: redirectUrl,
+                data: {
+                    full_name: u.name,
+                    organization_id: userData.organization_id,
+                    role: 'learner',
+                    invited_by: user.id
+                }
             })
-
-            if (!response.ok) {
-                const res = await response.json()
-                throw new Error(res.error || 'Failed')
-            }
 
             results.success++
         } catch (err: any) {
@@ -130,33 +122,17 @@ export async function inviteUser(prevState: any, formData: FormData) {
 
     try {
         const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/auth/update-password&email=${encodeURIComponent(email)}`;
-        console.log('Sending invitation via auth-service to:', email);
-        console.log('Redirect URL:', redirectUrl);
-
-        // Call Auth Service to invite user (Updated to Port 4006)
-        const response = await fetch('http://localhost:4006/invite', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                email,
-                // Redirect directly to the client page which can handle the #access_token hash
-                redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/auth/update-password&email=${encodeURIComponent(email)}`,
-                data: {
-                    full_name: fullName,
-                    organization_id: targetOrgId, // SECURE: Enforced or Privileged
-                    role: role,
-                    invited_by: invitedBy
-                }
-            })
-        })
-
-        const result = await response.json()
-
-        if (!response.ok) {
-            throw new Error(result.error || 'Failed to invite user via Auth Service')
-        }
+        // Call Internal Invite Logic
+        await inviteUserInternal({
+            email,
+            redirectTo,
+            data: {
+                full_name: fullName,
+                organization_id: targetOrgId,
+                role: role,
+                invited_by: invitedBy
+            }
+        });
 
         return { success: true, message: `Invitation sent to ${email}` }
     } catch (error: any) {
