@@ -47,15 +47,34 @@ function ImplicitCallbackContent() {
             if (!session) {
                 // Optimization: check if there's a hash
                 if (window.location.hash && window.location.hash.includes('access_token')) {
-                    // Let Supabase process it (it does on init)
-                    // We might need to wait for onAuthStateChange
+                    // Let Supabase process it. It fires events when it parses the hash.
+                    let processed = false
+
                     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-                        if (event === 'SIGNED_IN' && session) {
-                            // Success!
-                            proceed(session)
-                            subscription.unsubscribe()
+                        if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED')) {
+                            if (!processed) {
+                                processed = true
+                                proceed(session)
+                                subscription.unsubscribe()
+                            }
                         }
                     })
+
+                    // Fallback: If event doesn't fire (e.g. race condition), check manually after delay
+                    setTimeout(async () => {
+                        if (processed) return
+
+                        const { data: { session: retrySession } } = await supabase.auth.getSession()
+                        if (retrySession) {
+                            processed = true
+                            proceed(retrySession)
+                            subscription.unsubscribe()
+                        } else {
+                            // If still nothing after 4 seconds and we have a hash, likely an error occurred that update the UI
+                            // But let's check if the hash is still there.
+                            // Sometimes supabase clears the hash on error.
+                        }
+                    }, 4000)
                 } else {
                     setError('No authorization token found. Please try again.')
                     return
