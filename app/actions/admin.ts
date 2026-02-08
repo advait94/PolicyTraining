@@ -125,7 +125,7 @@ export async function inviteUser(prevState: any, formData: FormData) {
         // Call Internal Invite Logic
         await inviteUserInternal({
             email,
-            redirectTo,
+            redirectTo: redirectUrl,
             data: {
                 full_name: fullName,
                 organization_id: targetOrgId,
