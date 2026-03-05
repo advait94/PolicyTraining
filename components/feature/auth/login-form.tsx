@@ -78,7 +78,7 @@ export function LoginForm() {
                     scopes: provider === 'azure' ? 'openid profile email User.Read offline_access' : 'openid profile email',
                     queryParams: {
                         access_type: 'offline',
-                        prompt: 'consent',
+                        // Removed prompt: 'consent' so users don't see the unverified screen every time
                     },
                 },
             })
