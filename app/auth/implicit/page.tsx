@@ -162,7 +162,8 @@ function ImplicitCallbackContent() {
                 const intendedEmail = searchParams.get('email') || session.user.email
 
                 // Check invite flow via metadata
-                if (session.user.user_metadata?.is_invite) {
+                const provider = session.user.app_metadata?.provider || 'email'
+                if (session.user.user_metadata?.is_invite && provider === 'email') {
                     destination = '/auth/update-password'
                 }
 

@@ -111,7 +111,8 @@ export async function GET(request: Request) {
             const emailParam = searchParams.get('email') || session.user.email
 
             // Check if this is an invite flow (from metadata)
-            if (session.user.user_metadata?.is_invite) {
+            const provider = session.user.app_metadata?.provider || 'email'
+            if (session.user.user_metadata?.is_invite && provider === 'email') {
                 destination = `${origin}/auth/update-password`
             }
 
