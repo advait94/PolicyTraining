@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { inviteUser as inviteUserInternal } from '@/lib/auth/invite'
 
 // Bulk Invite Action
-export async function bulkInviteUsers(users: { name: string, email: string }[]) {
+export async function bulkInviteUsers(users: { name: string, email: string }[], targetOrganizationId?: string) {
     const supabase = await createClient()
 
     // Check authentication
@@ -13,15 +13,27 @@ export async function bulkInviteUsers(users: { name: string, email: string }[]) 
         return { success: false, message: 'Unauthorized' }
     }
 
-    // Get Admin's Organization
-    const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('organization_id, role')
-        .eq('id', user.id)
-        .single()
+    // Role Check: Superadmin vs Org Admin
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
 
-    if (userError || !userData || userData.role !== 'admin') {
-        return { success: false, message: 'Unauthorized or not an admin' }
+    let targetOrgId = targetOrganizationId || ''
+
+    if (!isSuperAdmin) {
+        // Admin: Must use own organization
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('organization_id, role')
+            .eq('id', user.id)
+            .single()
+
+        if (userError || !userData || userData.role !== 'admin') {
+            return { success: false, message: 'Unauthorized or not an admin' }
+        }
+        targetOrgId = userData.organization_id
+    }
+
+    if (!targetOrgId) {
+        return { success: false, message: 'Organization ID is required' }
     }
 
     const results = {
@@ -44,7 +56,7 @@ export async function bulkInviteUsers(users: { name: string, email: string }[]) 
                 redirectTo: redirectUrl,
                 data: {
                     full_name: u.name,
-                    organization_id: userData.organization_id,
+                    organization_id: targetOrgId,
                     role: 'learner',
                     invited_by: user.id
                 }

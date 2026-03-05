@@ -25,6 +25,7 @@ export default function AdminDashboard() {
     const [users, setUsers] = useState<any[]>([])
     const [loadingStats, setLoadingStats] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
+    const [orgs, setOrgs] = useState<{ id: string, name: string }[]>([])
 
     // Bulk Invite State
     const [bulkPreview, setBulkPreview] = useState<{ name: string, email: string }[]>([])
@@ -71,12 +72,21 @@ export default function AdminDashboard() {
         reader.readAsBinaryString(file)
     }
 
+    // State for Bulk Org Select
+    const [bulkOrganizationId, setBulkOrganizationId] = useState('')
+
     // Handle Bulk Submit
     const handleBulkSubmit = async () => {
         if (bulkPreview.length === 0) return
+
+        if (isSuperAdmin && !bulkOrganizationId) {
+            toast.error('Please select an organization first.')
+            return
+        }
+
         setIsBulkUploading(true)
         try {
-            const result = await bulkInviteUsers(bulkPreview)
+            const result = await bulkInviteUsers(bulkPreview, bulkOrganizationId)
             if (result.success) {
                 toast.success(result.message)
                 if (result.details && result.details.failed > 0) {
@@ -131,6 +141,13 @@ export default function AdminDashboard() {
 
             setIsAdmin(true)
             setLoadingStats(true)
+
+            // If superadmin, fetch orgs
+            if (superAdminCheck) {
+                const { data: orgsData } = await supabase.from('organizations').select('id, name').order('name');
+                setOrgs(orgsData || []);
+            }
+
             const [statsData, usersData] = await Promise.all([
                 getAdminStats(),
                 getCompanyUsers()
@@ -276,6 +293,24 @@ export default function AdminDashboard() {
 
                                         <TabsContent value="single">
                                             <form action={handleInvite} className="space-y-4">
+                                                {isSuperAdmin && (
+                                                    <div className="space-y-2 mb-4">
+                                                        <Label htmlFor="organizationId" className="text-slate-300">Target Organization</Label>
+                                                        <select
+                                                            id="organizationId"
+                                                            name="organizationId"
+                                                            required
+                                                            className="flex h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
+                                                        >
+                                                            <option value="" disabled className="bg-[#151A29]">Select an organization</option>
+                                                            {orgs.map(org => (
+                                                                <option key={org.id} value={org.id} className="bg-[#151A29]">
+                                                                    {org.name}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )}
                                                 <div className="space-y-2">
                                                     <Label htmlFor="fullName" className="text-slate-300">Full Name</Label>
                                                     <Input id="fullName" name="fullName" placeholder="John Doe" required className="bg-black/20 border-white/10 text-white" />
@@ -289,6 +324,27 @@ export default function AdminDashboard() {
                                         </TabsContent>
 
                                         <TabsContent value="bulk" className="space-y-4">
+                                            {isSuperAdmin && (
+                                                <div className="space-y-2 mb-4">
+                                                    <Label htmlFor="bulkOrganizationId" className="text-slate-300">Target Organization</Label>
+                                                    <select
+                                                        id="bulkOrganizationId"
+                                                        name="bulkOrganizationId"
+                                                        required
+                                                        value={bulkOrganizationId}
+                                                        onChange={(e) => setBulkOrganizationId(e.target.value)}
+                                                        className="flex h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        <option value="" disabled className="bg-[#151A29]">Select an organization</option>
+                                                        {orgs.map(org => (
+                                                            <option key={org.id} value={org.id} className="bg-[#151A29]">
+                                                                {org.name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
+
                                             <div className="border-2 border-dashed border-white/10 rounded-xl p-6 text-center hover:bg-white/5 transition-colors cursor-pointer relative">
                                                 <Input
                                                     type="file"
