@@ -303,7 +303,7 @@ export default function AdminDashboard() {
                                                             className="flex h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
                                                         >
                                                             <option value="" disabled className="bg-[#151A29]">Select an organization</option>
-                                                            {orgs.map(org => (
+                                                            {orgs.map((org: any) => (
                                                                 <option key={org.id} value={org.id} className="bg-[#151A29]">
                                                                     {org.name}
                                                                 </option>
@@ -336,7 +336,7 @@ export default function AdminDashboard() {
                                                         className="flex h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
                                                     >
                                                         <option value="" disabled className="bg-[#151A29]">Select an organization</option>
-                                                        {orgs.map(org => (
+                                                        {orgs.map((org: any) => (
                                                             <option key={org.id} value={org.id} className="bg-[#151A29]">
                                                                 {org.name}
                                                             </option>
