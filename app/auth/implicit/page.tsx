@@ -162,8 +162,9 @@ function ImplicitCallbackContent() {
                 const intendedEmail = searchParams.get('email') || session.user.email
 
                 // Check invite flow via metadata
-                const provider = session.user.app_metadata?.provider || 'email'
-                if (session.user.user_metadata?.is_invite && provider === 'email') {
+                const providers = session.user.app_metadata?.providers || []
+                const hasSSO = providers.includes('azure') || providers.includes('google')
+                if (session.user.user_metadata?.is_invite && !hasSSO) {
                     destination = '/auth/update-password'
                 }
 
