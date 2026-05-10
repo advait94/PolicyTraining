@@ -21,6 +21,7 @@ interface InviteData {
         organization_id: string;
         role?: string;
         invited_by?: string;
+        department_id?: string | null;
     };
 }
 
@@ -58,7 +59,8 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
                     email: email,
                     display_name: userData.full_name || email.split('@')[0],
                     role: userData.role || 'learner',
-                    organization_id: userData.organization_id // Link Org
+                    organization_id: userData.organization_id,
+                    ...(userData.department_id ? { department_id: userData.department_id } : {})
                 })
                 .select();
 
@@ -142,6 +144,14 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
         }
 
         console.log('User created:', createUserData.user.id);
+
+        // Set department if provided (trigger already created the public.users row)
+        if (userData.department_id) {
+            await supabaseAdmin
+                .from('users')
+                .update({ department_id: userData.department_id })
+                .eq('id', createUserData.user.id);
+        }
 
         // 4. Generate magic link (Simplified Redirect)
         // We redirect to /auth/callback cleanly. The callback handler will check user_metadata.is_invite

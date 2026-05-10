@@ -1,18 +1,20 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Upload, Image as ImageIcon, Save, Trash2, Globe, ArrowLeft } from 'lucide-react'
+import { Loader2, Image as ImageIcon, Save, Globe, ArrowLeft, Sparkles, ArrowRight, Webhook } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function AdminSettingsPage() {
+function AdminSettingsContent() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const isFirstTime = searchParams.get('firstTime') === 'true'
     const supabase = createClient()
 
     const [loading, setLoading] = useState(true)
@@ -139,18 +141,41 @@ export default function AdminSettingsPage() {
     return (
         <div className="min-h-screen bg-[#0B0F19] p-8 md:p-12 space-y-8 text-white">
             <div className="flex items-center gap-4">
-                <Button
-                    variant="ghost"
-                    onClick={() => router.push('/admin/dashboard')}
-                    className="p-2 h-auto text-slate-400 hover:text-white hover:bg-white/10"
-                >
-                    <ArrowLeft className="w-6 h-6" />
-                </Button>
+                {!isFirstTime && (
+                    <Button
+                        variant="ghost"
+                        onClick={() => router.push('/admin/dashboard')}
+                        className="p-2 h-auto text-slate-400 hover:text-white hover:bg-white/10"
+                    >
+                        <ArrowLeft className="w-6 h-6" />
+                    </Button>
+                )}
                 <div>
                     <h1 className="text-4xl font-bold mb-2">Settings</h1>
                     <p className="text-slate-400">Manage your organization's profile and branding.</p>
                 </div>
             </div>
+
+            {isFirstTime && (
+                <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-6 flex items-start gap-4">
+                    <Sparkles className="w-7 h-7 text-cyan-400 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                        <h2 className="text-lg font-semibold text-cyan-300 mb-1">Welcome! Let's set up your organization.</h2>
+                        <p className="text-slate-300 text-sm leading-relaxed">
+                            Before your team can start training, please fill in your organization's details below.
+                            Your <strong>Display Name</strong> will appear on completion certificates and in the POSH policy generator.
+                            The <strong>POSH / ICC Email</strong> is required for your POSH compliance policy.
+                        </p>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        onClick={() => router.push('/admin/dashboard')}
+                        className="text-slate-400 hover:text-white shrink-0 text-xs"
+                    >
+                        Skip for now <ArrowRight className="w-3 h-3 ml-1 inline" />
+                    </Button>
+                </div>
+            )}
 
             <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
                 <CardHeader>
@@ -295,12 +320,16 @@ export default function AdminSettingsPage() {
                                             display_name: orgData.display_name,
                                             support_email: orgData.support_email,
                                             helpline_number: orgData.helpline_number,
-                                            posh_ic_email: orgData.posh_ic_email
+                                            posh_ic_email: orgData.posh_ic_email,
+                                            settings_completed: true
                                         })
                                         .eq('id', orgData.id)
 
                                     if (error) throw error
-                                    toast.success('Contact details updated')
+                                    toast.success('Organization details saved!')
+                                    if (isFirstTime) {
+                                        setTimeout(() => router.push('/admin/dashboard'), 1200)
+                                    }
                                 } catch (e: any) {
                                     toast.error(e.message || 'Update failed')
                                 } finally {
@@ -313,9 +342,98 @@ export default function AdminSettingsPage() {
                             {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                             Save Details
                         </Button>
+                        {isFirstTime && (
+                            <p className="text-xs text-slate-500 mt-2">After saving, you'll be taken to your admin dashboard.</p>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
+                <CardHeader>
+                    <CardTitle className="text-white flex items-center gap-2">
+                        <Webhook className="w-5 h-5 text-cyan-400" />
+                        Integrations — Slack &amp; Microsoft Teams
+                    </CardTitle>
+                    <CardDescription className="text-slate-400">
+                        Paste an incoming webhook URL to receive a notification whenever an employee completes a training module.
+                        Leave blank to disable.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="slack_webhook_url" className="text-slate-300 flex items-center gap-2">
+                                <span>🔔</span> Slack Webhook URL
+                            </Label>
+                            <Input
+                                id="slack_webhook_url"
+                                value={orgData?.slack_webhook_url || ''}
+                                onChange={(e) => setOrgData({ ...orgData, slack_webhook_url: e.target.value })}
+                                placeholder="https://hooks.slack.com/services/..."
+                                className="bg-black/20 border-white/10 text-white font-mono text-sm"
+                            />
+                            <p className="text-xs text-slate-500">
+                                Create an incoming webhook in your Slack workspace settings.
+                            </p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="teams_webhook_url" className="text-slate-300 flex items-center gap-2">
+                                <span>💬</span> Microsoft Teams Webhook URL
+                            </Label>
+                            <Input
+                                id="teams_webhook_url"
+                                value={orgData?.teams_webhook_url || ''}
+                                onChange={(e) => setOrgData({ ...orgData, teams_webhook_url: e.target.value })}
+                                placeholder="https://outlook.office.com/webhook/..."
+                                className="bg-black/20 border-white/10 text-white font-mono text-sm"
+                            />
+                            <p className="text-xs text-slate-500">
+                                Create an incoming webhook connector in your Teams channel settings.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="pt-2">
+                        <Button
+                            onClick={async () => {
+                                setUploading(true)
+                                try {
+                                    const { error } = await supabase
+                                        .from('organizations')
+                                        .update({
+                                            slack_webhook_url: orgData.slack_webhook_url || null,
+                                            teams_webhook_url: orgData.teams_webhook_url || null,
+                                        })
+                                        .eq('id', orgData.id)
+                                    if (error) throw error
+                                    toast.success('Webhook settings saved!')
+                                } catch (e: any) {
+                                    toast.error(e.message || 'Update failed')
+                                } finally {
+                                    setUploading(false)
+                                }
+                            }}
+                            disabled={uploading}
+                            className="bg-cyan-600 hover:bg-cyan-500 text-white min-w-[140px]"
+                        >
+                            {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                            Save Webhooks
+                        </Button>
                     </div>
                 </CardContent>
             </Card>
         </div>
+    )
+}
+
+export default function AdminSettingsPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center">
+                <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
+            </div>
+        }>
+            <AdminSettingsContent />
+        </Suspense>
     )
 }

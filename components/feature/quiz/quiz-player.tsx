@@ -4,13 +4,16 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Trophy, BookOpen, Award, RefreshCw, Loader2, Download } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Trophy, BookOpen, RefreshCw, Loader2, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { saveAttestation } from '@/app/actions/progress'
+import { logActivity } from '@/app/actions/audit'
 import { toast } from 'sonner'
 
 type Question = {
     id: string
     text: string
+    explanation?: string | null
     answers: {
         id: string
         text: string
@@ -35,6 +38,12 @@ export function QuizPlayer({
     const [score, setScore] = useState(0)
     const [showResult, setShowResult] = useState(false)
     const [feedbackMessage, setFeedbackMessage] = useState<{ text: string; isCorrect: boolean } | null>(null)
+
+    // Attestation state
+    const [attestationChecked, setAttestationChecked] = useState(false)
+    const [attestationSaved, setAttestationSaved] = useState(false)
+    const [isSavingAttestation, setIsSavingAttestation] = useState(false)
+
     const router = useRouter()
 
     const currentQuestion = questions[currentQuestionIndex]
@@ -53,13 +62,19 @@ export function QuizPlayer({
         const selectedAnswer = currentQuestion.answers.find(a => a.id === selectedAnswerId)
         const isCorrect = selectedAnswer?.is_correct || false
 
+        const explanation = currentQuestion.explanation
         if (isCorrect) {
             setScore(s => s + 1)
-            setFeedbackMessage({ text: 'Correct! Well done.', isCorrect: true })
+            setFeedbackMessage({
+                text: explanation ? `Correct! ${explanation}` : 'Correct! Well done.',
+                isCorrect: true
+            })
         } else {
             const correctAnswer = currentQuestion.answers.find(a => a.is_correct)
             setFeedbackMessage({
-                text: `Incorrect. The correct answer was: ${correctAnswer?.text}`,
+                text: explanation
+                    ? `Incorrect. Correct answer: "${correctAnswer?.text}". ${explanation}`
+                    : `Incorrect. The correct answer was: "${correctAnswer?.text}".`,
                 isCorrect: false
             })
         }
@@ -94,9 +109,10 @@ export function QuizPlayer({
         const percentage = Math.round((score / questions.length) * 100)
         const passed = percentage >= 80
 
-        // Save progress FIRST, then show results
         setIsSaving(true)
         try {
+            // Log quiz_started is fired from module-player; log completion here via server action
+            await logActivity(moduleId, 'quiz_completed', { score: percentage, passed })
             await onComplete(percentage, passed)
         } catch (error) {
             console.error('Failed to save progress:', error)
@@ -106,38 +122,17 @@ export function QuizPlayer({
         }
     }
 
-    const [isGeneratingCert, setIsGeneratingCert] = useState(false)
-
-    const handleViewCertificate = async () => {
-        setIsGeneratingCert(true)
+    const handleAttestation = async () => {
+        if (!attestationChecked) return
+        setIsSavingAttestation(true)
         try {
-            const supabase = createClient()
-            const { data: { user } } = await supabase.auth.getUser()
-
-            if (!user) {
-                toast.error('User not authenticated')
-                return
-            }
-
-            const { data, error } = await supabase.functions.invoke('generate-certificate', {
-                body: {
-                    user_id: user.id,
-                    module_id: moduleId
-                }
-            })
-
-            if (error) throw error
-
-            if (data?.url) {
-                window.open(data.url, '_blank')
-            } else {
-                toast.error('Failed to get certificate URL')
-            }
-        } catch (error: any) {
-            console.error('Certificate Error:', error)
-            toast.error('Failed to generate certificate')
+            await saveAttestation(moduleId)
+            setAttestationSaved(true)
+            toast.success('Attestation recorded.')
+        } catch {
+            toast.error('Failed to save attestation. Please try again.')
         } finally {
-            setIsGeneratingCert(false)
+            setIsSavingAttestation(false)
         }
     }
 
@@ -162,10 +157,7 @@ export function QuizPlayer({
                         <div className="font-semibold">{moduleTitle || 'Training Module'}</div>
                         <div className="text-sm opacity-80">Assessment Results</div>
                     </div>
-                    <Link
-                        href="/dashboard"
-                        className="text-white text-sm hover:underline"
-                    >
+                    <Link href="/dashboard" className="text-white text-sm hover:underline">
                         &larr; Back to Dashboard
                     </Link>
                 </div>
@@ -210,28 +202,82 @@ export function QuizPlayer({
                                 : 'Please review the training material and try again. You need at least 80% to pass the assessment and receive your certificate.'}
                         </p>
 
+                        {/* ── Attestation (pass only) ── */}
+                        {passed && (
+                            <div
+                                style={{
+                                    margin: '24px 0',
+                                    padding: '20px 24px',
+                                    borderRadius: 12,
+                                    border: attestationSaved
+                                        ? '1px solid rgba(34,197,94,0.4)'
+                                        : '1px solid rgba(168,85,247,0.3)',
+                                    background: attestationSaved
+                                        ? 'rgba(34,197,94,0.08)'
+                                        : 'rgba(168,85,247,0.08)',
+                                    textAlign: 'left',
+                                }}
+                            >
+                                {attestationSaved ? (
+                                    <div className="flex items-center gap-3 text-green-400">
+                                        <ShieldCheck className="w-5 h-5 shrink-0" />
+                                        <span className="text-sm font-medium">
+                                            Attestation recorded on {new Date().toLocaleDateString()}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <label
+                                            htmlFor="attestation-checkbox"
+                                            className="flex items-start gap-3 cursor-pointer"
+                                        >
+                                            <input
+                                                id="attestation-checkbox"
+                                                type="checkbox"
+                                                checked={attestationChecked}
+                                                onChange={e => setAttestationChecked(e.target.checked)}
+                                                className="mt-0.5 w-4 h-4 accent-purple-500 shrink-0"
+                                            />
+                                            <span style={{ color: '#cbd5e1', fontSize: '0.875rem', lineHeight: 1.6 }}>
+                                                I confirm that I have read, understood, and will comply with the policies and
+                                                guidelines covered in <strong style={{ color: '#e2e8f0' }}>{moduleTitle || 'this module'}</strong>.
+                                            </span>
+                                        </label>
+                                        <button
+                                            onClick={handleAttestation}
+                                            disabled={!attestationChecked || isSavingAttestation}
+                                            style={{
+                                                marginTop: 14,
+                                                padding: '8px 20px',
+                                                borderRadius: 8,
+                                                border: 'none',
+                                                background: attestationChecked ? '#9333ea' : '#374151',
+                                                color: attestationChecked ? '#fff' : '#6b7280',
+                                                fontSize: '0.85rem',
+                                                fontWeight: 600,
+                                                cursor: attestationChecked ? 'pointer' : 'not-allowed',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 8,
+                                                transition: 'background 0.2s',
+                                            }}
+                                        >
+                                            {isSavingAttestation && <Loader2 className="w-4 h-4 animate-spin" />}
+                                            Confirm &amp; Sign Attestation
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        )}
+
                         <div className="action-buttons">
                             {passed ? (
-                                <>
-                                    <button
-                                        onClick={handleViewCertificate}
-                                        disabled={isGeneratingCert}
-                                        className="action-btn success cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {isGeneratingCert ? (
-                                            <Loader2 className="w-5 h-5 animate-spin" />
-                                        ) : (
-                                            <Award className="w-5 h-5" />
-                                        )}
-                                        {isGeneratingCert ? 'Generating...' : 'View Certificate'}
-                                    </button>
-                                    <button
-                                        onClick={() => router.push('/dashboard')}
-                                        className="action-btn secondary cursor-pointer"
-                                    >
-                                        Return to Dashboard
-                                    </button>
-                                </>
+                                <button
+                                    onClick={() => router.push('/dashboard')}
+                                    className="action-btn secondary cursor-pointer"
+                                >
+                                    Return to Dashboard
+                                </button>
                             ) : (
                                 <>
                                     <button
@@ -286,7 +332,6 @@ export function QuizPlayer({
             {/* Quiz Content */}
             <div className="quiz-main">
                 <div className="quiz-card">
-                    {/* Question Header */}
                     <div className="question-number-badge">
                         Question {currentQuestionIndex + 1} of {questions.length}
                     </div>
@@ -294,7 +339,6 @@ export function QuizPlayer({
                         {currentQuestion.text}
                     </div>
 
-                    {/* Options */}
                     <div className="options-container">
                         {currentQuestion.answers.map((answer, idx) => {
                             const isSelected = selectedAnswerId === answer.id
@@ -303,11 +347,8 @@ export function QuizPlayer({
                             let cardClass = 'option-card'
                             if (isSubmitted) {
                                 cardClass += ' answered'
-                                if (isCorrectAnswer) {
-                                    cardClass += ' correct'
-                                } else if (isSelected && !isCorrectAnswer) {
-                                    cardClass += ' incorrect'
-                                }
+                                if (isCorrectAnswer) cardClass += ' correct'
+                                else if (isSelected && !isCorrectAnswer) cardClass += ' incorrect'
                             } else if (isSelected) {
                                 cardClass += ' selected'
                             }
@@ -318,25 +359,19 @@ export function QuizPlayer({
                                     className={cardClass}
                                     onClick={() => handleSelectAnswer(answer.id)}
                                 >
-                                    <div className="option-letter">
-                                        {letters[idx] || idx + 1}
-                                    </div>
-                                    <div className="option-text">
-                                        {answer.text}
-                                    </div>
+                                    <div className="option-letter">{letters[idx] || idx + 1}</div>
+                                    <div className="option-text">{answer.text}</div>
                                 </div>
                             )
                         })}
                     </div>
 
-                    {/* Feedback Message */}
                     {feedbackMessage && (
                         <div className={`feedback-message ${feedbackMessage.isCorrect ? 'correct' : 'incorrect'}`}>
                             {feedbackMessage.text}
                         </div>
                     )}
 
-                    {/* Navigation */}
                     <div className="quiz-navigation">
                         <button
                             className="quiz-nav-btn secondary"

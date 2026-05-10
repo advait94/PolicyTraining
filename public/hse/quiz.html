@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -9,9 +9,6 @@
         href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Rubik:wght@400;500;600&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="/dark-styles.css">
-</head>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
 <body>
@@ -43,8 +40,6 @@
     </div>
 
     <script type="module">
-        import { supabase as sb } from '../auth.js';
-
         const questionsData = [
             { question: "What does HSE stand for?", options: ["Health, Safety, and Environment", "High Security Equipment", "Hazard Safety Engineering", "Human Safety Evaluation"], correctIndex: 0, explanation: { correct: "Correct! HSE stands for Health, Safety, and Environment.", incorrect: "Incorrect. HSE stands for Health, Safety, and Environment." } },
             { question: "Which of the following is an \"Ergonomic\" hazard?", options: ["Poor workstation setup causing back pain", "A spilled chemical on the floor", "High voltage electrical wires", "A noisy generator"], correctIndex: 0, explanation: { correct: "Correct! Poor workstation setup is an ergonomic hazard.", incorrect: "Incorrect. Ergonomic hazards relate to workstation setup and body positioning." } },
@@ -128,34 +123,21 @@
             document.getElementById('quizProgress').style.width = ((currentQuestion + 1) / totalQuestions * 100) + '%';
         }
 
-        // Check status on load
+        // Check section completion and quiz status
         async function checkStatus() {
-            const { data: { user } } = await sb.auth.getUser();
-            if (user) {
-                const { data } = await sb.from('user_progress')
-                    .select('is_completed, attempts, certificate_id, completed_at')
-                    .eq('user_id', user.id)
-                    .eq('module_id', '1875f87e-8e89-4bab-80da-72a1925af152')
-                    .single();
-
-                if (data) {
-                    if (data.is_completed) {
-                        // Ensure local storage is synced for results page
-                        localStorage.setItem('hse_score', '10'); // Assume pass
-                        localStorage.setItem('hse_passed', 'true');
-                        localStorage.setItem('hse_date', data.completed_at);
-                        if (data.certificate_id) localStorage.setItem('hse_certificate_id', data.certificate_id);
-
-                        window.location.href = 'results.html';
-                        return;
-                    }
-
-                    if (data.attempts >= 3) {
-                        alert('You have reached the maximum number of attempts (3). Please contact support or wait for the next training cycle.');
-                        window.location.href = '/dashboard';
-                        return;
-                    }
-                }
+            const res = await fetch('/api/progress/module-status?module=hse&moduleId=1875f87e-8e89-4bab-80da-72a1925af152');
+            if (res.status === 401) { window.location.href = '/'; return; }
+            const s = await res.json();
+            if (s.quizCompleted) {
+                localStorage.setItem('hse_score', '10');
+                localStorage.setItem('hse_passed', 'true');
+                if (s.completedAt) localStorage.setItem('hse_date', s.completedAt);
+                if (s.certificateId) localStorage.setItem('hse_certificate_id', s.certificateId);
+                window.location.href = 'results.html'; return;
+            }
+            if (s.attempts >= 3) {
+                alert('You have reached the maximum number of attempts (3). Please contact support or wait for the next training cycle.');
+                window.location.href = '/dashboard';
             }
         }
         checkStatus();
@@ -174,49 +156,16 @@
             localStorage.setItem('hse_date', completionDate);
 
             try {
-                const { data: { user } } = await sb.auth.getUser();
-                if (user) {
-                    const percentageScore = score * 10;
-
-                    // First get current attempts
-                    const { data: currentData } = await sb.from('user_progress')
-                        .select('attempts')
-                        .eq('user_id', user.id)
-                        .eq('module_id', '1875f87e-8e89-4bab-80da-72a1925af152')
-                        .single();
-
-                    const newAttempts = (currentData?.attempts || 0) + 1;
-
-                    // Prepare update object
-                    const updateData = {
-                        user_id: user.id,
-                        module_id: '1875f87e-8e89-4bab-80da-72a1925af152',
-                        quiz_score: percentageScore,
-                        is_completed: passed,
-                        completed_at: completionDate,
-                        attempts: newAttempts
-                    };
-
-                    // Access global crypto for UUID if passed
-                    if (passed) {
-                        // @ts-ignore
-                        const certId = crypto.randomUUID();
-                        updateData.certificate_id = certId;
-                        localStorage.setItem('hse_certificate_id', certId);
-                    }
-
-                    const { error } = await sb.from('user_progress').upsert(updateData, { onConflict: 'user_id,module_id' });
-
-                    if (error) {
-                        console.error('Error saving progress:', error);
-                        alert('Error saving progress to database: ' + error.message);
-                    } else {
-                        // Success - explicit logs
-                        console.log('Progress saved successfully');
-                    }
-                } else {
-                    console.error('No user found');
-                    alert('Error: You are not logged in. Progress cannot be saved.');
+                const res = await fetch('/api/progress/save-quiz', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ moduleId: '1875f87e-8e89-4bab-80da-72a1925af152', score: score * 10, passed, completionDate })
+                });
+                if (res.ok) {
+                    const { certificateId } = await res.json();
+                    if (certificateId) localStorage.setItem('hse_certificate_id', certificateId);
+                } else if (res.status === 401) {
+                    alert('Please log in to save your progress.');
                 }
             } catch (err) {
                 console.error('Error saving to Supabase:', err);

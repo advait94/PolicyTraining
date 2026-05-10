@@ -9,9 +9,6 @@
         href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Rubik:wght@400;500;600&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="/dark-styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
 <body>
@@ -43,8 +40,6 @@
     </div>
 
     <script type="module">
-        import { supabase as sb } from '../auth.js';
-
         const questionsData = [
             { question: "What is \"Personal Data\" as defined under the DPDP Act 2023?", options: ["Only financial information", "Any data that can identify a living individual", "Only government-issued ID numbers", "Only medical records"], correctIndex: 1, explanation: { correct: "Correct! Personal data is any data that can identify a living individual.", incorrect: "Incorrect. Personal data means any data that can identify a living individual." } },
             { question: "Which of the following is considered \"Sensitive Personal Data\"?", options: ["Your favorite color", "Your work email address", "Your biometric fingerprints", "The city you live in"], correctIndex: 2, explanation: { correct: "Correct! Biometric data like fingerprints is considered sensitive personal data.", incorrect: "Incorrect. Biometric fingerprints are classified as sensitive personal data." } },
@@ -128,34 +123,21 @@
             document.getElementById('quizProgress').style.width = ((currentQuestion + 1) / totalQuestions * 100) + '%';
         }
 
-        // Check status on load
+        // Check section completion and quiz status
         async function checkStatus() {
-            const { data: { user } } = await sb.auth.getUser();
-            if (user) {
-                const { data } = await sb.from('user_progress')
-                    .select('is_completed, attempts, certificate_id, completed_at')
-                    .eq('user_id', user.id)
-                    .eq('module_id', '89fa7f59-1df4-4d03-99f6-c302afc0618b')
-                    .single();
-
-                if (data) {
-                    if (data.is_completed) {
-                        // Ensure local storage is synced for results page
-                        localStorage.setItem('dataprivacy_score', '10');
-                        localStorage.setItem('dataprivacy_passed', 'true');
-                        localStorage.setItem('dataprivacy_date', data.completed_at);
-                        if (data.certificate_id) localStorage.setItem('dataprivacy_certificate_id', data.certificate_id);
-
-                        window.location.href = 'results.html';
-                        return;
-                    }
-
-                    if (data.attempts >= 3) {
-                        alert('You have reached the maximum number of attempts (3). Please contact support or wait for the next training cycle.');
-                        window.location.href = '/dashboard';
-                        return;
-                    }
-                }
+            const res = await fetch('/api/progress/module-status?module=dataprivacy&moduleId=89fa7f59-1df4-4d03-99f6-c302afc0618b');
+            if (res.status === 401) { window.location.href = '/'; return; }
+            const s = await res.json();
+            if (s.quizCompleted) {
+                localStorage.setItem('dataprivacy_score', '10');
+                localStorage.setItem('dataprivacy_passed', 'true');
+                if (s.completedAt) localStorage.setItem('dataprivacy_date', s.completedAt);
+                if (s.certificateId) localStorage.setItem('dataprivacy_certificate_id', s.certificateId);
+                window.location.href = 'results.html'; return;
+            }
+            if (s.attempts >= 3) {
+                alert('You have reached the maximum number of attempts (3). Please contact support or wait for the next training cycle.');
+                window.location.href = '/dashboard';
             }
         }
         checkStatus();
@@ -171,49 +153,16 @@
             localStorage.setItem('dataprivacy_date', completionDate);
 
             try {
-                const { data: { user } } = await sb.auth.getUser();
-                if (user) {
-                    const percentageScore = score * 10;
-
-                    // First get current attempts
-                    const { data: currentData } = await sb.from('user_progress')
-                        .select('attempts')
-                        .eq('user_id', user.id)
-                        .eq('module_id', '89fa7f59-1df4-4d03-99f6-c302afc0618b')
-                        .single();
-
-                    const newAttempts = (currentData?.attempts || 0) + 1;
-
-                    // Prepare update object
-                    const updateData = {
-                        user_id: user.id,
-                        module_id: '89fa7f59-1df4-4d03-99f6-c302afc0618b',
-                        quiz_score: percentageScore,
-                        is_completed: passed,
-                        completed_at: completionDate,
-                        attempts: newAttempts
-                    };
-
-                    // Access global crypto for UUID if passed
-                    if (passed) {
-                        // @ts-ignore
-                        const certId = crypto.randomUUID();
-                        updateData.certificate_id = certId;
-                        localStorage.setItem('dataprivacy_certificate_id', certId);
-                    }
-
-                    const { error } = await sb.from('user_progress').upsert(updateData, { onConflict: 'user_id,module_id' });
-
-                    if (error) {
-                        console.error('Error saving progress:', error);
-                        alert('Error saving progress to database: ' + error.message);
-                    } else {
-                        // Success - explicit logs
-                        console.log('Progress saved successfully');
-                    }
-                } else {
-                    console.error('No user found');
-                    alert('Error: You are not logged in. Progress cannot be saved.');
+                const res = await fetch('/api/progress/save-quiz', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ moduleId: '89fa7f59-1df4-4d03-99f6-c302afc0618b', score: score * 10, passed, completionDate })
+                });
+                if (res.ok) {
+                    const { certificateId } = await res.json();
+                    if (certificateId) localStorage.setItem('dataprivacy_certificate_id', certificateId);
+                } else if (res.status === 401) {
+                    alert('Please log in to save your progress.');
                 }
             } catch (err) {
                 console.error('Error saving to Supabase:', err);

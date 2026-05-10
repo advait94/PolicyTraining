@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { inviteUser, getAdminStats, getCompanyUsers, getComplianceReport, bulkInviteUsers } from '@/app/actions/admin'
+import { inviteUser, getAdminStats, getCompanyUsers, getComplianceReport, bulkInviteUsers, getOrgModules, setModuleAssignment, setModuleAllEmployees, getDepartments, createDepartment, deleteDepartment, updateUserDepartment, setDeptModuleAssignment, bulkAssignDepartment, setModuleDeadline, getModuleDeadlines, updateUserRole, getReportChartData } from '@/app/actions/admin'
+import { getAuditLog, getBulkCertificates } from '@/app/actions/audit'
+import { ComplianceCharts } from '@/components/feature/reports/compliance-charts'
 import * as XLSX from 'xlsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -9,7 +11,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts'
-import { Loader2, UserPlus, FileBarChart, Users, AlertTriangle, GraduationCap, Download, Search, CheckCircle, Clock, LogOut } from 'lucide-react'
+import { Loader2, UserPlus, FileBarChart, Users, AlertTriangle, GraduationCap, Download, Search, CheckCircle, Clock, LogOut, BookOpen, ChevronDown, ChevronRight, Plus, Trash2, Building2, Calendar, UsersRound, Trophy, Medal, ShieldCheck, Webhook, Activity } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { DeadlinePicker } from '@/components/ui/deadline-picker'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -27,9 +31,46 @@ export default function AdminDashboard() {
     const [searchTerm, setSearchTerm] = useState('')
     const [orgs, setOrgs] = useState<{ id: string, name: string }[]>([])
 
+    // Module assignment state
+    const [orgModules, setOrgModules] = useState<any[]>([])
+    const [departments, setDepartments] = useState<{ id: string, name: string }[]>([])
+    const [togglingModule, setTogglingModule] = useState<string | null>(null)
+    const [togglingDeptModule, setTogglingDeptModule] = useState<string | null>(null)
+    const [togglingAllEmployees, setTogglingAllEmployees] = useState<string | null>(null)
+    const [expandedModule, setExpandedModule] = useState<string | null>(null)
+
+    // Department management state
+    const [newDeptName, setNewDeptName] = useState('')
+    const [creatingDept, setCreatingDept] = useState(false)
+    const [deletingDept, setDeletingDept] = useState<string | null>(null)
+    const [updatingUserDept, setUpdatingUserDept] = useState<string | null>(null)
+
     // Bulk Invite State
-    const [bulkPreview, setBulkPreview] = useState<{ name: string, email: string }[]>([])
+    const [bulkPreview, setBulkPreview] = useState<{ name: string, email: string, department_id?: string, departmentName?: string }[]>([])
     const [isBulkUploading, setIsBulkUploading] = useState(false)
+
+    // Bulk assign + deadlines + role state
+    const [bulkAssignDeptId, setBulkAssignDeptId] = useState('')
+    const [isBulkAssigning, setIsBulkAssigning] = useState(false)
+    const [moduleDeadlines, setModuleDeadlines] = useState<Record<string, string>>({})
+    const [savingDeadline, setSavingDeadline] = useState<string | null>(null)
+    const [updatingUserRole, setUpdatingUserRole] = useState<string | null>(null)
+
+    // Leaderboard state
+    const [leaderboardData, setLeaderboardData] = useState<any[]>([])
+    const [loadingLeaderboard, setLoadingLeaderboard] = useState(false)
+    const [leaderboardLoaded, setLeaderboardLoaded] = useState(false)
+
+    // Audit log state
+    const [auditLog, setAuditLog] = useState<any[]>([])
+    const [loadingAudit, setLoadingAudit] = useState(false)
+    const [auditLoaded, setAuditLoaded] = useState(false)
+    const [auditModuleFilter, setAuditModuleFilter] = useState('')
+
+    // Bulk cert state
+    const [bulkCertModuleId, setBulkCertModuleId] = useState('')
+    const [bulkCerts, setBulkCerts] = useState<any[]>([])
+    const [loadingBulkCerts, setLoadingBulkCerts] = useState(false)
 
     // Handle File Upload & Parse
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,13 +94,23 @@ export default function AdminDashboard() {
                 return newRow
             })
 
-            // Extract Name/Email
+            // Build department name → id lookup (case-insensitive)
+            const deptLookup = new Map<string, { id: string, name: string }>()
+            departments.forEach(d => deptLookup.set(d.name.toLowerCase().trim(), d))
+
+            // Extract Name/Email/Department
             const validUsers = normalized
                 .filter(r => (r.email || r['email address']) && (r.name || r.fullname || r['full name']))
-                .map(r => ({
-                    name: r.name || r.fullname || r['full name'],
-                    email: r.email || r['email address']
-                }))
+                .map(r => {
+                    const deptRaw: string = (r.department || r.dept || '').toString().toLowerCase().trim()
+                    const deptMatch = deptRaw ? deptLookup.get(deptRaw) : undefined
+                    return {
+                        name: r.name || r.fullname || r['full name'],
+                        email: r.email || r['email address'],
+                        department_id: deptMatch?.id,
+                        departmentName: deptMatch?.name ?? (deptRaw || undefined)
+                    }
+                })
 
             if (validUsers.length === 0) {
                 toast.error('No valid rows found. Ensure columns are "Name" and "Email".')
@@ -86,7 +137,10 @@ export default function AdminDashboard() {
 
         setIsBulkUploading(true)
         try {
-            const result = await bulkInviteUsers(bulkPreview, bulkOrganizationId)
+            const result = await bulkInviteUsers(
+                bulkPreview.map(u => ({ name: u.name, email: u.email, department_id: u.department_id })),
+                bulkOrganizationId
+            )
             if (result.success) {
                 toast.success(result.message)
                 if (result.details && result.details.failed > 0) {
@@ -128,7 +182,7 @@ export default function AdminDashboard() {
             // Verify admin role in public table
             const { data: userData } = await supabase
                 .from('users')
-                .select('role')
+                .select('role, organization_id')
                 .eq('id', user.id)
                 .single()
 
@@ -140,6 +194,21 @@ export default function AdminDashboard() {
             }
 
             setIsAdmin(true)
+
+            // First-time settings check — redirect org admins who haven't configured yet
+            if (!superAdminCheck && userData?.organization_id) {
+                const { data: orgCheck } = await supabase
+                    .from('organizations')
+                    .select('settings_completed')
+                    .eq('id', userData.organization_id)
+                    .single()
+
+                if (orgCheck && !orgCheck.settings_completed) {
+                    router.push('/admin/settings?firstTime=true')
+                    return
+                }
+            }
+
             setLoadingStats(true)
 
             // If superadmin, fetch orgs
@@ -148,12 +217,21 @@ export default function AdminDashboard() {
                 setOrgs(orgsData || []);
             }
 
-            const [statsData, usersData] = await Promise.all([
+            const [statsData, usersData, modulesData, deadlinesData] = await Promise.all([
                 getAdminStats(),
-                getCompanyUsers()
+                getCompanyUsers(),
+                getOrgModules(),
+                getModuleDeadlines()
             ])
             setStats(statsData)
             setUsers(usersData || [])
+            if (modulesData) {
+                setOrgModules(modulesData.modules || [])
+                setDepartments(modulesData.departments || [])
+            }
+            const dlMap: Record<string, string> = {}
+            ;(deadlinesData || []).forEach((d: any) => { dlMap[d.module_id] = d.due_date })
+            setModuleDeadlines(dlMap)
             setLoadingStats(false)
         }
         checkAuthAndLoadData()
@@ -218,6 +296,135 @@ export default function AdminDashboard() {
         }
     }
 
+    async function handleToggleModule(moduleId: string, assign: boolean) {
+        setTogglingModule(moduleId)
+        setOrgModules(prev => prev.map(m => m.id === moduleId ? { ...m, isAssigned: assign } : m))
+        const result = await setModuleAssignment(moduleId, assign)
+        if (!result.success) {
+            setOrgModules(prev => prev.map(m => m.id === moduleId ? { ...m, isAssigned: !assign } : m))
+            toast.error(result.message || 'Failed to update module assignment')
+        } else {
+            toast.success(assign ? 'Module enabled for your organization' : 'Module disabled for your organization')
+        }
+        setTogglingModule(null)
+    }
+
+    async function handleToggleDeptModule(moduleId: string, departmentId: string, assign: boolean) {
+        const key = `${moduleId}:${departmentId}`
+        setTogglingDeptModule(key)
+        setOrgModules(prev => prev.map(m => {
+            if (m.id !== moduleId) return m
+            const newDeptIds = assign
+                ? [...(m.deptIds || []), departmentId]
+                : (m.deptIds || []).filter((id: string) => id !== departmentId)
+            return { ...m, deptIds: newDeptIds }
+        }))
+        const result = await setDeptModuleAssignment(moduleId, departmentId, assign)
+        if (!result.success) {
+            setOrgModules(prev => prev.map(m => {
+                if (m.id !== moduleId) return m
+                const revert = assign
+                    ? (m.deptIds || []).filter((id: string) => id !== departmentId)
+                    : [...(m.deptIds || []), departmentId]
+                return { ...m, deptIds: revert }
+            }))
+            toast.error(result.message || 'Failed to update department assignment')
+        }
+        setTogglingDeptModule(null)
+    }
+
+    async function handleToggleAllEmployees(moduleId: string, value: boolean) {
+        setTogglingAllEmployees(moduleId)
+        setOrgModules(prev => prev.map(m => m.id === moduleId ? { ...m, allEmployees: value } : m))
+        const result = await setModuleAllEmployees(moduleId, value)
+        if (!result.success) {
+            setOrgModules(prev => prev.map(m => m.id === moduleId ? { ...m, allEmployees: !value } : m))
+            toast.error(result.message || 'Failed to update')
+        } else {
+            toast.success(value ? 'Module visible to all employees' : 'Module restricted to departments')
+        }
+        setTogglingAllEmployees(null)
+    }
+
+    async function handleCreateDepartment() {
+        if (!newDeptName.trim()) return
+        setCreatingDept(true)
+        const result = await createDepartment(newDeptName.trim())
+        if (result.success) {
+            toast.success(`Department "${newDeptName}" created`)
+            setNewDeptName('')
+            const fresh = await getDepartments()
+            if (fresh) setDepartments(fresh)
+        } else {
+            toast.error(result.message || 'Failed to create department')
+        }
+        setCreatingDept(false)
+    }
+
+    async function handleDeleteDepartment(id: string, name: string) {
+        setDeletingDept(id)
+        const result = await deleteDepartment(id)
+        if (result.success) {
+            toast.success(`Department "${name}" deleted`)
+            setDepartments(prev => prev.filter(d => d.id !== id))
+            setUsers(prev => prev.map(u => u.department_id === id ? { ...u, department_id: null, department_name: null } : u))
+        } else {
+            toast.error(result.message || 'Failed to delete department')
+        }
+        setDeletingDept(null)
+    }
+
+    async function handleUpdateUserDepartment(userId: string, departmentId: string | null) {
+        setUpdatingUserDept(userId)
+        const result = await updateUserDepartment(userId, departmentId)
+        if (result.success) {
+            const deptName = departments.find(d => d.id === departmentId)?.name || null
+            setUsers(prev => prev.map(u => u.id === userId ? { ...u, department_id: departmentId, department_name: deptName } : u))
+            toast.success('Department updated')
+        } else {
+            toast.error(result.message || 'Failed to update department')
+        }
+        setUpdatingUserDept(null)
+    }
+
+    async function handleBulkAssign() {
+        if (!bulkAssignDeptId) return
+        setIsBulkAssigning(true)
+        const result = await bulkAssignDepartment(bulkAssignDeptId)
+        if (result.success) {
+            const deptName = departments.find(d => d.id === bulkAssignDeptId)?.name || ''
+            setUsers(prev => prev.map(u => u.department_id ? u : { ...u, department_id: bulkAssignDeptId, department_name: deptName }))
+            toast.success(`All unassigned users moved to ${deptName}`)
+        } else {
+            toast.error(result.message || 'Failed to bulk assign')
+        }
+        setIsBulkAssigning(false)
+    }
+
+    async function handleSetDeadline(moduleId: string, dueDate: string) {
+        setSavingDeadline(moduleId)
+        const result = await setModuleDeadline(moduleId, dueDate || null)
+        if (result.success) {
+            setModuleDeadlines(prev => ({ ...prev, [moduleId]: dueDate }))
+            toast.success(dueDate ? 'Deadline saved' : 'Deadline cleared')
+        } else {
+            toast.error(result.message || 'Failed to save deadline')
+        }
+        setSavingDeadline(null)
+    }
+
+    async function handleUpdateUserRole(userId: string, role: string) {
+        setUpdatingUserRole(userId)
+        const result = await updateUserRole(userId, role)
+        if (result.success) {
+            setUsers(prev => prev.map(u => u.id === userId ? { ...u, role } : u))
+            toast.success('Role updated')
+        } else {
+            toast.error(result.message || 'Failed to update role')
+        }
+        setUpdatingUserRole(null)
+    }
+
     const filteredUsers = users.filter(u =>
         u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -245,6 +452,14 @@ export default function AdminDashboard() {
                     )}
                     <Button
                         variant="ghost"
+                        onClick={() => router.push('/admin/posh-policy')}
+                        className="text-slate-300 hover:text-white hover:bg-white/10 rounded-lg"
+                    >
+                        <span className="mr-2">📋</span>
+                        POSH Policy
+                    </Button>
+                    <Button
+                        variant="ghost"
                         onClick={() => router.push('/admin/settings')}
                         className="text-slate-300 hover:text-white hover:bg-white/10 rounded-lg"
                     >
@@ -266,6 +481,9 @@ export default function AdminDashboard() {
                 <TabsList className="bg-[#151A29] border border-white/10 p-1 rounded-xl">
                     <TabsTrigger value="overview" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6">Overview</TabsTrigger>
                     <TabsTrigger value="people" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6">People</TabsTrigger>
+                    <TabsTrigger value="modules" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6">Modules</TabsTrigger>
+                    <TabsTrigger value="leaderboard" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6" onClick={async () => { if (leaderboardLoaded) return; setLoadingLeaderboard(true); const d = await getReportChartData(); setLeaderboardData(d?.deptBreakdown?.sort((a: any, b: any) => b.overallRate - a.overallRate) ?? []); setLeaderboardLoaded(true); setLoadingLeaderboard(false) }}>🏆 Leaderboard</TabsTrigger>
+                    <TabsTrigger value="audit" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6" onClick={async () => { if (auditLoaded) return; setLoadingAudit(true); const d = await getAuditLog(); setAuditLog(d ?? []); setAuditLoaded(true); setLoadingAudit(false) }}>Audit Trail</TabsTrigger>
                     <TabsTrigger value="reports" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6">Reports</TabsTrigger>
                 </TabsList>
 
@@ -292,40 +510,111 @@ export default function AdminDashboard() {
                                         </TabsList>
 
                                         <TabsContent value="single">
-                                            <form action={handleInvite} className="space-y-4">
+                                            <form action={handleInvite} className="space-y-3">
                                                 {isSuperAdmin && (
-                                                    <div className="space-y-2 mb-4">
-                                                        <Label htmlFor="organizationId" className="text-slate-300">Target Organization</Label>
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="organizationId" className="text-slate-300 text-xs">Target Organization <span className="text-red-400">*</span></Label>
                                                         <select
                                                             id="organizationId"
                                                             name="organizationId"
                                                             required
-                                                            className="flex h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
+                                                            className="flex h-9 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                                                         >
                                                             <option value="" disabled className="bg-[#151A29]">Select an organization</option>
                                                             {orgs.map((org: any) => (
-                                                                <option key={org.id} value={org.id} className="bg-[#151A29]">
-                                                                    {org.name}
-                                                                </option>
+                                                                <option key={org.id} value={org.id} className="bg-[#151A29]">{org.name}</option>
                                                             ))}
                                                         </select>
                                                     </div>
                                                 )}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="fullName" className="text-slate-300">Full Name</Label>
-                                                    <Input id="fullName" name="fullName" placeholder="John Doe" required className="bg-black/20 border-white/10 text-white" />
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="fullName" className="text-slate-300 text-xs">Full Name <span className="text-red-400">*</span></Label>
+                                                    <Input id="fullName" name="fullName" placeholder="Jane Smith" required className="bg-black/20 border-white/10 text-white h-9" />
                                                 </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="email" className="text-slate-300">Email Address</Label>
-                                                    <Input id="email" name="email" type="email" placeholder="john@company.com" required className="bg-black/20 border-white/10 text-white" />
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="email" className="text-slate-300 text-xs">Email Address <span className="text-red-400">*</span></Label>
+                                                    <Input id="email" name="email" type="email" placeholder="jane@company.com" required className="bg-black/20 border-white/10 text-white h-9" />
                                                 </div>
-                                                <Button type="submit" className="w-full bg-cyan-600 hover:bg-cyan-500 text-white">Send Invitation</Button>
+                                                {isSuperAdmin && (
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="role" className="text-slate-300 text-xs">Role</Label>
+                                                        <select
+                                                            id="role"
+                                                            name="role"
+                                                            className="flex h-9 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                        >
+                                                            <option value="learner" className="bg-[#151A29]">Learner</option>
+                                                            <option value="admin" className="bg-[#151A29]">Admin</option>
+                                                        </select>
+                                                    </div>
+                                                )}
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="departmentId" className="text-slate-300 text-xs">Department <span className="text-slate-500">(optional)</span></Label>
+                                                    <select
+                                                        id="departmentId"
+                                                        name="departmentId"
+                                                        className="flex h-9 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                    >
+                                                        <option value="" className="bg-[#151A29]">— No department —</option>
+                                                        {departments.map(d => (
+                                                            <option key={d.id} value={d.id} className="bg-[#151A29]">{d.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <Button type="submit" className="w-full bg-cyan-600 hover:bg-cyan-500 text-white mt-1">Send Invitation</Button>
                                             </form>
                                         </TabsContent>
 
                                         <TabsContent value="bulk" className="space-y-4">
+                                            {/* Instructions card */}
+                                            <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4 space-y-3">
+                                                <p className="text-xs font-semibold text-blue-300 uppercase tracking-wide">Required File Format</p>
+                                                <div className="overflow-x-auto rounded-md border border-white/10 text-xs">
+                                                    <table className="w-full text-left">
+                                                        <thead className="bg-white/5">
+                                                            <tr>
+                                                                <th className="px-3 py-2 text-slate-400">Column</th>
+                                                                <th className="px-3 py-2 text-slate-400">Header Name</th>
+                                                                <th className="px-3 py-2 text-slate-400">Required?</th>
+                                                                <th className="px-3 py-2 text-slate-400">Notes</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="text-slate-300">
+                                                            <tr className="border-t border-white/5">
+                                                                <td className="px-3 py-2 font-medium">A</td>
+                                                                <td className="px-3 py-2 font-mono text-cyan-400">Name</td>
+                                                                <td className="px-3 py-2 text-green-400">Required</td>
+                                                                <td className="px-3 py-2 text-slate-400">Full name of the employee</td>
+                                                            </tr>
+                                                            <tr className="border-t border-white/5">
+                                                                <td className="px-3 py-2 font-medium">B</td>
+                                                                <td className="px-3 py-2 font-mono text-cyan-400">Email</td>
+                                                                <td className="px-3 py-2 text-green-400">Required</td>
+                                                                <td className="px-3 py-2 text-slate-400">Work email address</td>
+                                                            </tr>
+                                                            <tr className="border-t border-white/5">
+                                                                <td className="px-3 py-2 font-medium">C</td>
+                                                                <td className="px-3 py-2 font-mono text-cyan-400">Department</td>
+                                                                <td className="px-3 py-2 text-slate-400">Optional</td>
+                                                                <td className="px-3 py-2 text-slate-400">Must exactly match a department name</td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                {departments.length > 0 && (
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs text-slate-400">Available departments:</p>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {departments.map(d => (
+                                                                <span key={d.id} className="inline-block px-2 py-0.5 rounded bg-white/5 border border-white/10 text-xs text-slate-300 font-mono">{d.name}</span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
                                             {isSuperAdmin && (
-                                                <div className="space-y-2 mb-4">
+                                                <div className="space-y-2">
                                                     <Label htmlFor="bulkOrganizationId" className="text-slate-300">Target Organization</Label>
                                                     <select
                                                         id="bulkOrganizationId"
@@ -357,7 +646,7 @@ export default function AdminDashboard() {
                                                         <FileBarChart className="w-5 h-5" />
                                                     </div>
                                                     <p className="text-sm text-slate-300 font-medium">Click or drag file to upload</p>
-                                                    <p className="text-xs text-slate-500">CSV or Excel (Name, Email columns)</p>
+                                                    <p className="text-xs text-slate-500">CSV or Excel — columns: Name, Email, Department (optional)</p>
                                                 </div>
                                             </div>
 
@@ -367,23 +656,32 @@ export default function AdminDashboard() {
                                                         <span>Preview ({bulkPreview.length} users)</span>
                                                         <button onClick={() => setBulkPreview([])} className="text-red-400 hover:text-red-300">Clear</button>
                                                     </div>
-                                                    <div className="max-h-32 overflow-y-auto rounded-md border border-white/10 text-xs">
+                                                    <div className="max-h-40 overflow-y-auto rounded-md border border-white/10 text-xs">
                                                         <table className="w-full text-left text-slate-300">
                                                             <thead className="bg-white/5 sticky top-0">
                                                                 <tr>
                                                                     <th className="p-2">Name</th>
                                                                     <th className="p-2">Email</th>
+                                                                    <th className="p-2">Department</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
                                                                 {bulkPreview.slice(0, 10).map((u, i) => (
                                                                     <tr key={i} className="border-t border-white/5">
-                                                                        <td className="p-2 truncate max-w-[100px]">{u.name}</td>
-                                                                        <td className="p-2 truncate max-w-[150px]">{u.email}</td>
+                                                                        <td className="p-2 truncate max-w-[90px]">{u.name}</td>
+                                                                        <td className="p-2 truncate max-w-[130px]">{u.email}</td>
+                                                                        <td className="p-2 truncate max-w-[100px]">
+                                                                            {u.department_id
+                                                                                ? <span className="text-green-400">{u.departmentName}</span>
+                                                                                : u.departmentName
+                                                                                    ? <span className="text-yellow-400" title="Department not found">{u.departmentName} ⚠</span>
+                                                                                    : <span className="text-slate-500">—</span>
+                                                                            }
+                                                                        </td>
                                                                     </tr>
                                                                 ))}
                                                                 {bulkPreview.length > 10 && (
-                                                                    <tr><td colSpan={2} className="p-2 text-center text-slate-500">...and {bulkPreview.length - 10} more</td></tr>
+                                                                    <tr><td colSpan={3} className="p-2 text-center text-slate-500">...and {bulkPreview.length - 10} more</td></tr>
                                                                 )}
                                                             </tbody>
                                                         </table>
@@ -464,19 +762,43 @@ export default function AdminDashboard() {
                 {/* PEOPLE TAB */}
                 <TabsContent value="people">
                     <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
-                        <CardHeader className="flex flex-row items-center justify-between">
+                        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-3">
                             <div>
                                 <CardTitle className="text-white">People</CardTitle>
-                                <CardDescription className="text-slate-400">All employees in your organization.</CardDescription>
+                                <CardDescription className="text-slate-400">Manage employees and assign them to departments.</CardDescription>
                             </div>
-                            <div className="relative w-64">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                                <Input
-                                    placeholder="Search people..."
-                                    className="pl-9 bg-black/20 border-white/10 text-white"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
+                            <div className="flex items-center gap-3 flex-wrap">
+                                {/* Bulk assign unassigned users */}
+                                {departments.length > 0 && (
+                                    <div className="flex items-center gap-2">
+                                        <select
+                                            value={bulkAssignDeptId}
+                                            onChange={e => setBulkAssignDeptId(e.target.value)}
+                                            className="text-xs bg-black/30 border border-white/10 text-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                        >
+                                            <option value="">Bulk assign unassigned…</option>
+                                            {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                        </select>
+                                        <Button
+                                            size="sm"
+                                            disabled={!bulkAssignDeptId || isBulkAssigning}
+                                            onClick={handleBulkAssign}
+                                            className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs h-8"
+                                        >
+                                            {isBulkAssigning ? <Loader2 className="w-3 h-3 animate-spin" /> : <UsersRound className="w-3 h-3" />}
+                                            <span className="ml-1">Assign</span>
+                                        </Button>
+                                    </div>
+                                )}
+                                <div className="relative w-56">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                                    <Input
+                                        placeholder="Search people..."
+                                        className="pl-9 bg-black/20 border-white/10 text-white"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                </div>
                             </div>
                         </CardHeader>
                         <CardContent>
@@ -487,8 +809,10 @@ export default function AdminDashboard() {
                                             <th className="p-4">Name</th>
                                             <th className="p-4">Email</th>
                                             <th className="p-4">Role</th>
-                                            <th className="p-4">Modules Completed</th>
+                                            <th className="p-4">Department</th>
+                                            <th className="p-4">Modules</th>
                                             <th className="p-4">Status</th>
+                                            <th className="p-4">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
@@ -497,6 +821,22 @@ export default function AdminDashboard() {
                                                 <td className="p-4 text-white font-medium">{user.name}</td>
                                                 <td className="p-4 text-slate-400">{user.email}</td>
                                                 <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs ${user.role === 'admin' ? 'bg-purple-500/20 text-purple-300' : 'bg-blue-500/20 text-blue-300'}`}>{user.role}</span></td>
+                                                <td className="p-4">
+                                                    {updatingUserDept === user.id ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
+                                                    ) : (
+                                                        <select
+                                                            value={user.department_id || ''}
+                                                            onChange={(e) => handleUpdateUserDepartment(user.id, e.target.value || null)}
+                                                            className="text-xs bg-black/30 border border-white/10 text-slate-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                                        >
+                                                            <option value="" className="bg-[#151A29] text-slate-500">— No department —</option>
+                                                            {departments.map(d => (
+                                                                <option key={d.id} value={d.id} className="bg-[#151A29]">{d.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    )}
+                                                </td>
                                                 <td className="p-4 text-slate-300">{user.modules_completed}</td>
                                                 <td className="p-4">
                                                     {user.modules_completed > 0 ? (
@@ -505,11 +845,27 @@ export default function AdminDashboard() {
                                                         <span className="flex items-center text-slate-500 gap-1"><Clock className="w-3 h-3" /> Pending</span>
                                                     )}
                                                 </td>
+                                                <td className="p-4">
+                                                    {user.role !== 'admin' && (
+                                                        updatingUserRole === user.id ? (
+                                                            <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
+                                                        ) : (
+                                                            <select
+                                                                value={user.role || 'learner'}
+                                                                onChange={e => handleUpdateUserRole(user.id, e.target.value)}
+                                                                className="text-xs bg-black/30 border border-white/10 text-slate-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                                            >
+                                                                <option value="learner">Learner</option>
+                                                                <option value="manager">Manager</option>
+                                                            </select>
+                                                        )
+                                                    )}
+                                                </td>
                                             </tr>
                                         ))}
                                         {filteredUsers.length === 0 && (
                                             <tr>
-                                                <td colSpan={5} className="p-8 text-center text-slate-500">No users found.</td>
+                                                <td colSpan={6} className="p-8 text-center text-slate-500">No users found.</td>
                                             </tr>
                                         )}
                                     </tbody>
@@ -519,26 +875,549 @@ export default function AdminDashboard() {
                     </Card>
                 </TabsContent>
 
-                {/* REPORTS TAB */}
-                <TabsContent value="reports">
+                {/* MODULES TAB */}
+                <TabsContent value="modules" className="space-y-6">
+                    {/* Department Management Card */}
                     <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
                         <CardHeader>
-                            <CardTitle className="text-white">Compliance Reports</CardTitle>
-                            <CardDescription className="text-slate-400">Download detailed training records for auditing.</CardDescription>
+                            <CardTitle className="flex items-center gap-2 text-white">
+                                <Building2 className="w-5 h-5 text-cyan-400" />
+                                Departments
+                            </CardTitle>
+                            <CardDescription className="text-slate-400">
+                                Create departments to control which modules each group of employees can access.
+                            </CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="flex items-center justify-between p-6 bg-white/5 rounded-xl border border-white/10">
-                                <div>
-                                    <h3 className="text-lg font-medium text-white">Full Organization Compliance Report</h3>
-                                    <p className="text-slate-400 mt-1">Includes detailed progress for every employee and module.</p>
+                        <CardContent className="space-y-5">
+                            {/* Quick-add presets */}
+                            {(() => {
+                                const PRESET_DEPARTMENTS = [
+                                    { name: 'Board Members', description: 'Directors and board-level governance roles' },
+                                    { name: 'CS / Legal Team', description: 'Company Secretaries, in-house counsel, and legal staff' },
+                                    { name: 'Finance & Accounts', description: 'CFO, accountants, treasury, and financial reporting' },
+                                    { name: 'Human Resources', description: 'HR managers, payroll, and talent acquisition' },
+                                    { name: 'Compliance & Risk', description: 'Dedicated compliance officers and risk managers' },
+                                    { name: 'Internal Audit', description: 'Internal auditors and assurance professionals' },
+                                    { name: 'Procurement & Supply Chain', description: 'Purchase officers and vendor management teams' },
+                                    { name: 'Operations', description: 'Plant managers, operations leads, and project teams' },
+                                    { name: 'IT & Technology', description: 'IT managers, developers, and system administrators' },
+                                    { name: 'Sales & Marketing', description: 'Sales teams, business development, and marketing' },
+                                    { name: 'Executive Management', description: 'CEO, COO, MD, and senior leadership' },
+                                ]
+                                const existingNames = new Set(departments.map(d => d.name))
+                                const available = PRESET_DEPARTMENTS.filter(p => !existingNames.has(p.name))
+                                if (available.length === 0) return null
+                                return (
+                                    <div className="space-y-2">
+                                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Quick Add Common Departments</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {available.map(preset => (
+                                                <button
+                                                    key={preset.name}
+                                                    title={preset.description}
+                                                    onClick={async () => {
+                                                        setCreatingDept(true)
+                                                        const result = await createDepartment(preset.name)
+                                                        if (result.success) {
+                                                            const fresh = await getDepartments()
+                                                            if (fresh) setDepartments(fresh)
+                                                        } else {
+                                                            toast.error(result.message || 'Failed to create department')
+                                                        }
+                                                        setCreatingDept(false)
+                                                    }}
+                                                    disabled={creatingDept}
+                                                    className="flex items-center gap-1.5 bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 hover:bg-cyan-500/20 transition-colors rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
+                                                >
+                                                    <Plus className="w-3 h-3" />
+                                                    {preset.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )
+                            })()}
+
+                            {/* Divider */}
+                            <div className="border-t border-white/5" />
+
+                            {/* Custom department input */}
+                            <div className="space-y-2">
+                                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Add Custom Department</p>
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="e.g. Research & Development"
+                                        value={newDeptName}
+                                        onChange={(e) => setNewDeptName(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleCreateDepartment()}
+                                        className="bg-black/20 border-white/10 text-white"
+                                    />
+                                    <Button
+                                        onClick={handleCreateDepartment}
+                                        disabled={creatingDept || !newDeptName.trim()}
+                                        className="bg-cyan-600 hover:bg-cyan-500 text-white shrink-0"
+                                    >
+                                        {creatingDept ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                        <span className="ml-1">Add</span>
+                                    </Button>
                                 </div>
-                                <Button onClick={handleDownloadReport} className="bg-green-600 hover:bg-green-500 text-white flex items-center gap-2">
-                                    <Download className="w-4 h-4" />
-                                    Download CSV
-                                </Button>
                             </div>
+
+                            {/* Active departments */}
+                            {departments.length > 0 && (
+                                <div className="space-y-2">
+                                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Active Departments ({departments.length})</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {departments.map(dept => (
+                                            <div key={dept.id} className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
+                                                <span className="text-sm text-slate-300">{dept.name}</span>
+                                                <button
+                                                    onClick={() => handleDeleteDepartment(dept.id, dept.name)}
+                                                    disabled={deletingDept === dept.id}
+                                                    className="text-slate-600 hover:text-red-400 transition-colors ml-1"
+                                                >
+                                                    {deletingDept === dept.id
+                                                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                                                        : <Trash2 className="w-3 h-3" />}
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {departments.length === 0 && (
+                                <p className="text-sm text-slate-500 text-center py-2">No departments yet. Use the quick-add buttons above or type a custom name.</p>
+                            )}
                         </CardContent>
                     </Card>
+
+                    {/* Module Assignments Card */}
+                    <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-white">
+                                <BookOpen className="w-5 h-5 text-purple-400" />
+                                Module Assignments
+                            </CardTitle>
+                            <CardDescription className="text-slate-400">
+                                Enable modules for your organisation, then assign them to specific departments. A module must be enabled AND assigned to at least one department to be visible to employees.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {loadingStats ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+                                </div>
+                            ) : orgModules.length === 0 ? (
+                                <div className="text-center py-12 text-slate-500">No modules found.</div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-xs text-slate-500 px-4 pb-2 border-b border-white/5">
+                                        <span>{orgModules.filter(m => m.isAssigned).length} of {orgModules.length} modules enabled</span>
+                                        <span className="text-slate-600">Click a module to assign departments</span>
+                                    </div>
+                                    {orgModules.map((module) => (
+                                        <div key={module.id} className={`rounded-xl border transition-colors ${module.isAssigned ? 'bg-purple-500/5 border-purple-500/20' : 'bg-white/5 border-white/5'}`}>
+                                            {/* Module row */}
+                                            <div className="flex items-center justify-between p-4">
+                                                <button
+                                                    className="flex items-center gap-4 flex-1 text-left"
+                                                    onClick={() => setExpandedModule(expandedModule === module.id ? null : module.id)}
+                                                >
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${module.isAssigned ? 'bg-purple-500/20 text-purple-400' : 'bg-white/5 text-slate-600'}`}>
+                                                        <BookOpen className="w-5 h-5" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className={`font-medium transition-colors ${module.isAssigned ? 'text-white' : 'text-slate-400'}`}>
+                                                            {module.title}
+                                                        </div>
+                                                        {module.isAssigned && (
+                                                            <div className="text-xs mt-0.5">
+                                                                {module.allEmployees
+                                                                    ? <span className="text-blue-400">Visible to all employees</span>
+                                                                    : module.deptIds?.length === 0
+                                                                        ? <span className="text-yellow-500">No departments assigned — invisible to all</span>
+                                                                        : <span className="text-green-400">{module.deptIds.length} department{module.deptIds.length !== 1 ? 's' : ''} assigned</span>
+                                                                }
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {module.isAssigned && (
+                                                        expandedModule === module.id
+                                                            ? <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
+                                                            : <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
+                                                    )}
+                                                </button>
+                                                <Switch
+                                                    checked={module.isAssigned}
+                                                    disabled={togglingModule === module.id}
+                                                    onCheckedChange={(checked) => handleToggleModule(module.id, checked)}
+                                                    className="ml-4"
+                                                />
+                                            </div>
+
+                                            {/* Department assignment panel */}
+                                            {module.isAssigned && expandedModule === module.id && (
+                                                <div className="px-4 pb-4 border-t border-white/5 pt-3 space-y-3">
+                                                    {/* Deadline picker */}
+                                                    <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-white/5 border border-white/10">
+                                                        <Calendar className="w-4 h-4 text-amber-400 shrink-0" />
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-medium text-slate-300">Completion Deadline</p>
+                                                            <p className="text-xs text-slate-500 mt-0.5">Employees will see a badge and receive email reminders</p>
+                                                        </div>
+                                                        <DeadlinePicker
+                                                            value={moduleDeadlines[module.id] || ''}
+                                                            onChange={val => handleSetDeadline(module.id, val)}
+                                                            disabled={savingDeadline === module.id}
+                                                        />
+                                                        {moduleDeadlines[module.id] && (
+                                                            <button
+                                                                onClick={() => handleSetDeadline(module.id, '')}
+                                                                className="text-xs text-red-400 hover:text-red-300"
+                                                                title="Clear deadline"
+                                                            >✕</button>
+                                                        )}
+                                                        {savingDeadline === module.id && <Loader2 className="w-3 h-3 animate-spin text-amber-400" />}
+                                                    </div>
+                                                    {/* All Employees toggle */}
+                                                    <div className={`flex items-center justify-between px-3 py-3 rounded-lg border transition-colors ${module.allEmployees ? 'bg-blue-500/10 border-blue-500/30' : 'bg-white/5 border-white/10'}`}>
+                                                        <div>
+                                                            <p className={`text-sm font-medium ${module.allEmployees ? 'text-blue-300' : 'text-slate-300'}`}>All Employees</p>
+                                                            <p className="text-xs text-slate-500 mt-0.5">Visible to everyone in the organisation, regardless of department</p>
+                                                        </div>
+                                                        <Switch
+                                                            checked={!!module.allEmployees}
+                                                            disabled={togglingAllEmployees === module.id}
+                                                            onCheckedChange={(checked) => handleToggleAllEmployees(module.id, checked)}
+                                                        />
+                                                    </div>
+
+                                                    {/* Per-department toggles — only when All Employees is off */}
+                                                    {!module.allEmployees && (
+                                                        departments.length === 0 ? (
+                                                            <p className="text-sm text-slate-500">Create departments above to assign this module to specific groups.</p>
+                                                        ) : (
+                                                            <div className="space-y-2">
+                                                                <p className="text-xs text-slate-500">Or restrict to specific departments:</p>
+                                                                {departments.map(dept => {
+                                                                    const isAssigned = (module.deptIds || []).includes(dept.id)
+                                                                    const key = `${module.id}:${dept.id}`
+                                                                    return (
+                                                                        <div key={dept.id} className={`flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${isAssigned ? 'bg-green-500/10 border border-green-500/20' : 'bg-white/5 border border-white/5'}`}>
+                                                                            <span className={`text-sm ${isAssigned ? 'text-green-300' : 'text-slate-400'}`}>{dept.name}</span>
+                                                                            <Switch
+                                                                                checked={isAssigned}
+                                                                                disabled={togglingDeptModule === key}
+                                                                                onCheckedChange={(checked) => handleToggleDeptModule(module.id, dept.id, checked)}
+                                                                            />
+                                                                        </div>
+                                                                    )
+                                                                })}
+                                                            </div>
+                                                        )
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* LEADERBOARD TAB */}
+                <TabsContent value="leaderboard" className="space-y-6">
+                    <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
+                        <CardHeader>
+                            <CardTitle className="text-white flex items-center gap-2">
+                                <Trophy className="w-5 h-5 text-yellow-400" />
+                                Department Compliance Leaderboard
+                            </CardTitle>
+                            <CardDescription className="text-slate-400">
+                                Departments ranked by overall training completion rate across all assigned modules.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {loadingLeaderboard ? (
+                                <div className="flex items-center justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-purple-400" /></div>
+                            ) : leaderboardData.length === 0 ? (
+                                <div className="text-center py-12 text-slate-500">No department data available yet.</div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {leaderboardData.map((dept: any, idx: number) => {
+                                        const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null
+                                        const rate: number = dept.overallRate ?? 0
+                                        const barColor = rate >= 80 ? '#22c55e' : rate >= 50 ? '#f59e0b' : '#ef4444'
+                                        return (
+                                            <div key={dept.dept} className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
+                                                <div className="w-8 text-center text-lg font-bold">
+                                                    {medal ?? <span className="text-slate-500 text-sm">#{idx + 1}</span>}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between mb-1.5">
+                                                        <span className="text-white font-medium truncate">{dept.dept}</span>
+                                                        <span className="text-sm font-semibold ml-4 shrink-0" style={{ color: barColor }}>
+                                                            {rate}%
+                                                        </span>
+                                                    </div>
+                                                    <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                                                        <div
+                                                            className="h-full rounded-full transition-all duration-700"
+                                                            style={{ width: `${rate}%`, background: barColor }}
+                                                        />
+                                                    </div>
+                                                    <div className="text-xs text-slate-500 mt-1">{dept.total} employee{dept.total !== 1 ? 's' : ''}</div>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* AUDIT TRAIL TAB */}
+                <TabsContent value="audit" className="space-y-6">
+                    <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
+                        <CardHeader className="flex flex-row items-start justify-between gap-4 flex-wrap">
+                            <div>
+                                <CardTitle className="text-white flex items-center gap-2">
+                                    <Activity className="w-5 h-5 text-cyan-400" />
+                                    Compliance Audit Trail
+                                </CardTitle>
+                                <CardDescription className="text-slate-400">
+                                    Timestamped log of every slide view, quiz attempt, and attestation across your organisation.
+                                </CardDescription>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <select
+                                    value={auditModuleFilter}
+                                    onChange={e => setAuditModuleFilter(e.target.value)}
+                                    className="text-xs bg-black/30 border border-white/10 text-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                >
+                                    <option value="">All events</option>
+                                    <option value="slide_viewed">Slide Views</option>
+                                    <option value="quiz_started">Quiz Started</option>
+                                    <option value="quiz_completed">Quiz Completed</option>
+                                    <option value="attestation_signed">Attestations</option>
+                                </select>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-slate-400 hover:text-white text-xs"
+                                    onClick={async () => {
+                                        setLoadingAudit(true)
+                                        const d = await getAuditLog()
+                                        setAuditLog(d ?? [])
+                                        setLoadingAudit(false)
+                                    }}
+                                >
+                                    {loadingAudit ? <Loader2 className="w-3 h-3 animate-spin" /> : '↻ Refresh'}
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {loadingAudit ? (
+                                <div className="flex items-center justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-cyan-400" /></div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b border-white/10 text-left">
+                                                <th className="pb-3 pr-4 text-slate-400 font-medium">Timestamp</th>
+                                                <th className="pb-3 pr-4 text-slate-400 font-medium">Employee</th>
+                                                <th className="pb-3 pr-4 text-slate-400 font-medium">Module</th>
+                                                <th className="pb-3 pr-4 text-slate-400 font-medium">Event</th>
+                                                <th className="pb-3 text-slate-400 font-medium">Detail</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {auditLog
+                                                .filter((e: any) => !auditModuleFilter || e.eventType === auditModuleFilter)
+                                                .slice(0, 200)
+                                                .map((entry: any) => {
+                                                    const eventBadge: Record<string, { label: string; color: string }> = {
+                                                        slide_viewed:      { label: 'Slide Viewed',       color: '#6366f1' },
+                                                        quiz_started:      { label: 'Quiz Started',       color: '#f59e0b' },
+                                                        quiz_completed:    { label: 'Quiz Completed',     color: '#22c55e' },
+                                                        attestation_signed:{ label: 'Attestation Signed', color: '#a855f7' },
+                                                    }
+                                                    const badge = eventBadge[entry.eventType] ?? { label: entry.eventType, color: '#64748b' }
+                                                    return (
+                                                        <tr key={entry.id} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
+                                                            <td className="py-2.5 pr-4 text-slate-400 whitespace-nowrap text-xs">
+                                                                {new Date(entry.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                                                            </td>
+                                                            <td className="py-2.5 pr-4">
+                                                                <div className="text-white text-xs font-medium truncate max-w-[140px]">{entry.userName}</div>
+                                                                <div className="text-slate-500 text-xs truncate max-w-[140px]">{entry.userEmail}</div>
+                                                            </td>
+                                                            <td className="py-2.5 pr-4 text-slate-300 text-xs truncate max-w-[160px]">{entry.moduleTitle}</td>
+                                                            <td className="py-2.5 pr-4">
+                                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium text-white" style={{ background: badge.color + '33', color: badge.color, border: `1px solid ${badge.color}44` }}>
+                                                                    {badge.label}
+                                                                </span>
+                                                            </td>
+                                                            <td className="py-2.5 text-slate-400 text-xs">
+                                                                {entry.eventType === 'quiz_completed' && entry.metadata?.score != null
+                                                                    ? `Score: ${entry.metadata.score}% — ${entry.metadata.passed ? '✅ Passed' : '❌ Failed'}`
+                                                                    : entry.eventType === 'slide_viewed' && entry.slideTitle
+                                                                        ? entry.slideTitle
+                                                                        : '—'}
+                                                            </td>
+                                                        </tr>
+                                                    )
+                                                })}
+                                            {auditLog.filter((e: any) => !auditModuleFilter || e.eventType === auditModuleFilter).length === 0 && (
+                                                <tr><td colSpan={5} className="py-12 text-center text-slate-500">No events recorded yet.</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* REPORTS TAB */}
+                <TabsContent value="reports" className="space-y-6">
+                    {/* Bulk Certificate Download */}
+                    <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
+                        <CardHeader>
+                            <CardTitle className="text-white flex items-center gap-2">
+                                <Download className="w-5 h-5 text-green-400" />
+                                Bulk Certificate Export
+                            </CardTitle>
+                            <CardDescription className="text-slate-400">
+                                Select a module to view all completion certificates and download a consolidated PDF.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <select
+                                    value={bulkCertModuleId}
+                                    onChange={e => { setBulkCertModuleId(e.target.value); setBulkCerts([]) }}
+                                    className="bg-black/30 border border-white/10 text-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                >
+                                    <option value="">Select a module…</option>
+                                    {orgModules.filter((m: any) => m.isAssigned).map((m: any) => (
+                                        <option key={m.id} value={m.id}>{m.title}</option>
+                                    ))}
+                                </select>
+                                <Button
+                                    disabled={!bulkCertModuleId || loadingBulkCerts}
+                                    onClick={async () => {
+                                        setLoadingBulkCerts(true)
+                                        const data = await getBulkCertificates(bulkCertModuleId)
+                                        setBulkCerts(data ?? [])
+                                        setLoadingBulkCerts(false)
+                                    }}
+                                    className="bg-purple-600 hover:bg-purple-500 text-white text-sm"
+                                >
+                                    {loadingBulkCerts ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
+                                    Fetch Completions
+                                </Button>
+                            </div>
+
+                            {bulkCerts.length > 0 && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                                        <span className="text-sm text-slate-400">{bulkCerts.length} employee{bulkCerts.length !== 1 ? 's' : ''} completed this module</span>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="border-white/10 text-slate-300 hover:text-white text-xs"
+                                                onClick={() => {
+                                                    const headers = ['Name', 'Email', 'Score', 'Completed Date', 'Attestation', 'Certificate ID']
+                                                    const rows = bulkCerts.map((c: any) => [
+                                                        c.userName,
+                                                        c.userEmail,
+                                                        `${c.quizScore ?? ''}%`,
+                                                        c.completedAt ? new Date(c.completedAt).toLocaleDateString('en-IN') : '',
+                                                        c.attestationAccepted ? 'Signed' : 'Pending',
+                                                        c.certificateId ?? '',
+                                                    ])
+                                                    const csv = [headers, ...rows].map(r => r.map((v: string) => `"${v}"`).join(',')).join('\n')
+                                                    const blob = new Blob([csv], { type: 'text/csv' })
+                                                    const url = URL.createObjectURL(blob)
+                                                    const a = document.createElement('a')
+                                                    a.href = url
+                                                    a.download = `certificates-export.csv`
+                                                    a.click()
+                                                    URL.revokeObjectURL(url)
+                                                }}
+                                            >
+                                                <Download className="w-3 h-3 mr-1" />
+                                                Export CSV
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                className="bg-green-600 hover:bg-green-500 text-white text-xs"
+                                                onClick={() => {
+                                                    bulkCerts.forEach((cert: any, i: number) => {
+                                                        setTimeout(() => {
+                                                            window.open(`/certificate/${cert.moduleId}?uid=${cert.userId}`, '_blank')
+                                                        }, i * 350)
+                                                    })
+                                                }}
+                                            >
+                                                <Download className="w-3 h-3 mr-1" />
+                                                Open All Certs ({bulkCerts.length})
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div className="overflow-x-auto rounded-lg border border-white/10">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="border-b border-white/10 bg-white/5">
+                                                    <th className="p-3 text-left text-slate-400 font-medium">Employee</th>
+                                                    <th className="p-3 text-left text-slate-400 font-medium">Score</th>
+                                                    <th className="p-3 text-left text-slate-400 font-medium">Completed</th>
+                                                    <th className="p-3 text-left text-slate-400 font-medium">Attestation</th>
+                                                    <th className="p-3 text-left text-slate-400 font-medium">Certificate</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {bulkCerts.map((cert: any) => (
+                                                    <tr key={cert.userId} className="border-b border-white/5 hover:bg-white/[0.03]">
+                                                        <td className="p-3">
+                                                            <div className="text-white text-sm font-medium">{cert.userName}</div>
+                                                            <div className="text-slate-500 text-xs">{cert.userEmail}</div>
+                                                        </td>
+                                                        <td className="p-3 text-slate-300">{cert.quizScore ?? '—'}%</td>
+                                                        <td className="p-3 text-slate-300 text-xs">
+                                                            {cert.completedAt ? new Date(cert.completedAt).toLocaleDateString('en-IN') : '—'}
+                                                        </td>
+                                                        <td className="p-3">
+                                                            {cert.attestationAccepted
+                                                                ? <span className="flex items-center gap-1 text-green-400 text-xs"><ShieldCheck className="w-3.5 h-3.5" /> Signed</span>
+                                                                : <span className="text-slate-500 text-xs">Pending</span>}
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <a
+                                                                href={`/certificate/${cert.moduleId}?uid=${cert.userId}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-purple-400 hover:text-purple-300 text-xs underline"
+                                                            >
+                                                                View
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <ComplianceCharts />
                 </TabsContent>
             </Tabs>
         </div >

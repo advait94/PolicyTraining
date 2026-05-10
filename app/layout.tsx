@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Outfit, Raleway, Rubik } from 'next/font/google'
+import { Outfit, Raleway, Rubik, Playfair_Display } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'sonner'
 import { OrganizationProvider } from "@/components/providers/organization-provider"
@@ -10,6 +10,7 @@ import { AuthSync } from '@/components/feature/auth/auth-sync'
 const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' })
 const raleway = Raleway({ subsets: ['latin'], variable: '--font-raleway' })
 const rubik = Rubik({ subsets: ['latin'], variable: '--font-rubik' })
+const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' })
 
 export const metadata: Metadata = {
   title: 'Policy Training Platform',
@@ -27,6 +28,7 @@ export default function RootLayout({
         outfit.variable,
         raleway.variable,
         rubik.variable,
+        playfair.variable,
         "font-sans antialiased"
       )}>
         <OrganizationProvider>

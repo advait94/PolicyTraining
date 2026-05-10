@@ -35,6 +35,7 @@ export default async function ModulePage({ params }: { params: Promise<{ id: str
         .select(`
       id,
       text,
+      explanation,
       answers (id, text, is_correct)
     `)
         .eq('module_id', id)
@@ -58,14 +59,12 @@ export default async function ModulePage({ params }: { params: Promise<{ id: str
     const modTitle: string = moduleData.title || 'Untitled Module'
 
     return (
-        <div className="container mx-auto py-8 px-4">
-            <ModulePlayer
-                moduleId={moduleData.id}
-                moduleTitle={modTitle}
-                slides={moduleData.slides}
-                questions={selectedQuestions}
-                initialProgress={progress}
-            />
-        </div>
+        <ModulePlayer
+            moduleId={moduleData.id}
+            moduleTitle={modTitle}
+            slides={moduleData.slides}
+            questions={selectedQuestions}
+            initialProgress={progress}
+        />
     )
 }

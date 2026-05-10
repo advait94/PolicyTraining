@@ -1,16 +1,38 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Printer } from 'lucide-react'
 import { PrintButton } from '@/components/feature/certificate/print-button'
+import { LinkedInShareButton } from '@/components/feature/certificate/linkedin-share-button'
 
 // Params need to be awaited in Next.js 15
-export default async function CertificatePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CertificatePage({
+    params,
+    searchParams,
+}: {
+    params: Promise<{ id: string }>
+    searchParams: Promise<{ uid?: string }>
+}) {
     const { id } = await params
+    const { uid: targetUid } = await searchParams
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) redirect('/login')
+
+    // Determine whose certificate to show
+    let viewUserId = user.id
+    if (targetUid && targetUid !== user.id) {
+        // Admin viewing another user's certificate — verify same org
+        const [{ data: adminData }, { data: targetData }] = await Promise.all([
+            supabase.from('users').select('organization_id, role').eq('id', user.id).single(),
+            supabase.from('users').select('organization_id').eq('id', targetUid).single(),
+        ])
+        const isSuperAdmin = (await supabase.rpc('is_super_admin')).data
+        const sameOrg = adminData?.organization_id === targetData?.organization_id
+        if ((adminData?.role === 'admin' && sameOrg) || isSuperAdmin) {
+            viewUserId = targetUid
+        }
+    }
 
     // Fetch Module & User Progress
     const { data: moduleData } = await supabase
@@ -22,7 +44,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
     const { data: progress } = await supabase
         .from('user_progress')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', viewUserId)
         .eq('module_id', id)
         .single()
 
@@ -34,7 +56,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
                 logo_url
             )
         `)
-        .eq('id', user.id)
+        .eq('id', viewUserId)
         .single()
 
     if (!progress?.is_completed || !moduleData) {
@@ -54,7 +76,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
 
     // Verify data access - organizations is likely returned as an array by the query builder if not 1:1 inferred perfectly
     // or just safe access it. Based on error it is an array.
-    const studentName = userData?.display_name || user.email || 'Student'
+    const studentName = userData?.display_name || (viewUserId === user.id ? user.email : '') || 'Student'
     const orgData = Array.isArray(userData?.organizations) ? userData.organizations[0] : userData?.organizations
     const orgLogoUrl = orgData?.logo_url
 
@@ -72,8 +94,14 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
 
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-8">
-            <div className="mb-6 -mt-12 print:hidden">
+            <div className="mb-6 -mt-12 flex gap-3 print:hidden">
                 <PrintButton />
+                <LinkedInShareButton
+                    moduleTitle={moduleData.title}
+                    issueYear={completionDate.getFullYear()}
+                    issueMonth={completionDate.getMonth() + 1}
+                    certId={certificateId}
+                />
             </div>
 
             {/* Paper Container */}

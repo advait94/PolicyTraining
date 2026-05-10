@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { BookOpen, CheckCircle, Lock, PlayCircle, Star, Trophy, Shield, HeartPulse, Scale, FileText, Globe, ArrowRight } from 'lucide-react'
+import { BookOpen, CheckCircle, Lock, PlayCircle, Star, Trophy, Shield, HeartPulse, Scale, FileText, Globe, ArrowRight, RefreshCw } from 'lucide-react'
 import Image from 'next/image'
 
 // Helper to determine module styling based on title/keywords - Mapped to Neon Palette
@@ -59,13 +59,6 @@ const getIcon = (title: string) => {
     return BookOpen
 }
 
-const MODULE_SLUGS: Record<string, string> = {
-    '510e88a4-f501-4ba7-acc4-4f687fff65cc': 'posh',
-    '89fa7f59-1df4-4d03-99f6-c302afc0618b': 'DataPrivacy',
-    '1875f87e-8e89-4bab-80da-72a1925af152': 'hse',
-    'a0c3c3d3-c9a1-447d-87ac-440c14484c87': 'CyberSecurity',
-    'b91198d4-8edc-40fc-b30e-3f5ddaeecd66': 'AntiCorruption'
-}
 
 export const dynamic = 'force-dynamic'
 
@@ -89,8 +82,81 @@ export default async function DashboardPage() {
         redirect('/admin/dashboard')
     }
 
-    // Fetch modules
-    const { data: modulesData, error: modulesError } = await supabase
+    // Fetch user's org + department + name
+    const { data: userData } = await supabase
+        .from('users')
+        .select('organization_id, department_id, display_name')
+        .eq('id', user?.id)
+        .single()
+
+    // If the user has no department assigned, show the contact-admin screen
+    if (!userData?.department_id) {
+        return (
+            <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center p-8">
+                <div className="text-center max-w-md space-y-4">
+                    <div className="w-16 h-16 bg-yellow-500/10 rounded-full flex items-center justify-center mx-auto">
+                        <BookOpen className="w-8 h-8 text-yellow-400" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-white">No Department Assigned</h2>
+                    <p className="text-slate-400">
+                        Your account has not been assigned to a department yet. Please contact your administrator to get access to your training modules.
+                    </p>
+                </div>
+            </div>
+        )
+    }
+
+    // Get modules visible to this user:
+    // - Must be org-enabled (in organization_modules)
+    // - AND either: all_employees=true OR user's dept is in department_module_assignments
+    let moduleIdFilter: string[] | null = null
+    if (userData?.organization_id) {
+        const [orgModuleData, deptModuleData] = await Promise.all([
+            supabase
+                .from('organization_modules')
+                .select('module_id, all_employees')
+                .eq('organization_id', userData.organization_id),
+            supabase
+                .from('department_module_assignments')
+                .select('module_id')
+                .eq('department_id', userData.department_id)
+        ])
+
+        const deptModuleIds = new Set((deptModuleData.data || []).map((m: any) => m.module_id))
+
+        moduleIdFilter = (orgModuleData.data || [])
+            .filter((om: any) => om.all_employees || deptModuleIds.has(om.module_id))
+            .map((om: any) => om.module_id)
+    }
+
+    // If no modules are assigned to this department yet, show info screen
+    if (moduleIdFilter !== null && moduleIdFilter.length === 0) {
+        return (
+            <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center p-8">
+                <div className="text-center max-w-md space-y-4">
+                    <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto">
+                        <BookOpen className="w-8 h-8 text-blue-400" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-white">No Modules Available Yet</h2>
+                    <p className="text-slate-400">
+                        No training modules have been assigned to your department yet. Please contact your administrator.
+                    </p>
+                </div>
+            </div>
+        )
+    }
+
+    // Fetch deadlines for this org
+    const { data: deadlinesData } = userData?.organization_id
+        ? await supabase
+            .from('organization_module_deadlines')
+            .select('module_id, due_date')
+            .eq('organization_id', userData.organization_id)
+        : { data: [] }
+    const deadlineMap = new Map((deadlinesData || []).map((d: any) => [d.module_id, d.due_date]))
+
+    // Fetch modules scoped to the intersection filter
+    let modulesQuery = supabase
         .from('modules')
         .select(`
             id,
@@ -100,6 +166,12 @@ export default async function DashboardPage() {
             slides (id)
         `)
         .order('sequence_order', { ascending: true })
+
+    if (moduleIdFilter) {
+        modulesQuery = modulesQuery.in('id', moduleIdFilter)
+    }
+
+    const { data: modulesData, error: modulesError } = await modulesQuery
 
     // Fetch user progress explicitly to avoid RLS/nested relation ambiguities
     const { data: progressData } = await supabase
@@ -122,12 +194,39 @@ export default async function DashboardPage() {
     const completedModules = modules?.filter((m: any) => (m.user_progress?.[0]?.quiz_score || 0) >= 70).length || 0
     const progressPercentage = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0
 
+    // Detect expired certifications (completed > 1 year ago)
+    const oneYearAgo = new Date()
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+    const expiredModules = modules?.filter((m: any) => {
+        const p = m.user_progress?.[0]
+        return p?.completed_at && (p.quiz_score || 0) >= 70 && new Date(p.completed_at) < oneYearAgo
+    }) || []
+
     return (
         <div className="space-y-12 pb-24 relative">
             <AuthSync />
             {/* Background Glows for Dashboard */}
             <div className="fixed top-20 right-0 w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[100px] pointer-events-none -z-10" />
             <div className="fixed bottom-0 left-0 w-[600px] h-[600px] bg-cyan-600/5 rounded-full blur-[120px] pointer-events-none -z-10" />
+
+            {/* Recertification Warning */}
+            {expiredModules.length > 0 && (
+                <div className="flex items-start gap-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                        <Star className="w-5 h-5 text-amber-400" />
+                    </div>
+                    <div>
+                        <p className="text-amber-300 font-semibold text-sm">
+                            {expiredModules.length === 1
+                                ? '1 certification has expired and requires renewal'
+                                : `${expiredModules.length} certifications have expired and require renewal`}
+                        </p>
+                        <p className="text-amber-400/70 text-xs mt-1">
+                            {expiredModules.map((m: any) => m.title).join(', ')} — certifications are valid for one year. Retake the assessment to renew.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Hero Section - Glassmorphism */}
             <div className="relative overflow-hidden rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 text-white shadow-2xl isolate p-8 md:p-12">
@@ -149,7 +248,7 @@ export default async function DashboardPage() {
                             <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-[1.1]">
                                 Welcome back, <br />
                                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-cyan-400 animate-pulse">
-                                    Learner
+                                    {userData?.display_name?.split(' ')[0] || 'Learner'}
                                 </span>
                             </h1>
                         </div>
@@ -190,6 +289,11 @@ export default async function DashboardPage() {
                         const score = progress?.quiz_score
                         const theme = getModuleTheme(mod.title)
                         const ThemeIcon = getIcon(mod.title)
+                        const deadline = deadlineMap.get(mod.id) as string | undefined
+                        const now = new Date()
+                        const deadlineDate = deadline ? new Date(deadline) : null
+                        const isOverdue = deadlineDate && deadlineDate < now && !isCompleted
+                        const isDueSoon = deadlineDate && !isOverdue && !isCompleted
 
                         return (
                             <div key={mod.id} className="group h-full relative">
@@ -223,6 +327,14 @@ export default async function DashboardPage() {
                                             {mod.description || "Master the key concepts and policies in this comprehensive training module."}
                                         </p>
 
+                                        {(isOverdue || isDueSoon) && (
+                                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold mb-4 ${isOverdue ? 'bg-red-500/15 text-red-400 border border-red-500/30' : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'}`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full ${isOverdue ? 'bg-red-400' : 'bg-amber-400'}`} />
+                                                {isOverdue
+                                                    ? `Overdue — ${deadlineDate!.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
+                                                    : `Due ${deadlineDate!.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
+                                            </div>
+                                        )}
                                         <div className="flex items-center justify-between text-xs font-medium text-slate-500 border-t border-white/5 pt-4">
                                             <span>{slideCount} Slides</span>
                                             {score !== null && score !== undefined && (
@@ -242,15 +354,20 @@ export default async function DashboardPage() {
 
                                     <CardFooter className="pt-4 pb-8 px-8 relative z-10">
                                         {isCompleted ? (
-                                            <a href={`/certificate/${mod.id}`} className="w-full">
-                                                <Button className="w-full h-12 text-sm font-bold uppercase tracking-wider rounded-xl transition-all duration-300 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] text-white border border-white/10">
-                                                    <span className="flex items-center">
-                                                        <Trophy className="mr-2 w-4 h-4" /> View Certificate
-                                                    </span>
-                                                </Button>
-                                            </a>
+                                            <div className="w-full flex gap-3">
+                                                <a href={`/certificate/${mod.id}`} className="flex-1">
+                                                    <Button className="w-full h-12 text-sm font-bold uppercase tracking-wider rounded-xl transition-all duration-300 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] text-white border border-white/10">
+                                                        <Trophy className="mr-2 w-4 h-4" /> Certificate
+                                                    </Button>
+                                                </a>
+                                                <a href={`/modules/${mod.id}`}>
+                                                    <Button variant="outline" className="h-12 px-4 rounded-xl border-white/10 text-slate-400 hover:text-white hover:border-white/20 hover:bg-white/5 transition-all duration-300 cursor-pointer">
+                                                        <RefreshCw className="w-4 h-4" />
+                                                    </Button>
+                                                </a>
+                                            </div>
                                         ) : (
-                                            <a href={`/${MODULE_SLUGS[mod.id] || 'AntiCorruption'}/index.html`} className="w-full">
+                                            <a href={`/modules/${mod.id}`} className="w-full">
                                                 <Button className="w-full h-12 text-sm font-bold uppercase tracking-wider rounded-xl transition-all duration-300 cursor-pointer bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] text-white border border-white/10">
                                                     <span className="flex items-center">
                                                         Start Training <ArrowRight className="ml-2 w-4 h-4" />
