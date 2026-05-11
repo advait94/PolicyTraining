@@ -2,7 +2,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email';
 
-// We need the SERVICE_ROLE_KEY to perform admin actions
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
@@ -25,33 +24,150 @@ interface InviteData {
     };
 }
 
+interface OrgBranding {
+    name: string;
+    logoUrl: string | null;
+    supportEmail: string;
+}
+
+async function getOrgBranding(organizationId: string): Promise<OrgBranding> {
+    try {
+        const { data: org } = await supabaseAdmin
+            .from('organizations')
+            .select('display_name, logo_url, support_email')
+            .eq('id', organizationId)
+            .single();
+
+        return {
+            name: org?.display_name || 'Policy Training Platform',
+            logoUrl: org?.logo_url || null,
+            supportEmail: org?.support_email || 'support@aaplusconsultants.com',
+        };
+    } catch {
+        return {
+            name: 'Policy Training Platform',
+            logoUrl: null,
+            supportEmail: 'support@aaplusconsultants.com',
+        };
+    }
+}
+
+function buildInviteEmail(safeLink: string, branding: OrgBranding, isExistingUser = false): { subject: string; html: string; text: string } {
+    const { name, logoUrl, supportEmail } = branding;
+
+    const logoHtml = logoUrl
+        ? `<img src="${logoUrl}" alt="${name}" style="max-height:52px;max-width:220px;object-fit:contain;" />`
+        : `<span style="font-size:20px;font-weight:700;color:#ffffff;">${name}</span>`;
+
+    const bodyHeading = isExistingUser
+        ? `You've been added to ${name}'s training platform`
+        : `You've been invited to ${name}'s compliance training`;
+
+    const bodyText = isExistingUser
+        ? `Your account has been added to <strong>${name}</strong>'s policy training portal. Log in with your existing credentials to access your assigned modules.`
+        : `You have been invited to complete compliance training through <strong>${name}</strong>'s policy training portal. Click the button below to set up your account and get started.`;
+
+    const ctaLabel = isExistingUser ? 'Go to My Dashboard' : 'Set Up My Account';
+
+    const subject = isExistingUser
+        ? `You've been added to ${name}'s Training Platform`
+        : `You're invited — set up your ${name} training account`;
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:#0f172a;padding:28px 32px;text-align:center;">
+            ${logoHtml}
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:36px 32px;">
+            <h1 style="margin:0 0 16px;font-size:22px;color:#0f172a;line-height:1.3;">${bodyHeading}</h1>
+            <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">${bodyText}</p>
+
+            <table cellpadding="0" cellspacing="0" style="margin:28px 0;">
+              <tr>
+                <td style="border-radius:8px;background:#7c3aed;">
+                  <a href="${safeLink}"
+                     style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">
+                    ${ctaLabel}
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0 0 8px;font-size:13px;color:#94a3b8;">Or copy and paste this link into your browser:</p>
+            <p style="margin:0 0 24px;font-size:12px;word-break:break-all;">
+              <a href="${safeLink}" style="color:#7c3aed;">${safeLink}</a>
+            </p>
+
+            ${!isExistingUser ? `<p style="margin:0;font-size:12px;color:#94a3b8;">This invitation link expires in <strong>24 hours</strong>.</p>` : ''}
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f8fafc;padding:20px 32px;border-top:1px solid #e2e8f0;text-align:center;">
+            <p style="margin:0 0 4px;font-size:12px;color:#64748b;">
+              Need help? Email us at
+              <a href="mailto:${supportEmail}" style="color:#7c3aed;">${supportEmail}</a>
+            </p>
+            <p style="margin:0;font-size:11px;color:#94a3b8;">
+              Powered by AA Plus Consultants Policy Training Platform
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    const text = isExistingUser
+        ? `You've been added to ${name}'s training platform. Log in here: ${safeLink}`
+        : `You're invited to ${name}'s compliance training. Set up your account: ${safeLink}`;
+
+    return { subject, html, text };
+}
+
 export async function inviteUser({ email, redirectTo, data: userData }: InviteData) {
     if (!email) {
         throw new Error('Email is required');
     }
 
     try {
+        // Fetch org branding once upfront
+        const branding = await getOrgBranding(userData.organization_id);
+
         // 0. Check if user already exists
         let existingUser;
         try {
-            // getUserByEmail is not available in newer supabase-js, use listUsers
             const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers({
                 page: 1,
-                perPage: 1000 // Ensure we fetch enough - ideally loops but for now valid
+                perPage: 1000
             });
 
             if (error) throw error;
 
             existingUser = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
         } catch (e) {
-            // Ignore error
             console.error('Error checking existing user:', e);
         }
 
         if (existingUser) {
             console.log(`User ${email} already exists. Adding directly to organization...`);
 
-            // 1A. Ensure public.users record exists
             await supabaseAdmin
                 .from('users')
                 .upsert({
@@ -64,7 +180,6 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
                 })
                 .select();
 
-            // 1B. Add to Organization Members
             const { error: memberError } = await supabaseAdmin
                 .from('organization_members')
                 .upsert({
@@ -78,29 +193,12 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
                 throw new Error(`Failed to add user to organization: ${memberError.message}`);
             }
 
-            // 1C. Send "Added" Email
             const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
             const dashboardLink = `${appUrl}/dashboard`;
 
-            await sendEmail({
-                to: email,
-                subject: 'You have been added to a new Organization',
-                html: `
-                    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2>Welcome Aboard!</h2>
-                        <p>You have been added to the organization on <strong>Policy Training Platform</strong>.</p>
-                        <p style="margin: 24px 0;">
-                            <a href="${dashboardLink}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
-                                Go to Dashboard
-                            </a>
-                        </p>
-                        <p style="color: #666; font-size: 14px;">
-                            Log in with your existing credentials or SSO.
-                        </p>
-                    </div>
-                `,
-                text: `You have been added to an organization. Login here: ${dashboardLink}`
-            });
+            const { subject, html, text } = buildInviteEmail(dashboardLink, branding, true);
+
+            await sendEmail({ to: email, subject, html, text });
 
             return { success: true, message: 'User added to organization correctly.' };
         }
@@ -109,7 +207,6 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
 
         console.log(`Generating invite link for ${email}...`);
 
-        // 1. Upsert into public.invitations
         const { error: inviteError } = await supabaseAdmin
             .from('invitations')
             .upsert({
@@ -127,14 +224,13 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
             throw new Error(`Failed to create invitation record: ${inviteError.message}`);
         }
 
-        // 3. Create the user account first
         console.log('Creating user account...');
         const { data: createUserData, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
             email,
-            email_confirm: true, // Auto-confirm so magic link works for login
+            email_confirm: true,
             user_metadata: {
                 ...userData,
-                is_invite: true // Flag for callback routing
+                is_invite: true
             }
         });
 
@@ -145,7 +241,6 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
 
         console.log('User created:', createUserData.user.id);
 
-        // Set department if provided (trigger already created the public.users row)
         if (userData.department_id) {
             await supabaseAdmin
                 .from('users')
@@ -153,8 +248,6 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
                 .eq('id', createUserData.user.id);
         }
 
-        // 4. Generate magic link (Simplified Redirect)
-        // We redirect to /auth/callback cleanly. The callback handler will check user_metadata.is_invite
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
         const finalRedirect = `${appUrl}/auth/callback`;
 
@@ -165,7 +258,6 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
             email,
             options: {
                 redirectTo: finalRedirect,
-                // data: userData // Not needed here as we baked it into createUser
             }
         });
 
@@ -176,18 +268,13 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
             throw new Error('Failed to generate invitation link (no action_link returned)');
         }
 
-        // Use the link as returned by Supabase
-        const correctedInviteLink = inviteLink;
-
-        // --- SAFE LINK PROTECTION v2 ---
-        // Store magic link in database, only expose token ID to prevent scanner access
-        // Scanners cannot find the magic link because it's never in the URL
+        // Store magic link in database, only expose token ID
         const { data: tokenRecord, error: tokenError } = await supabaseAdmin
             .from('safe_link_tokens')
             .insert({
-                magic_link: correctedInviteLink,
+                magic_link: inviteLink,
                 email: email.toLowerCase(),
-                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
             })
             .select('id')
             .single();
@@ -197,36 +284,13 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
             throw new Error('Failed to create secure invitation link');
         }
 
-        // The safe link only contains the token ID, not the magic link
         const safeLink = `${appUrl}/auth/verify-invite?token=${tokenRecord.id}`;
 
         console.log('Safe Token Link Generated:', safeLink);
 
-        // 4. Send Email
-        const emailResult = await sendEmail({
-            to: email,
-            subject: 'Set up your Policy Training Platform account',
-            html: `
-                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2>Welcome to Policy Training Platform!</h2>
-                    <p>You have been invited to join the <strong>Policy Training Platform</strong>.</p>
-                    <p>Click the button below to set up your account password and get started.</p>
-                    <p style="margin: 24px 0;">
-                        <a href="${safeLink}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
-                            Set Up Account
-                        </a>
-                    </p>
-                    <p style="color: #666; font-size: 14px;">
-                        Or copy and paste this link into your browser:<br>
-                        <a href="${safeLink}">${safeLink}</a>
-                    </p>
-                        <p style="color: #999; font-size: 12px; margin-top: 30px;">
-                        This link will expire in 24 hours.
-                    </p>
-                </div>
-            `,
-            text: `Welcome to Policy Training Platform! Set up your account password here: ${safeLink}`
-        });
+        const { subject, html, text } = buildInviteEmail(safeLink, branding, false);
+
+        const emailResult = await sendEmail({ to: email, subject, html, text });
 
         if (!emailResult.success) {
             throw new Error(`Email sending failed: ${emailResult.error}`);

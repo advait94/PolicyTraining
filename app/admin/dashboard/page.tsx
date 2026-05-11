@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { inviteUser, getAdminStats, getCompanyUsers, getComplianceReport, bulkInviteUsers, getOrgModules, setModuleAssignment, setModuleAllEmployees, getDepartments, createDepartment, deleteDepartment, updateUserDepartment, setDeptModuleAssignment, bulkAssignDepartment, setModuleDeadline, getModuleDeadlines, updateUserRole, getReportChartData } from '@/app/actions/admin'
-import { getAuditLog, getBulkCertificates } from '@/app/actions/audit'
+import { getAuditLog, getBulkCertificates, exportAuditLog } from '@/app/actions/audit'
 import { ComplianceCharts } from '@/components/feature/reports/compliance-charts'
 import * as XLSX from 'xlsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -65,7 +65,12 @@ export default function AdminDashboard() {
     const [auditLog, setAuditLog] = useState<any[]>([])
     const [loadingAudit, setLoadingAudit] = useState(false)
     const [auditLoaded, setAuditLoaded] = useState(false)
-    const [auditModuleFilter, setAuditModuleFilter] = useState('')
+    const [auditEventFilter, setAuditEventFilter] = useState('')
+    const [auditPage, setAuditPage] = useState(0)
+    const [auditHasMore, setAuditHasMore] = useState(false)
+    const [auditStartDate, setAuditStartDate] = useState('')
+    const [auditEndDate, setAuditEndDate] = useState('')
+    const [exportingAudit, setExportingAudit] = useState(false)
 
     // Bulk cert state
     const [bulkCertModuleId, setBulkCertModuleId] = useState('')
@@ -425,6 +430,57 @@ export default function AdminDashboard() {
         setUpdatingUserRole(null)
     }
 
+    async function loadAuditPage(
+        page: number,
+        opts: { start?: string; end?: string; event?: string } = {}
+    ) {
+        setLoadingAudit(true)
+        const result = await getAuditLog({
+            page,
+            pageSize: 100,
+            startDate: opts.start ?? (auditStartDate || undefined),
+            endDate: opts.end ?? (auditEndDate || undefined),
+            eventType: opts.event ?? (auditEventFilter || undefined),
+        })
+        if (result) {
+            setAuditLog(result.data)
+            setAuditHasMore(result.hasMore)
+            setAuditPage(result.page)
+        }
+        setLoadingAudit(false)
+    }
+
+    async function handleExportAudit() {
+        setExportingAudit(true)
+        try {
+            const rows = await exportAuditLog({
+                startDate: auditStartDate || undefined,
+                endDate: auditEndDate || undefined,
+                eventType: auditEventFilter || undefined,
+            })
+            if (!rows?.length) { toast.error('No audit data to export'); return }
+            const exportRows = rows.map((e: any) => ({
+                Timestamp: new Date(e.createdAt).toLocaleString('en-IN'),
+                Employee: e.userName,
+                Email: e.userEmail,
+                Module: e.moduleTitle,
+                Event: e.eventType,
+                Detail: e.eventType === 'quiz_completed' && e.metadata?.score != null
+                    ? `Score: ${e.metadata.score}% — ${e.metadata.passed ? 'Passed' : 'Failed'}`
+                    : e.slideTitle || '',
+            }))
+            const ws = XLSX.utils.json_to_sheet(exportRows)
+            const wb = XLSX.utils.book_new()
+            XLSX.utils.book_append_sheet(wb, ws, 'Audit Trail')
+            XLSX.writeFile(wb, `audit_log_${new Date().toISOString().slice(0, 10)}.xlsx`)
+            toast.success(`Exported ${rows.length} records`)
+        } catch {
+            toast.error('Export failed')
+        } finally {
+            setExportingAudit(false)
+        }
+    }
+
     const filteredUsers = users.filter(u =>
         u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -483,7 +539,7 @@ export default function AdminDashboard() {
                     <TabsTrigger value="people" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6">People</TabsTrigger>
                     <TabsTrigger value="modules" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6">Modules</TabsTrigger>
                     <TabsTrigger value="leaderboard" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6" onClick={async () => { if (leaderboardLoaded) return; setLoadingLeaderboard(true); const d = await getReportChartData(); setLeaderboardData(d?.deptBreakdown?.sort((a: any, b: any) => b.overallRate - a.overallRate) ?? []); setLeaderboardLoaded(true); setLoadingLeaderboard(false) }}>🏆 Leaderboard</TabsTrigger>
-                    <TabsTrigger value="audit" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6" onClick={async () => { if (auditLoaded) return; setLoadingAudit(true); const d = await getAuditLog(); setAuditLog(d ?? []); setAuditLoaded(true); setLoadingAudit(false) }}>Audit Trail</TabsTrigger>
+                    <TabsTrigger value="audit" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6" onClick={async () => { if (auditLoaded) return; await loadAuditPage(0); setAuditLoaded(true) }}>Audit Trail</TabsTrigger>
                     <TabsTrigger value="reports" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6">Reports</TabsTrigger>
                 </TabsList>
 
@@ -1182,47 +1238,91 @@ export default function AdminDashboard() {
                 {/* AUDIT TRAIL TAB */}
                 <TabsContent value="audit" className="space-y-6">
                     <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
-                        <CardHeader className="flex flex-row items-start justify-between gap-4 flex-wrap">
-                            <div>
-                                <CardTitle className="text-white flex items-center gap-2">
-                                    <Activity className="w-5 h-5 text-cyan-400" />
-                                    Compliance Audit Trail
-                                </CardTitle>
-                                <CardDescription className="text-slate-400">
-                                    Timestamped log of every slide view, quiz attempt, and attestation across your organisation.
-                                </CardDescription>
+                        <CardHeader className="space-y-3">
+                            <div className="flex flex-row items-start justify-between gap-4 flex-wrap">
+                                <div>
+                                    <CardTitle className="text-white flex items-center gap-2">
+                                        <Activity className="w-5 h-5 text-cyan-400" />
+                                        Compliance Audit Trail
+                                    </CardTitle>
+                                    <CardDescription className="text-slate-400">
+                                        Timestamped log of every slide view, quiz attempt, and attestation. 100 records per page.
+                                    </CardDescription>
+                                </div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <Button
+                                        size="sm" variant="ghost"
+                                        className="text-slate-400 hover:text-white text-xs"
+                                        onClick={() => loadAuditPage(auditPage)}
+                                    >
+                                        {loadingAudit ? <Loader2 className="w-3 h-3 animate-spin" /> : '↻'}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="border-white/10 text-slate-300 hover:text-white text-xs gap-1.5"
+                                        disabled={exportingAudit}
+                                        onClick={handleExportAudit}
+                                    >
+                                        {exportingAudit ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                                        Export .xlsx
+                                    </Button>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2 flex-wrap">
+                            {/* Filters row */}
+                            <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-white/5">
                                 <select
-                                    value={auditModuleFilter}
-                                    onChange={e => setAuditModuleFilter(e.target.value)}
+                                    value={auditEventFilter}
+                                    onChange={e => setAuditEventFilter(e.target.value)}
                                     className="text-xs bg-black/30 border border-white/10 text-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                                 >
-                                    <option value="">All events</option>
+                                    <option value="">All event types</option>
                                     <option value="slide_viewed">Slide Views</option>
                                     <option value="quiz_started">Quiz Started</option>
                                     <option value="quiz_completed">Quiz Completed</option>
                                     <option value="attestation_signed">Attestations</option>
                                 </select>
+                                <span className="text-slate-600 text-xs">From</span>
+                                <Input
+                                    type="date"
+                                    value={auditStartDate}
+                                    onChange={e => setAuditStartDate(e.target.value)}
+                                    className="h-7 w-36 bg-black/20 border-white/10 text-white text-xs"
+                                />
+                                <span className="text-slate-600 text-xs">to</span>
+                                <Input
+                                    type="date"
+                                    value={auditEndDate}
+                                    onChange={e => setAuditEndDate(e.target.value)}
+                                    className="h-7 w-36 bg-black/20 border-white/10 text-white text-xs"
+                                />
                                 <Button
                                     size="sm"
-                                    variant="ghost"
-                                    className="text-slate-400 hover:text-white text-xs"
-                                    onClick={async () => {
-                                        setLoadingAudit(true)
-                                        const d = await getAuditLog()
-                                        setAuditLog(d ?? [])
-                                        setLoadingAudit(false)
-                                    }}
+                                    className="h-7 px-3 text-xs bg-cyan-600 hover:bg-cyan-500 text-white"
+                                    onClick={() => loadAuditPage(0, { start: auditStartDate, end: auditEndDate, event: auditEventFilter })}
                                 >
-                                    {loadingAudit ? <Loader2 className="w-3 h-3 animate-spin" /> : '↻ Refresh'}
+                                    Apply
                                 </Button>
+                                {(auditStartDate || auditEndDate || auditEventFilter) && (
+                                    <button
+                                        className="text-xs text-slate-500 hover:text-slate-300"
+                                        onClick={() => {
+                                            setAuditStartDate('')
+                                            setAuditEndDate('')
+                                            setAuditEventFilter('')
+                                            loadAuditPage(0, { start: '', end: '', event: '' })
+                                        }}
+                                    >
+                                        ✕ Clear
+                                    </button>
+                                )}
                             </div>
                         </CardHeader>
                         <CardContent>
                             {loadingAudit ? (
                                 <div className="flex items-center justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-cyan-400" /></div>
                             ) : (
+                                <>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
                                         <thead>
@@ -1235,48 +1335,70 @@ export default function AdminDashboard() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {auditLog
-                                                .filter((e: any) => !auditModuleFilter || e.eventType === auditModuleFilter)
-                                                .slice(0, 200)
-                                                .map((entry: any) => {
-                                                    const eventBadge: Record<string, { label: string; color: string }> = {
-                                                        slide_viewed:      { label: 'Slide Viewed',       color: '#6366f1' },
-                                                        quiz_started:      { label: 'Quiz Started',       color: '#f59e0b' },
-                                                        quiz_completed:    { label: 'Quiz Completed',     color: '#22c55e' },
-                                                        attestation_signed:{ label: 'Attestation Signed', color: '#a855f7' },
-                                                    }
-                                                    const badge = eventBadge[entry.eventType] ?? { label: entry.eventType, color: '#64748b' }
-                                                    return (
-                                                        <tr key={entry.id} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
-                                                            <td className="py-2.5 pr-4 text-slate-400 whitespace-nowrap text-xs">
-                                                                {new Date(entry.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
-                                                            </td>
-                                                            <td className="py-2.5 pr-4">
-                                                                <div className="text-white text-xs font-medium truncate max-w-[140px]">{entry.userName}</div>
-                                                                <div className="text-slate-500 text-xs truncate max-w-[140px]">{entry.userEmail}</div>
-                                                            </td>
-                                                            <td className="py-2.5 pr-4 text-slate-300 text-xs truncate max-w-[160px]">{entry.moduleTitle}</td>
-                                                            <td className="py-2.5 pr-4">
-                                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium text-white" style={{ background: badge.color + '33', color: badge.color, border: `1px solid ${badge.color}44` }}>
-                                                                    {badge.label}
-                                                                </span>
-                                                            </td>
-                                                            <td className="py-2.5 text-slate-400 text-xs">
-                                                                {entry.eventType === 'quiz_completed' && entry.metadata?.score != null
-                                                                    ? `Score: ${entry.metadata.score}% — ${entry.metadata.passed ? '✅ Passed' : '❌ Failed'}`
-                                                                    : entry.eventType === 'slide_viewed' && entry.slideTitle
-                                                                        ? entry.slideTitle
-                                                                        : '—'}
-                                                            </td>
-                                                        </tr>
-                                                    )
-                                                })}
-                                            {auditLog.filter((e: any) => !auditModuleFilter || e.eventType === auditModuleFilter).length === 0 && (
-                                                <tr><td colSpan={5} className="py-12 text-center text-slate-500">No events recorded yet.</td></tr>
+                                            {auditLog.map((entry: any) => {
+                                                const eventBadge: Record<string, { label: string; color: string }> = {
+                                                    slide_viewed:       { label: 'Slide Viewed',       color: '#6366f1' },
+                                                    quiz_started:       { label: 'Quiz Started',       color: '#f59e0b' },
+                                                    quiz_completed:     { label: 'Quiz Completed',     color: '#22c55e' },
+                                                    attestation_signed: { label: 'Attestation Signed', color: '#a855f7' },
+                                                }
+                                                const badge = eventBadge[entry.eventType] ?? { label: entry.eventType, color: '#64748b' }
+                                                return (
+                                                    <tr key={entry.id} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
+                                                        <td className="py-2.5 pr-4 text-slate-400 whitespace-nowrap text-xs">
+                                                            {new Date(entry.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                                                        </td>
+                                                        <td className="py-2.5 pr-4">
+                                                            <div className="text-white text-xs font-medium truncate max-w-[140px]">{entry.userName}</div>
+                                                            <div className="text-slate-500 text-xs truncate max-w-[140px]">{entry.userEmail}</div>
+                                                        </td>
+                                                        <td className="py-2.5 pr-4 text-slate-300 text-xs truncate max-w-[160px]">{entry.moduleTitle}</td>
+                                                        <td className="py-2.5 pr-4">
+                                                            <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: badge.color + '33', color: badge.color, border: `1px solid ${badge.color}44` }}>
+                                                                {badge.label}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-2.5 text-slate-400 text-xs">
+                                                            {entry.eventType === 'quiz_completed' && entry.metadata?.score != null
+                                                                ? `Score: ${entry.metadata.score}% — ${entry.metadata.passed ? '✅ Passed' : '❌ Failed'}`
+                                                                : entry.eventType === 'slide_viewed' && entry.slideTitle
+                                                                    ? entry.slideTitle
+                                                                    : '—'}
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })}
+                                            {auditLog.length === 0 && (
+                                                <tr><td colSpan={5} className="py-12 text-center text-slate-500">No events found.</td></tr>
                                             )}
                                         </tbody>
                                     </table>
                                 </div>
+                                {/* Pagination */}
+                                <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
+                                    <span className="text-xs text-slate-500">
+                                        Page {auditPage + 1} — showing {auditLog.length} records
+                                    </span>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            size="sm" variant="outline"
+                                            className="border-white/10 text-slate-300 hover:text-white text-xs h-7"
+                                            disabled={auditPage === 0 || loadingAudit}
+                                            onClick={() => loadAuditPage(auditPage - 1)}
+                                        >
+                                            ← Prev
+                                        </Button>
+                                        <Button
+                                            size="sm" variant="outline"
+                                            className="border-white/10 text-slate-300 hover:text-white text-xs h-7"
+                                            disabled={!auditHasMore || loadingAudit}
+                                            onClick={() => loadAuditPage(auditPage + 1)}
+                                        >
+                                            Next →
+                                        </Button>
+                                    </div>
+                                </div>
+                                </>
                             )}
                         </CardContent>
                     </Card>

@@ -4,19 +4,19 @@ import { useEffect, useRef, useState } from 'react'
 import { getReportChartData, getComplianceReport } from '@/app/actions/admin'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-    Cell, LineChart, Line, Legend, PieChart, Pie
+    Cell, LineChart, Line, Legend
 } from 'recharts'
 import {
-    Download, Loader2, Users, BookOpen, Trophy, TrendingUp,
-    BarChart2, Activity, Target, FileDown
+    Download, Loader2, Users, Trophy, TrendingUp,
+    Target, FileDown, AlertCircle, Calendar, RefreshCw
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
 
 // ── Colours ──────────────────────────────────────────────────────────────────
-const COLORS = ['#a855f7', '#22d3ee', '#fb7185', '#fb923c', '#34d399', '#818cf8', '#f472b6', '#facc15']
 const SCORE_COLORS: Record<string, string> = {
     '0–39 (Fail)': '#f87171',
     '40–59': '#fb923c',
@@ -26,16 +26,36 @@ const SCORE_COLORS: Record<string, string> = {
 }
 const STATUS_COLORS = { completed: '#34d399', inProgress: '#facc15', notStarted: '#475569' }
 
+// ── Quick date presets ────────────────────────────────────────────────────────
+const PRESETS = [
+    { label: 'All time', startDate: '', endDate: '' },
+    {
+        label: 'This year',
+        startDate: `${new Date().getFullYear()}-01-01`,
+        endDate: new Date().toISOString().slice(0, 10),
+    },
+    {
+        label: 'Last 6 months',
+        get startDate() {
+            const d = new Date(); d.setMonth(d.getMonth() - 6); return d.toISOString().slice(0, 10)
+        },
+        endDate: new Date().toISOString().slice(0, 10),
+    },
+    {
+        label: 'Last 30 days',
+        get startDate() {
+            const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10)
+        },
+        endDate: new Date().toISOString().slice(0, 10),
+    },
+]
+
 // ── Download helper ───────────────────────────────────────────────────────────
 async function downloadChartAsPng(ref: React.RefObject<HTMLDivElement | null>, filename: string) {
     const html2canvas = (await import('html2canvas')).default
     if (!ref.current) return
     try {
-        const canvas = await html2canvas(ref.current, {
-            backgroundColor: '#0B0F19',
-            scale: 2,
-            useCORS: true,
-        })
+        const canvas = await html2canvas(ref.current, { backgroundColor: '#0B0F19', scale: 2, useCORS: true })
         const link = document.createElement('a')
         link.download = `${filename}.png`
         link.href = canvas.toDataURL('image/png')
@@ -47,15 +67,9 @@ async function downloadChartAsPng(ref: React.RefObject<HTMLDivElement | null>, f
 
 // ── Chart wrapper ─────────────────────────────────────────────────────────────
 function ChartCard({
-    title,
-    description,
-    filename,
-    children,
+    title, description, filename, children,
 }: {
-    title: string
-    description?: string
-    filename: string
-    children: React.ReactNode
+    title: string; description?: string; filename: string; children: React.ReactNode
 }) {
     const ref = useRef<HTMLDivElement>(null)
     return (
@@ -66,8 +80,7 @@ function ChartCard({
                     {description && <CardDescription className="text-slate-400 text-xs mt-1">{description}</CardDescription>}
                 </div>
                 <Button
-                    size="sm"
-                    variant="ghost"
+                    size="sm" variant="ghost"
                     onClick={() => downloadChartAsPng(ref, filename)}
                     className="text-slate-400 hover:text-white hover:bg-white/10 shrink-0 ml-4"
                     title="Download as PNG"
@@ -76,9 +89,7 @@ function ChartCard({
                 </Button>
             </CardHeader>
             <CardContent>
-                <div ref={ref} className="bg-[#0B0F19] rounded-xl p-4">
-                    {children}
-                </div>
+                <div ref={ref} className="bg-[#0B0F19] rounded-xl p-4">{children}</div>
             </CardContent>
         </Card>
     )
@@ -86,11 +97,10 @@ function ChartCard({
 
 // ── KPI card ──────────────────────────────────────────────────────────────────
 function KpiCard({ label, value, sub, icon: Icon, color }: {
-    label: string; value: string | number; sub?: string
-    icon: any; color: string
+    label: string; value: string | number; sub?: string; icon: any; color: string
 }) {
     return (
-        <div className={`bg-[#151A29]/80 border border-white/10 rounded-xl p-4 flex items-center gap-4`}>
+        <div className="bg-[#151A29]/80 border border-white/10 rounded-xl p-4 flex items-center gap-4">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
                 <Icon className="w-5 h-5" />
             </div>
@@ -112,7 +122,7 @@ const DarkTooltip = ({ active, payload, label }: any) => {
             {payload.map((p: any) => (
                 <p key={p.dataKey} style={{ color: p.color }} className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full inline-block" style={{ background: p.color }} />
-                    {p.name}: <span className="font-semibold">{p.value}{typeof p.value === 'number' && p.name?.includes('%') ? '' : ''}</span>
+                    {p.name}: <span className="font-semibold">{p.value}</span>
                 </p>
             ))}
         </div>
@@ -125,9 +135,24 @@ export function ComplianceCharts() {
     const [loading, setLoading] = useState(true)
     const [downloadingCsv, setDownloadingCsv] = useState(false)
 
-    useEffect(() => {
-        getReportChartData().then(d => { setData(d); setLoading(false) })
-    }, [])
+    const [startDate, setStartDate] = useState('')
+    const [endDate, setEndDate] = useState('')
+    const [activePreset, setActivePreset] = useState('All time')
+
+    function applyPreset(preset: typeof PRESETS[0]) {
+        setStartDate(preset.startDate)
+        setEndDate(preset.endDate)
+        setActivePreset(preset.label)
+        fetchData(preset.startDate, preset.endDate)
+    }
+
+    function fetchData(sd = startDate, ed = endDate) {
+        setLoading(true)
+        getReportChartData({ startDate: sd || undefined, endDate: ed || undefined })
+            .then(d => { setData(d); setLoading(false) })
+    }
+
+    useEffect(() => { fetchData() }, [])
 
     async function handleDownloadCsv() {
         setDownloadingCsv(true)
@@ -170,26 +195,17 @@ export function ComplianceCharts() {
 
     return (
         <div className="space-y-6">
-            {/* ── Download Bar ── */}
-            <div className="flex items-center justify-between">
+            {/* ── Header + Download Bar ── */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
                     <h2 className="text-xl font-bold text-white">Compliance Analytics</h2>
-                    <p className="text-slate-400 text-sm mt-0.5">Data as of {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    <p className="text-slate-400 text-sm mt-0.5">Current compliance state as of {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                 </div>
-                <div className="flex gap-3">
-                    <Button
-                        onClick={handleDownloadMatrix}
-                        variant="outline"
-                        className="border-white/10 text-slate-300 hover:bg-white/10 gap-2"
-                    >
-                        <Download className="w-4 h-4" />
-                        Employee Matrix (.xlsx)
+                <div className="flex gap-3 flex-wrap">
+                    <Button onClick={handleDownloadMatrix} variant="outline" className="border-white/10 text-slate-300 hover:bg-white/10 gap-2">
+                        <Download className="w-4 h-4" /> Employee Matrix (.xlsx)
                     </Button>
-                    <Button
-                        onClick={handleDownloadCsv}
-                        disabled={downloadingCsv}
-                        className="bg-green-600 hover:bg-green-500 text-white gap-2"
-                    >
+                    <Button onClick={handleDownloadCsv} disabled={downloadingCsv} className="bg-green-600 hover:bg-green-500 text-white gap-2">
                         {downloadingCsv ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                         Full Report (.xlsx)
                     </Button>
@@ -198,12 +214,7 @@ export function ComplianceCharts() {
 
             {/* ── KPI Cards ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <KpiCard
-                    label="Total Employees"
-                    value={summary.totalMembers}
-                    icon={Users}
-                    color="bg-blue-500/20 text-blue-400"
-                />
+                <KpiCard label="Total Employees" value={summary.totalMembers} icon={Users} color="bg-blue-500/20 text-blue-400" />
                 <KpiCard
                     label="Fully Compliant"
                     value={`${summary.fullyCompliant} (${summary.fullyCompliantRate}%)`}
@@ -214,18 +225,110 @@ export function ComplianceCharts() {
                 <KpiCard
                     label="Avg Quiz Score"
                     value={`${summary.overallAvgScore}%`}
-                    sub={`Across ${summary.totalCompletions} attempts`}
+                    sub={`Across ${summary.totalCompletions} completions`}
                     icon={Target}
                     color="bg-purple-500/20 text-purple-400"
                 />
-                <KpiCard
-                    label="Active Learners"
-                    value={summary.uniqueStarted}
-                    sub={`${summary.uniqueCompleted} have completed ≥1 module`}
-                    icon={Activity}
-                    color="bg-orange-500/20 text-orange-400"
-                />
+                {summary.hasDeadlines ? (
+                    <KpiCard
+                        label="Overdue Employees"
+                        value={summary.overdueCount}
+                        sub={summary.overdueCount === 0 ? 'All on track' : 'Behind on ≥1 deadline'}
+                        icon={AlertCircle}
+                        color={summary.overdueCount > 0 ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}
+                    />
+                ) : (
+                    <KpiCard
+                        label="Active Learners"
+                        value={summary.uniqueStarted}
+                        sub={`${summary.uniqueCompleted} completed ≥1 module`}
+                        icon={TrendingUp}
+                        color="bg-orange-500/20 text-orange-400"
+                    />
+                )}
             </div>
+
+            {/* ── Timeline date range controls ── */}
+            <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
+                <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div>
+                            <CardTitle className="text-white text-base flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-cyan-400" />
+                                Completion Timeline
+                            </CardTitle>
+                            <CardDescription className="text-slate-400 text-xs mt-1">
+                                Completions per week — adjust range with the controls below
+                            </CardDescription>
+                        </div>
+                        <Button
+                            size="sm" variant="ghost"
+                            onClick={() => fetchData()}
+                            className="text-slate-400 hover:text-white hover:bg-white/10 gap-1.5"
+                        >
+                            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                        </Button>
+                    </div>
+                    {/* Preset buttons + custom range */}
+                    <div className="flex items-center gap-2 flex-wrap pt-1">
+                        {PRESETS.map(p => (
+                            <button
+                                key={p.label}
+                                onClick={() => applyPreset(p)}
+                                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                                    activePreset === p.label
+                                        ? 'bg-cyan-600 text-white'
+                                        : 'bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                                }`}
+                            >
+                                {p.label}
+                            </button>
+                        ))}
+                        <span className="text-slate-600 text-xs">or custom:</span>
+                        <Input
+                            type="date"
+                            value={startDate}
+                            onChange={e => { setStartDate(e.target.value); setActivePreset('') }}
+                            className="h-7 w-36 bg-black/20 border-white/10 text-white text-xs"
+                        />
+                        <span className="text-slate-500 text-xs">to</span>
+                        <Input
+                            type="date"
+                            value={endDate}
+                            onChange={e => { setEndDate(e.target.value); setActivePreset('') }}
+                            className="h-7 w-36 bg-black/20 border-white/10 text-white text-xs"
+                        />
+                        <Button
+                            size="sm"
+                            onClick={() => { setActivePreset(''); fetchData() }}
+                            className="h-7 px-3 text-xs bg-purple-600 hover:bg-purple-500 text-white"
+                        >
+                            Apply
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="bg-[#0B0F19] rounded-xl p-4">
+                        <ResponsiveContainer width="100%" height={260}>
+                            <LineChart data={timeline} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
+                                <XAxis dataKey="week" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#475569" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                                <Tooltip content={<DarkTooltip />} />
+                                <Line
+                                    type="monotone"
+                                    dataKey="completions"
+                                    name="Completions"
+                                    stroke="#a855f7"
+                                    strokeWidth={2.5}
+                                    dot={{ fill: '#a855f7', r: 4 }}
+                                    activeDot={{ r: 6 }}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* ── Chart 1: Module Completion Breakdown ── */}
             {moduleBreakdown.length > 0 && (
@@ -246,21 +349,40 @@ export function ComplianceCharts() {
                             <YAxis type="category" dataKey="shortTitle" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} width={160} />
                             <Tooltip content={<DarkTooltip />} />
                             <Legend wrapperStyle={{ fontSize: 11, color: '#94a3b8', paddingTop: 12 }} />
-                            <Bar dataKey="completed" name="Completed" stackId="a" fill={STATUS_COLORS.completed} radius={[0, 0, 0, 0]} />
+                            <Bar dataKey="completed" name="Completed" stackId="a" fill={STATUS_COLORS.completed} />
                             <Bar dataKey="inProgress" name="In Progress" stackId="a" fill={STATUS_COLORS.inProgress} />
                             <Bar dataKey="notStarted" name="Not Started" stackId="a" fill={STATUS_COLORS.notStarted} radius={[0, 4, 4, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
 
-                    {/* Completion rate table below chart */}
+                    {/* Per-module stats table */}
                     <div className="mt-4 space-y-1">
+                        <div className="flex items-center justify-between text-xs px-1 text-slate-500 font-medium border-b border-white/5 pb-1">
+                            <span>Module</span>
+                            <div className="flex items-center gap-6 shrink-0">
+                                <span>Avg Score</span>
+                                <span title="Average quiz attempts before passing">Avg Attempts</span>
+                                <span>Completion</span>
+                            </div>
+                        </div>
                         {moduleBreakdown.map(m => (
                             <div key={m.moduleId} className="flex items-center justify-between text-xs px-1">
-                                <span className="text-slate-400 truncate max-w-[60%]">{m.title}</span>
-                                <div className="flex items-center gap-4 shrink-0">
-                                    <span className="text-slate-500">Avg score: <span className="text-white font-medium">{m.avgScore}%</span></span>
-                                    <span className={`font-semibold ${m.completionRate >= 70 ? 'text-green-400' : m.completionRate >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
-                                        {m.completionRate}% complete
+                                <span className="text-slate-400 truncate max-w-[55%]">{m.title}</span>
+                                <div className="flex items-center gap-6 shrink-0">
+                                    <span className="text-slate-500 w-14 text-right">
+                                        <span className="text-white font-medium">{m.avgScore}%</span>
+                                    </span>
+                                    <span className={`w-20 text-right font-medium ${
+                                        m.avgAttempts === null ? 'text-slate-600' :
+                                        (m.avgAttempts as number) > 2 ? 'text-amber-400' : 'text-slate-300'
+                                    }`}>
+                                        {m.avgAttempts === null ? '—' : `${m.avgAttempts}×`}
+                                    </span>
+                                    <span className={`w-20 text-right font-semibold ${
+                                        m.completionRate >= 70 ? 'text-green-400' :
+                                        m.completionRate >= 40 ? 'text-yellow-400' : 'text-red-400'
+                                    }`}>
+                                        {m.completionRate}%
                                     </span>
                                 </div>
                             </div>
@@ -269,36 +391,11 @@ export function ComplianceCharts() {
                 </ChartCard>
             )}
 
-            {/* ── Chart 2: Completion Timeline ── */}
-            <ChartCard
-                title="Completion Timeline"
-                description="Module completions per week over the last 12 weeks"
-                filename="completion-timeline"
-            >
-                <ResponsiveContainer width="100%" height={260}>
-                    <LineChart data={timeline} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
-                        <XAxis dataKey="week" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#475569" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                        <Tooltip content={<DarkTooltip />} />
-                        <Line
-                            type="monotone"
-                            dataKey="completions"
-                            name="Completions"
-                            stroke="#a855f7"
-                            strokeWidth={2.5}
-                            dot={{ fill: '#a855f7', r: 4 }}
-                            activeDot={{ r: 6 }}
-                        />
-                    </LineChart>
-                </ResponsiveContainer>
-            </ChartCard>
-
-            {/* ── Chart 3: Score Distribution ── */}
+            {/* ── Chart 2: Score Distribution ── */}
             {scoreDistribution.length > 0 && (
                 <ChartCard
                     title="Quiz Score Distribution"
-                    description="How employees scored across each module (number of attempts per score band)"
+                    description="How employees scored across each module (number of completions per score band)"
                     filename="score-distribution"
                 >
                     <ResponsiveContainer width="100%" height={280}>
@@ -306,13 +403,8 @@ export function ComplianceCharts() {
                             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
                             <XAxis
                                 dataKey="shortTitle"
-                                stroke="#94a3b8"
-                                fontSize={10}
-                                tickLine={false}
-                                axisLine={false}
-                                angle={-20}
-                                textAnchor="end"
-                                interval={0}
+                                stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false}
+                                angle={-20} textAnchor="end" interval={0}
                             />
                             <YAxis stroke="#475569" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
                             <Tooltip content={<DarkTooltip />} />
@@ -325,7 +417,7 @@ export function ComplianceCharts() {
                 </ChartCard>
             )}
 
-            {/* ── Chart 4: Department Performance ── */}
+            {/* ── Chart 3: Department Performance ── */}
             {deptBreakdown.length > 0 && (
                 <ChartCard
                     title="Department Performance"
@@ -342,16 +434,10 @@ export function ComplianceCharts() {
                             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" horizontal={false} />
                             <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} stroke="#475569" fontSize={11} tickLine={false} axisLine={false} />
                             <YAxis type="category" dataKey="dept" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} width={140} />
-                            <Tooltip
-                                content={<DarkTooltip />}
-                                formatter={(val: any) => [`${val}%`, 'Completion Rate']}
-                            />
+                            <Tooltip content={<DarkTooltip />} formatter={(val: any) => [`${val}%`, 'Completion Rate']} />
                             <Bar dataKey="overallRate" name="Completion Rate %" radius={[0, 6, 6, 0]}>
                                 {deptBreakdown.map((entry, i) => (
-                                    <Cell
-                                        key={i}
-                                        fill={entry.overallRate >= 70 ? '#34d399' : entry.overallRate >= 40 ? '#facc15' : '#f87171'}
-                                    />
+                                    <Cell key={i} fill={entry.overallRate >= 70 ? '#34d399' : entry.overallRate >= 40 ? '#facc15' : '#f87171'} />
                                 ))}
                             </Bar>
                         </BarChart>
@@ -359,16 +445,14 @@ export function ComplianceCharts() {
                 </ChartCard>
             )}
 
-            {/* ── Chart 5: Module × Department heatmap table ── */}
+            {/* ── Chart 4: Module × Department heatmap table ── */}
             {deptBreakdown.length > 0 && moduleList.length > 0 && (
                 <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
-                    <CardHeader className="flex flex-row items-start justify-between pb-2">
-                        <div>
-                            <CardTitle className="text-white text-base">Module × Department Matrix</CardTitle>
-                            <CardDescription className="text-slate-400 text-xs mt-1">
-                                Completion rate (%) per module per department
-                            </CardDescription>
-                        </div>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-white text-base">Module × Department Matrix</CardTitle>
+                        <CardDescription className="text-slate-400 text-xs mt-1">
+                            Completion rate (%) per module per department
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="overflow-x-auto">
@@ -430,13 +514,11 @@ export function ComplianceCharts() {
                             </CardDescription>
                         </div>
                         <Button
-                            size="sm"
-                            variant="ghost"
+                            size="sm" variant="ghost"
                             onClick={handleDownloadMatrix}
                             className="text-slate-400 hover:text-white hover:bg-white/10 gap-1.5"
                         >
-                            <FileDown className="w-4 h-4" />
-                            .xlsx
+                            <FileDown className="w-4 h-4" /> .xlsx
                         </Button>
                     </CardHeader>
                     <CardContent>

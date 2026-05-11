@@ -518,7 +518,7 @@ export async function getComplianceReport() {
     return reportRows
 }
 
-export async function getReportChartData() {
+export async function getReportChartData(opts?: { startDate?: string; endDate?: string }) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
@@ -529,14 +529,14 @@ export async function getReportChartData() {
     const orgId = userData?.organization_id
     if (!orgId) return null
 
-    const [membersResult, progressResult, modulesResult, deptsResult] = await Promise.all([
+    const [membersResult, progressResult, modulesResult, deptsResult, deadlinesResult] = await Promise.all([
         // All org members with department
         supabase.from('users')
             .select('id, display_name, email, department_id, departments(name)')
             .eq('organization_id', orgId),
-        // All progress records for org
+        // All progress records for org — include attempts column
         supabase.from('user_progress')
-            .select('user_id, module_id, is_completed, quiz_score, completed_at, modules(title), users!inner(organization_id)')
+            .select('user_id, module_id, is_completed, quiz_score, completed_at, attempts, modules(title), users!inner(organization_id)')
             .eq('users.organization_id', orgId),
         // All org-enabled modules
         supabase.from('organization_modules')
@@ -547,6 +547,10 @@ export async function getReportChartData() {
             .select('id, name')
             .eq('organization_id', orgId)
             .order('name'),
+        // Deadlines — for overdue calculation
+        supabase.from('organization_module_deadlines')
+            .select('module_id, due_date')
+            .eq('organization_id', orgId),
     ])
 
     const members: any[] = membersResult.data || []
@@ -554,6 +558,7 @@ export async function getReportChartData() {
     const enabledModules: any[] = (modulesResult.data || [])
         .sort((a: any, b: any) => (a.modules?.sequence_order || 0) - (b.modules?.sequence_order || 0))
     const depts: any[] = deptsResult.data || []
+    const deadlines: any[] = deadlinesResult.data || []
     const totalMembers = members.length || 1
 
     // ── 1. Module Breakdown ────────────────────────────────────────────────
@@ -571,6 +576,12 @@ export async function getReportChartData() {
         const scores = moduleProgress.filter((p: any) => p.is_completed && p.quiz_score != null).map((p: any) => p.quiz_score)
         const avgScore = scores.length > 0 ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length) : 0
 
+        const completedProgress = moduleProgress.filter((p: any) => p.is_completed)
+        const totalAttemptSum = completedProgress.reduce((sum: number, p: any) => sum + (p.attempts || 1), 0)
+        const avgAttempts = completedProgress.length > 0
+            ? parseFloat((totalAttemptSum / completedProgress.length).toFixed(1))
+            : null
+
         return {
             moduleId: mid,
             title,
@@ -581,6 +592,7 @@ export async function getReportChartData() {
             completionRate: Math.round((completedUsers.size / totalMembers) * 100),
             avgScore,
             totalAttempts: moduleProgress.length,
+            avgAttempts,
         }
     })
 
@@ -642,11 +654,21 @@ export async function getReportChartData() {
         }
     })
 
-    // ── 4. Completion Timeline (last 12 weeks) ────────────────────────────
+    // ── 4. Completion Timeline ────────────────────────────────────────────
     const now = new Date()
+    const rangeStart = opts?.startDate ? new Date(opts.startDate) : null
+    const rangeEnd = opts?.endDate ? new Date(opts.endDate + 'T23:59:59') : null
+
+    const timelineEnd = rangeEnd ?? now
+    const timelineStart = rangeStart ?? new Date(now.getTime() - 83 * 24 * 60 * 60 * 1000) // 12 weeks back
+
+    const msDiff = timelineEnd.getTime() - timelineStart.getTime()
+    const totalWeeks = Math.max(1, Math.ceil(msDiff / (7 * 24 * 60 * 60 * 1000)))
+    const weeksToShow = Math.min(totalWeeks, 52)
+
     const weeks: { label: string, start: Date, end: Date }[] = []
-    for (let i = 11; i >= 0; i--) {
-        const end = new Date(now)
+    for (let i = weeksToShow - 1; i >= 0; i--) {
+        const end = new Date(timelineEnd)
         end.setDate(end.getDate() - i * 7)
         const start = new Date(end)
         start.setDate(start.getDate() - 6)
@@ -707,6 +729,20 @@ export async function getReportChartData() {
         return enabledModules.every(om => completedForMember.has(om.module_id))
     }).length
 
+    // Overdue: unique employees who haven't completed at least one past-deadline module
+    const today = new Date()
+    const overdueSet = new Set<string>()
+    deadlines.forEach((dl: any) => {
+        if (new Date(dl.due_date) < today) {
+            members.forEach((m: any) => {
+                const done = progress.some((p: any) =>
+                    p.user_id === m.id && p.module_id === dl.module_id && p.is_completed
+                )
+                if (!done) overdueSet.add(m.id)
+            })
+        }
+    })
+
     return {
         summary: {
             totalMembers,
@@ -717,6 +753,8 @@ export async function getReportChartData() {
             overallAvgScore,
             fullyCompliant,
             fullyCompliantRate: Math.round((fullyCompliant / (totalMembers || 1)) * 100),
+            overdueCount: overdueSet.size,
+            hasDeadlines: deadlines.length > 0,
         },
         moduleBreakdown,
         deptBreakdown,
