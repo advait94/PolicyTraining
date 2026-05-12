@@ -15,6 +15,11 @@ const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfa
 export const metadata: Metadata = {
   title: 'Policy Training Platform',
   description: 'Secure, multi-tenant corporate training',
+  icons: {
+    icon: '/aaplus_logo.png',
+    shortcut: '/aaplus_logo.png',
+    apple: '/aaplus_logo.png',
+  },
 }
 
 export default function RootLayout({
