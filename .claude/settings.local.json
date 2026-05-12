@@ -12,7 +12,25 @@
       "Bash(npm run dev:*)",
       "Bash(timeout:*)",
       "Bash(curl:*)",
-      "Bash(ls -la \"C:\\\\Users\\\\pc\\\\Desktop\\\\PolicyTraining\\\\public\"\" 2>/dev/null | head -20 || dir \"C:UserspcDesktopPolicyTrainingpublic \")"
+      "Bash(ls -la \"C:\\\\Users\\\\pc\\\\Desktop\\\\PolicyTraining\\\\public\"\" 2>/dev/null | head -20 || dir \"C:UserspcDesktopPolicyTrainingpublic \")",
+      "Bash(Get-Content \"C:\\\\Users\\\\pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-pc-Desktop-PolicyTraining\\\\770557f1-a54b-45dd-9fb3-c5447ae5302a\\\\tasks\\\\b8hpbxkn4.output\" -Wait)",
+      "Bash(Select-String -Pattern \"ready|started|error|failed|EADDRINUSE|listening|Local\" --line-buffered)",
+      "PowerShell(netstat *)",
+      "PowerShell(Invoke-WebRequest -Uri \"http://localhost:3001\" -MaximumRedirection 0 -ErrorAction SilentlyContinue | Select-Object StatusCode, Headers)",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:3001/login\" -UseBasicParsing; Write-Output \"Status: $\\($r.StatusCode\\)\" } catch { Write-Output \"Error: $_\" })",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\pc\\\\Desktop\\\\CSTraining\\\\corporate-lms\\\\src\" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object FullName)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\pc\\\\Desktop\\\\CSTraining\\\\corporate-lms\" -Recurse -Depth 5 | Where-Object { -not $_.PSIsContainer } | Select-Object -ExpandProperty FullName | Select-Object -First 50)",
+      "PowerShell(head *)",
+      "Bash(Select-Object FullName, Length)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\pc\\\\Desktop\\\\CSTraining\" -Recurse | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\pc\\\\Desktop\\\\CSTraining\\\\corporate-lms\\\\src\" -Recurse | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\pc\\\\Desktop\\\\CSTraining\\\\temp_adv3\", \"C:\\\\Users\\\\pc\\\\Desktop\\\\CSTraining\\\\temp_advanced\", \"C:\\\\Users\\\\pc\\\\Desktop\\\\CSTraining\\\\temp_foundation\" -Recurse | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\pc\\\\Desktop\\\\CSTraining\\\\WebApp\" -Recurse | ForEach-Object { $_.FullName })",
+      "Bash(supabase --version)",
+      "Bash(supabase status *)",
+      "Bash(supabase projects *)",
+      "Bash(supabase link *)",
+      "Bash(supabase db *)"
     ]
   }
 }

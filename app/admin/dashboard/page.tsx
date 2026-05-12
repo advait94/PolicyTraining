@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { inviteUser, getAdminStats, getCompanyUsers, getComplianceReport, bulkInviteUsers, getOrgModules, setModuleAssignment, setModuleAllEmployees, getDepartments, createDepartment, deleteDepartment, updateUserDepartment, setDeptModuleAssignment, bulkAssignDepartment, setModuleDeadline, getModuleDeadlines, updateUserRole, getReportChartData } from '@/app/actions/admin'
+import { useEffect, useRef, useState } from 'react'
+import { inviteUser, getAdminStats, getCompanyUsers, getComplianceReport, bulkInviteUsers, getOrgModules, setModuleAssignment, setModuleAllEmployees, getDepartments, createDepartment, deleteDepartment, updateUserDepartment, setDeptModuleAssignment, bulkAssignDepartment, bulkAssignSelectedUsers, setModuleDeadline, getModuleDeadlines, updateUserRole, getReportChartData, revokeUserAccess, getDeptRptAccess, setDeptRptAccess as setDeptRptAccessAction, getAIPolicyStatus } from '@/app/actions/admin'
 import { getAuditLog, getBulkCertificates, exportAuditLog } from '@/app/actions/audit'
 import { ComplianceCharts } from '@/components/feature/reports/compliance-charts'
 import * as XLSX from 'xlsx'
@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts'
-import { Loader2, UserPlus, FileBarChart, Users, AlertTriangle, GraduationCap, Download, Search, CheckCircle, Clock, LogOut, BookOpen, ChevronDown, ChevronRight, Plus, Trash2, Building2, Calendar, UsersRound, Trophy, Medal, ShieldCheck, Webhook, Activity } from 'lucide-react'
+import { Loader2, UserPlus, FileBarChart, Users, AlertTriangle, GraduationCap, Download, Search, CheckCircle, Clock, LogOut, BookOpen, ChevronDown, ChevronRight, Plus, Trash2, Building2, Calendar, UsersRound, Trophy, Medal, ShieldCheck, Webhook, Activity, UserMinus, Lock, Sparkles } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { DeadlinePicker } from '@/components/ui/deadline-picker'
 import { toast } from 'sonner'
@@ -45,6 +45,10 @@ export default function AdminDashboard() {
     const [deletingDept, setDeletingDept] = useState<string | null>(null)
     const [updatingUserDept, setUpdatingUserDept] = useState<string | null>(null)
 
+    // RPT Simulator access per department
+    const [deptRptAccess, setDeptRptAccess] = useState<{ id: string; name: string; rpt_simulator_enabled: boolean }[]>([])
+    const [togglingDeptRpt, setTogglingDeptRpt] = useState<string | null>(null)
+
     // Bulk Invite State
     const [bulkPreview, setBulkPreview] = useState<{ name: string, email: string, department_id?: string, departmentName?: string }[]>([])
     const [isBulkUploading, setIsBulkUploading] = useState(false)
@@ -52,9 +56,12 @@ export default function AdminDashboard() {
     // Bulk assign + deadlines + role state
     const [bulkAssignDeptId, setBulkAssignDeptId] = useState('')
     const [isBulkAssigning, setIsBulkAssigning] = useState(false)
+    const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
+    const selectAllCheckboxRef = useRef<HTMLInputElement>(null)
     const [moduleDeadlines, setModuleDeadlines] = useState<Record<string, string>>({})
     const [savingDeadline, setSavingDeadline] = useState<string | null>(null)
     const [updatingUserRole, setUpdatingUserRole] = useState<string | null>(null)
+    const [revokingUser, setRevokingUser] = useState<string | null>(null)
 
     // Leaderboard state
     const [leaderboardData, setLeaderboardData] = useState<any[]>([])
@@ -76,6 +83,10 @@ export default function AdminDashboard() {
     const [bulkCertModuleId, setBulkCertModuleId] = useState('')
     const [bulkCerts, setBulkCerts] = useState<any[]>([])
     const [loadingBulkCerts, setLoadingBulkCerts] = useState(false)
+
+    // AI Policy status
+    const [aiPolicyStatus, setAiPolicyStatus] = useState<{ completed: boolean; tier?: 1 | 2 | 3; moduleName?: string } | null>(null)
+    const [aiPolicyLoading, setAiPolicyLoading] = useState(true)
 
     // Handle File Upload & Parse
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -222,11 +233,13 @@ export default function AdminDashboard() {
                 setOrgs(orgsData || []);
             }
 
-            const [statsData, usersData, modulesData, deadlinesData] = await Promise.all([
+            const [statsData, usersData, modulesData, deadlinesData, rptData, aiPolicyData] = await Promise.all([
                 getAdminStats(),
                 getCompanyUsers(),
                 getOrgModules(),
-                getModuleDeadlines()
+                getModuleDeadlines(),
+                getDeptRptAccess(),
+                getAIPolicyStatus()
             ])
             setStats(statsData)
             setUsers(usersData || [])
@@ -234,6 +247,9 @@ export default function AdminDashboard() {
                 setOrgModules(modulesData.modules || [])
                 setDepartments(modulesData.departments || [])
             }
+            setDeptRptAccess(rptData || [])
+            setAiPolicyStatus(aiPolicyData)
+            setAiPolicyLoading(false)
             const dlMap: Record<string, string> = {}
             ;(deadlinesData || []).forEach((d: any) => { dlMap[d.module_id] = d.due_date })
             setModuleDeadlines(dlMap)
@@ -241,6 +257,17 @@ export default function AdminDashboard() {
         }
         checkAuthAndLoadData()
     }, [])
+
+    useEffect(() => {
+        if (!selectAllCheckboxRef.current) return
+        const filtered = users.filter(u =>
+            u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            u.email.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        const allSelected = filtered.length > 0 && filtered.every(u => selectedUserIds.has(u.id))
+        const someSelected = filtered.some(u => selectedUserIds.has(u.id))
+        selectAllCheckboxRef.current.indeterminate = someSelected && !allSelected
+    }, [users, searchTerm, selectedUserIds])
 
     if (isAdmin === false) {
         return (
@@ -358,8 +385,9 @@ export default function AdminDashboard() {
         if (result.success) {
             toast.success(`Department "${newDeptName}" created`)
             setNewDeptName('')
-            const fresh = await getDepartments()
+            const [fresh, freshRpt] = await Promise.all([getDepartments(), getDeptRptAccess()])
             if (fresh) setDepartments(fresh)
+            setDeptRptAccess(freshRpt || [])
         } else {
             toast.error(result.message || 'Failed to create department')
         }
@@ -379,6 +407,19 @@ export default function AdminDashboard() {
         setDeletingDept(null)
     }
 
+    async function handleToggleDeptRpt(departmentId: string, enabled: boolean) {
+        setTogglingDeptRpt(departmentId)
+        setDeptRptAccess(prev => prev.map(d => d.id === departmentId ? { ...d, rpt_simulator_enabled: enabled } : d))
+        const result = await setDeptRptAccessAction(departmentId, enabled)
+        if (!result.success) {
+            setDeptRptAccess(prev => prev.map(d => d.id === departmentId ? { ...d, rpt_simulator_enabled: !enabled } : d))
+            toast.error(result.message || 'Failed to update RPT access')
+        } else {
+            toast.success(enabled ? 'RPT Simulator enabled for department' : 'RPT Simulator disabled for department')
+        }
+        setTogglingDeptRpt(null)
+    }
+
     async function handleUpdateUserDepartment(userId: string, departmentId: string | null) {
         setUpdatingUserDept(userId)
         const result = await updateUserDepartment(userId, departmentId)
@@ -395,13 +436,24 @@ export default function AdminDashboard() {
     async function handleBulkAssign() {
         if (!bulkAssignDeptId) return
         setIsBulkAssigning(true)
-        const result = await bulkAssignDepartment(bulkAssignDeptId)
-        if (result.success) {
-            const deptName = departments.find(d => d.id === bulkAssignDeptId)?.name || ''
-            setUsers(prev => prev.map(u => u.department_id ? u : { ...u, department_id: bulkAssignDeptId, department_name: deptName }))
-            toast.success(`All unassigned users moved to ${deptName}`)
+        const deptName = departments.find(d => d.id === bulkAssignDeptId)?.name || ''
+        if (selectedUserIds.size > 0) {
+            const result = await bulkAssignSelectedUsers(Array.from(selectedUserIds), bulkAssignDeptId)
+            if (result.success) {
+                setUsers(prev => prev.map(u => selectedUserIds.has(u.id) ? { ...u, department_id: bulkAssignDeptId, department_name: deptName } : u))
+                setSelectedUserIds(new Set())
+                toast.success(`${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''} moved to ${deptName}`)
+            } else {
+                toast.error(result.message || 'Failed to assign users')
+            }
         } else {
-            toast.error(result.message || 'Failed to bulk assign')
+            const result = await bulkAssignDepartment(bulkAssignDeptId)
+            if (result.success) {
+                setUsers(prev => prev.map(u => u.department_id ? u : { ...u, department_id: bulkAssignDeptId, department_name: deptName }))
+                toast.success(`All unassigned users moved to ${deptName}`)
+            } else {
+                toast.error(result.message || 'Failed to bulk assign')
+            }
         }
         setIsBulkAssigning(false)
     }
@@ -428,6 +480,19 @@ export default function AdminDashboard() {
             toast.error(result.message || 'Failed to update role')
         }
         setUpdatingUserRole(null)
+    }
+
+    async function handleRevokeAccess(userId: string, userName: string) {
+        if (!confirm(`Remove ${userName} from your organization? They will lose access immediately but their account will not be deleted.`)) return
+        setRevokingUser(userId)
+        const result = await revokeUserAccess(userId)
+        if (result.success) {
+            setUsers(prev => prev.filter(u => u.id !== userId))
+            toast.success(`${userName} has been removed from the organization.`)
+        } else {
+            toast.error(result.message || 'Failed to revoke access')
+        }
+        setRevokingUser(null)
     }
 
     async function loadAuditPage(
@@ -485,6 +550,34 @@ export default function AdminDashboard() {
         u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.email.toLowerCase().includes(searchTerm.toLowerCase())
     )
+
+    const allFilteredSelected = filteredUsers.length > 0 && filteredUsers.every(u => selectedUserIds.has(u.id))
+    const someFilteredSelected = filteredUsers.some(u => selectedUserIds.has(u.id))
+
+    function toggleSelectAll() {
+        if (allFilteredSelected) {
+            setSelectedUserIds(prev => {
+                const next = new Set(prev)
+                filteredUsers.forEach(u => next.delete(u.id))
+                return next
+            })
+        } else {
+            setSelectedUserIds(prev => {
+                const next = new Set(prev)
+                filteredUsers.forEach(u => next.add(u.id))
+                return next
+            })
+        }
+    }
+
+    function toggleUserSelected(userId: string) {
+        setSelectedUserIds(prev => {
+            const next = new Set(prev)
+            if (next.has(userId)) next.delete(userId)
+            else next.add(userId)
+            return next
+        })
+    }
 
     return (
         <div className="min-h-screen bg-[#0B0F19] p-8 md:p-12 space-y-8">
@@ -545,6 +638,64 @@ export default function AdminDashboard() {
 
                 {/* OVERVIEW TAB */}
                 <TabsContent value="overview" className="space-y-8">
+                    {/* AI Policy Banner */}
+                    {!aiPolicyLoading && aiPolicyStatus !== null && (
+                        <>
+                            {!aiPolicyStatus?.completed ? (
+                                <Card className="bg-amber-500/10 border-amber-500/30 backdrop-blur-md">
+                                    <CardContent className="flex items-center justify-between p-5 flex-wrap gap-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                                                <Sparkles className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <p className="text-white font-semibold">Set Up Your AI Usage Policy</p>
+                                                <p className="text-slate-400 text-sm">Answer 4 quick questions to assign the right AI Best Practices training module to your employees.</p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            onClick={() => router.push('/admin/ai-policy')}
+                                            className="bg-amber-600 hover:bg-amber-500 text-white whitespace-nowrap"
+                                        >
+                                            Set Up AI Policy
+                                            <ChevronRight className="w-4 h-4 ml-1" />
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            ) : (
+                                <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
+                                    <CardContent className="flex items-center justify-between p-4 flex-wrap gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                                            <span className="text-slate-300 text-sm">
+                                                AI Policy:
+                                                <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                    aiPolicyStatus.tier === 1 ? 'bg-amber-500/20 text-amber-300' :
+                                                    aiPolicyStatus.tier === 2 ? 'bg-blue-500/20 text-blue-300' :
+                                                    'bg-emerald-500/20 text-emerald-300'
+                                                }`}>
+                                                    {aiPolicyStatus.tier === 1 ? 'Restricted Use' :
+                                                     aiPolicyStatus.tier === 2 ? 'Standard Use' : 'Responsible Use'}
+                                                </span>
+                                                {aiPolicyStatus.moduleName && (
+                                                    <span className="text-slate-500 ml-2">— {aiPolicyStatus.moduleName}</span>
+                                                )}
+                                            </span>
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => router.push('/admin/ai-policy')}
+                                            className="text-slate-400 hover:text-white text-xs h-7"
+                                        >
+                                            Update Policy
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </>
+                    )}
+
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         {/* Invite & Stats */}
                         <div className="lg:col-span-1 space-y-8">
@@ -824,7 +975,10 @@ export default function AdminDashboard() {
                                 <CardDescription className="text-slate-400">Manage employees and assign them to departments.</CardDescription>
                             </div>
                             <div className="flex items-center gap-3 flex-wrap">
-                                {/* Bulk assign unassigned users */}
+                                {selectedUserIds.size > 0 && (
+                                    <span className="text-xs text-cyan-400 font-medium">{selectedUserIds.size} selected</span>
+                                )}
+                                {/* Bulk assign */}
                                 {departments.length > 0 && (
                                     <div className="flex items-center gap-2">
                                         <select
@@ -832,7 +986,7 @@ export default function AdminDashboard() {
                                             onChange={e => setBulkAssignDeptId(e.target.value)}
                                             className="text-xs bg-black/30 border border-white/10 text-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-500"
                                         >
-                                            <option value="">Bulk assign unassigned…</option>
+                                            <option value="">{selectedUserIds.size > 0 ? 'Assign selected to…' : 'Bulk assign unassigned…'}</option>
                                             {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                         </select>
                                         <Button
@@ -842,7 +996,7 @@ export default function AdminDashboard() {
                                             className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs h-8"
                                         >
                                             {isBulkAssigning ? <Loader2 className="w-3 h-3 animate-spin" /> : <UsersRound className="w-3 h-3" />}
-                                            <span className="ml-1">Assign</span>
+                                            <span className="ml-1">{selectedUserIds.size > 0 ? `Assign ${selectedUserIds.size}` : 'Assign'}</span>
                                         </Button>
                                     </div>
                                 )}
@@ -862,6 +1016,16 @@ export default function AdminDashboard() {
                                 <table className="w-full text-sm text-left">
                                     <thead className="bg-white/5 text-slate-300 font-medium">
                                         <tr>
+                                            <th className="p-4 w-10">
+                                                <input
+                                                    ref={selectAllCheckboxRef}
+                                                    type="checkbox"
+                                                    checked={allFilteredSelected}
+                                                    onChange={toggleSelectAll}
+                                                    className="w-4 h-4 rounded border-white/20 bg-black/30 accent-cyan-500 cursor-pointer"
+                                                    title="Select all"
+                                                />
+                                            </th>
                                             <th className="p-4">Name</th>
                                             <th className="p-4">Email</th>
                                             <th className="p-4">Role</th>
@@ -873,7 +1037,15 @@ export default function AdminDashboard() {
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
                                         {filteredUsers.map((user) => (
-                                            <tr key={user.id} className="hover:bg-white/5 transition-colors">
+                                            <tr key={user.id} className={`hover:bg-white/5 transition-colors ${selectedUserIds.has(user.id) ? 'bg-cyan-500/5' : ''}`}>
+                                                <td className="p-4">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedUserIds.has(user.id)}
+                                                        onChange={() => toggleUserSelected(user.id)}
+                                                        className="w-4 h-4 rounded border-white/20 bg-black/30 accent-cyan-500 cursor-pointer"
+                                                    />
+                                                </td>
                                                 <td className="p-4 text-white font-medium">{user.name}</td>
                                                 <td className="p-4 text-slate-400">{user.email}</td>
                                                 <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs ${user.role === 'admin' ? 'bg-purple-500/20 text-purple-300' : 'bg-blue-500/20 text-blue-300'}`}>{user.role}</span></td>
@@ -902,26 +1074,43 @@ export default function AdminDashboard() {
                                                     )}
                                                 </td>
                                                 <td className="p-4">
-                                                    {user.role !== 'admin' && (
-                                                        updatingUserRole === user.id ? (
-                                                            <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
-                                                        ) : (
-                                                            <select
-                                                                value={user.role || 'learner'}
-                                                                onChange={e => handleUpdateUserRole(user.id, e.target.value)}
-                                                                className="text-xs bg-black/30 border border-white/10 text-slate-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                                                            >
-                                                                <option value="learner">Learner</option>
-                                                                <option value="manager">Manager</option>
-                                                            </select>
-                                                        )
-                                                    )}
+                                                    <div className="flex items-center gap-2">
+                                                        {user.role !== 'admin' && (
+                                                            updatingUserRole === user.id ? (
+                                                                <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
+                                                            ) : (
+                                                                <select
+                                                                    value={user.role || 'learner'}
+                                                                    onChange={e => handleUpdateUserRole(user.id, e.target.value)}
+                                                                    className="text-xs bg-black/30 border border-white/10 text-slate-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                                                >
+                                                                    <option value="learner">Learner</option>
+                                                                    <option value="manager">Manager</option>
+                                                                </select>
+                                                            )
+                                                        )}
+                                                        {user.role !== 'admin' && (
+                                                            revokingUser === user.id ? (
+                                                                <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
+                                                            ) : (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => handleRevokeAccess(user.id, user.name)}
+                                                                    className="h-7 px-2 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                                                    title="Revoke access"
+                                                                >
+                                                                    <UserMinus className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                            )
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
                                         {filteredUsers.length === 0 && (
                                             <tr>
-                                                <td colSpan={6} className="p-8 text-center text-slate-500">No users found.</td>
+                                                <td colSpan={8} className="p-8 text-center text-slate-500">No users found.</td>
                                             </tr>
                                         )}
                                     </tbody>
@@ -975,8 +1164,9 @@ export default function AdminDashboard() {
                                                         setCreatingDept(true)
                                                         const result = await createDepartment(preset.name)
                                                         if (result.success) {
-                                                            const fresh = await getDepartments()
+                                                            const [fresh, freshRpt] = await Promise.all([getDepartments(), getDeptRptAccess()])
                                                             if (fresh) setDepartments(fresh)
+                                                            setDeptRptAccess(freshRpt || [])
                                                         } else {
                                                             toast.error(result.message || 'Failed to create department')
                                                         }
@@ -1073,12 +1263,12 @@ export default function AdminDashboard() {
                                         <span className="text-slate-600">Click a module to assign departments</span>
                                     </div>
                                     {orgModules.map((module) => (
-                                        <div key={module.id} className={`rounded-xl border transition-colors ${module.isAssigned ? 'bg-purple-500/5 border-purple-500/20' : 'bg-white/5 border-white/5'}`}>
+                                        <div key={module.id} className={`rounded-xl border transition-colors ${module.isLocked ? 'bg-amber-500/5 border-amber-500/20' : module.isAssigned ? 'bg-purple-500/5 border-purple-500/20' : 'bg-white/5 border-white/5'}`}>
                                             {/* Module row */}
                                             <div className="flex items-center justify-between p-4">
                                                 <button
                                                     className="flex items-center gap-4 flex-1 text-left"
-                                                    onClick={() => setExpandedModule(expandedModule === module.id ? null : module.id)}
+                                                    onClick={() => !module.isLocked && setExpandedModule(expandedModule === module.id ? null : module.id)}
                                                 >
                                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${module.isAssigned ? 'bg-purple-500/20 text-purple-400' : 'bg-white/5 text-slate-600'}`}>
                                                         <BookOpen className="w-5 h-5" />
@@ -1087,7 +1277,11 @@ export default function AdminDashboard() {
                                                         <div className={`font-medium transition-colors ${module.isAssigned ? 'text-white' : 'text-slate-400'}`}>
                                                             {module.title}
                                                         </div>
-                                                        {module.isAssigned && (
+                                                        {module.isLocked ? (
+                                                            <div className="text-xs mt-0.5 text-amber-500 flex items-center gap-1">
+                                                                <Lock className="w-3 h-3" /> Locked by administrator
+                                                            </div>
+                                                        ) : module.isAssigned && (
                                                             <div className="text-xs mt-0.5">
                                                                 {module.allEmployees
                                                                     ? <span className="text-blue-400">Visible to all employees</span>
@@ -1098,7 +1292,7 @@ export default function AdminDashboard() {
                                                             </div>
                                                         )}
                                                     </div>
-                                                    {module.isAssigned && (
+                                                    {!module.isLocked && module.isAssigned && (
                                                         expandedModule === module.id
                                                             ? <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
                                                             : <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
@@ -1106,14 +1300,14 @@ export default function AdminDashboard() {
                                                 </button>
                                                 <Switch
                                                     checked={module.isAssigned}
-                                                    disabled={togglingModule === module.id}
+                                                    disabled={togglingModule === module.id || module.isLocked}
                                                     onCheckedChange={(checked) => handleToggleModule(module.id, checked)}
                                                     className="ml-4"
                                                 />
                                             </div>
 
                                             {/* Department assignment panel */}
-                                            {module.isAssigned && expandedModule === module.id && (
+                                            {!module.isLocked && module.isAssigned && expandedModule === module.id && (
                                                 <div className="px-4 pb-4 border-t border-white/5 pt-3 space-y-3">
                                                     {/* Deadline picker */}
                                                     <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-white/5 border border-white/10">
@@ -1175,6 +1369,49 @@ export default function AdminDashboard() {
                                                     )}
                                                 </div>
                                             )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                    {/* RPT Simulator Access Card */}
+                    <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-white">
+                                <Lock className="w-5 h-5 text-amber-400" />
+                                RPT Simulator Access
+                            </CardTitle>
+                            <CardDescription className="text-slate-400">
+                                Control which departments can access the RPT Simulator. Enabled by default — toggle off to restrict a department.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {deptRptAccess.length === 0 ? (
+                                <p className="text-sm text-slate-500 text-center py-4">
+                                    No departments yet. Create departments above to control RPT Simulator access.
+                                </p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {deptRptAccess.map(dept => (
+                                        <div
+                                            key={dept.id}
+                                            className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${dept.rpt_simulator_enabled ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-2 h-2 rounded-full ${dept.rpt_simulator_enabled ? 'bg-green-400' : 'bg-red-400'}`} />
+                                                <span className={`text-sm font-medium ${dept.rpt_simulator_enabled ? 'text-slate-200' : 'text-slate-400'}`}>
+                                                    {dept.name}
+                                                </span>
+                                                {!dept.rpt_simulator_enabled && (
+                                                    <span className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full">Restricted</span>
+                                                )}
+                                            </div>
+                                            <Switch
+                                                checked={dept.rpt_simulator_enabled}
+                                                disabled={togglingDeptRpt === dept.id}
+                                                onCheckedChange={(checked) => handleToggleDeptRpt(dept.id, checked)}
+                                            />
                                         </div>
                                     ))}
                                 </div>

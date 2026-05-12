@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCompanyEmployees } from '@/lib/data/employees'
+import { getOrgModules } from '@/app/actions/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Users, Building, ShieldCheck, Mail, BookOpen } from 'lucide-react'
+import ModuleAccessPanel from './ModuleAccessPanel'
 
 export default async function OrganizationDetailsPage({
     params,
@@ -29,8 +31,11 @@ export default async function OrganizationDetailsPage({
         return <div className="p-8 text-center text-red-400">Organization not found.</div>
     }
 
-    // 3. Fetch Employees for this Org
-    const employees = await getCompanyEmployees(id)
+    // 3. Fetch Employees and Modules for this Org
+    const [employees, orgModulesData] = await Promise.all([
+        getCompanyEmployees(id),
+        getOrgModules(id)
+    ])
 
     return (
         <div className="space-y-8">
@@ -89,6 +94,19 @@ export default async function OrganizationDetailsPage({
                     </div>
                 </div>
             </div>
+
+            {/* Module Access */}
+            <ModuleAccessPanel
+                orgId={id}
+                modules={orgModulesData?.modules?.map(m => ({
+                    id: m.id,
+                    title: m.title,
+                    description: m.description ?? null,
+                    sequence_order: m.sequence_order,
+                    isAssigned: m.isAssigned,
+                    isLocked: m.isLocked ?? false,
+                })) ?? []}
+            />
 
             {/* Employee List */}
             <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl overflow-hidden">

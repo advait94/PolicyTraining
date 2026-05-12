@@ -271,11 +271,12 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
         // Store magic link in database, only expose token ID
         const { data: tokenRecord, error: tokenError } = await supabaseAdmin
             .from('safe_link_tokens')
-            .insert({
+            .upsert({
                 magic_link: inviteLink,
                 email: email.toLowerCase(),
-                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-            })
+                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                used: false
+            }, { onConflict: 'email' })
             .select('id')
             .single();
 

@@ -343,7 +343,7 @@ export async function getOrgModules(targetOrgId?: string) {
         orgId = userData.organization_id
     }
 
-    const [modulesResult, assignedResult, deptModulesResult, deptsResult] = await Promise.all([
+    const [modulesResult, assignedResult, deptModulesResult, deptsResult, locksResult] = await Promise.all([
         supabase
             .from('modules')
             .select('id, title, description, sequence_order')
@@ -360,13 +360,18 @@ export async function getOrgModules(targetOrgId?: string) {
             .from('departments')
             .select('id, name')
             .eq('organization_id', orgId)
-            .order('name', { ascending: true })
+            .order('name', { ascending: true }),
+        supabase
+            .from('organization_module_locks')
+            .select('module_id')
+            .eq('organization_id', orgId)
     ])
 
     const assignedSet = new Set(assignedResult.data?.map((a: any) => a.module_id) || [])
     const allEmployeesSet = new Set(
         (assignedResult.data || []).filter((a: any) => a.all_employees).map((a: any) => a.module_id)
     )
+    const lockedSet = new Set(locksResult.data?.map((l: any) => l.module_id) || [])
 
     const deptAssignmentsMap = new Map<string, string[]>()
     for (const row of (deptModulesResult.data || [])) {
@@ -380,7 +385,8 @@ export async function getOrgModules(targetOrgId?: string) {
             ...m,
             isAssigned: assignedSet.has(m.id),
             allEmployees: allEmployeesSet.has(m.id),
-            deptIds: deptAssignmentsMap.get(m.id) || []
+            deptIds: deptAssignmentsMap.get(m.id) || [],
+            isLocked: lockedSet.has(m.id),
         })),
         departments: deptsResult.data || []
     }
@@ -408,6 +414,19 @@ export async function setModuleAssignment(moduleId: string, assign: boolean, tar
         orgId = userData.organization_id
     }
 
+    // Org admins cannot change the assignment state of a superadmin-locked module
+    if (!isSuperAdmin) {
+        const { data: lockRow } = await supabase
+            .from('organization_module_locks')
+            .select('module_id')
+            .eq('organization_id', orgId!)
+            .eq('module_id', moduleId)
+            .maybeSingle()
+        if (lockRow) {
+            return { success: false, message: 'This module has been locked by a superadmin and cannot be changed.' }
+        }
+    }
+
     if (assign) {
         const { error } = await supabase
             .from('organization_modules')
@@ -422,6 +441,30 @@ export async function setModuleAssignment(moduleId: string, assign: boolean, tar
         if (error) return { success: false, message: error.message }
     }
 
+    return { success: true }
+}
+
+export async function toggleModuleLock(moduleId: string, lock: boolean, orgId: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, message: 'Unauthorized' }
+
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    if (!isSuperAdmin) return { success: false, message: 'Unauthorized: Superadmin only' }
+
+    if (lock) {
+        const { error } = await supabase
+            .from('organization_module_locks')
+            .upsert({ organization_id: orgId, module_id: moduleId, locked_by: user.id })
+        if (error) return { success: false, message: error.message }
+    } else {
+        const { error } = await supabase
+            .from('organization_module_locks')
+            .delete()
+            .eq('organization_id', orgId)
+            .eq('module_id', moduleId)
+        if (error) return { success: false, message: error.message }
+    }
     return { success: true }
 }
 
@@ -882,6 +925,25 @@ export async function bulkAssignDepartment(departmentId: string, targetOrgId?: s
     return { success: true }
 }
 
+export async function bulkAssignSelectedUsers(userIds: string[], departmentId: string) {
+    if (!userIds.length) return { success: false, message: 'No users selected' }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, message: 'Unauthorized' }
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    if (!isSuperAdmin) {
+        const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single()
+        if (userData?.role !== 'admin') return { success: false, message: 'Unauthorized' }
+    }
+    const adminClient = createAdminClient()
+    const { error } = await adminClient
+        .from('users')
+        .update({ department_id: departmentId })
+        .in('id', userIds)
+    if (error) return { success: false, message: error.message }
+    return { success: true }
+}
+
 export async function setModuleDeadline(moduleId: string, dueDate: string | null, targetOrgId?: string) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -933,4 +995,188 @@ export async function updateUserRole(userId: string, role: string, targetOrgId?:
     const { error } = await adminClient.from('users').update({ role }).eq('id', userId)
     if (error) return { success: false, message: error.message }
     return { success: true }
+}
+
+export async function revokeUserAccess(userId: string, targetOrgId?: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, message: 'Unauthorized' }
+
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    let orgId = targetOrgId
+
+    if (!isSuperAdmin) {
+        const { data: userData } = await supabase.from('users').select('role, organization_id').eq('id', user.id).single()
+        if (userData?.role !== 'admin') return { success: false, message: 'Unauthorized' }
+        orgId = userData.organization_id
+    }
+
+    const adminClient = createAdminClient()
+
+    const { error: memberError } = await adminClient
+        .from('organization_members')
+        .delete()
+        .eq('user_id', userId)
+        .eq('organization_id', orgId)
+
+    if (memberError) return { success: false, message: memberError.message }
+
+    const { error: userError } = await adminClient
+        .from('users')
+        .update({ organization_id: null, department_id: null })
+        .eq('id', userId)
+
+    if (userError) return { success: false, message: userError.message }
+
+    return { success: true }
+}
+
+export async function getDeptRptAccess(targetOrgId?: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    const orgId = await resolveOrgId(supabase, user.id, !!isSuperAdmin, targetOrgId)
+    if (!orgId) return []
+
+    const { data } = await supabase
+        .from('departments')
+        .select('id, name, rpt_simulator_enabled')
+        .eq('organization_id', orgId)
+        .order('name', { ascending: true })
+    return (data || []) as { id: string; name: string; rpt_simulator_enabled: boolean }[]
+}
+
+export async function setDeptRptAccess(departmentId: string, enabled: boolean) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, message: 'Unauthorized' }
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    if (!isSuperAdmin) {
+        const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single()
+        if (userData?.role !== 'admin') return { success: false, message: 'Unauthorized' }
+    }
+
+    const { error } = await supabase
+        .from('departments')
+        .update({ rpt_simulator_enabled: enabled })
+        .eq('id', departmentId)
+    if (error) return { success: false, message: error.message }
+    return { success: true }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI POLICY QUIZ
+// ─────────────────────────────────────────────────────────────────────────────
+
+type AIPolicyAnswers = {
+    allow_invoices: boolean
+    allow_specs: boolean
+    allow_legal_docs: boolean
+    allow_situational: boolean
+}
+
+const AI_TIER_MODULE_IDS = {
+    tier1: '0000000a-0001-0000-0000-000000000001',
+    tier2: '0000000b-0001-0000-0000-000000000001',
+    tier3: '0000000c-0001-0000-0000-000000000001',
+} as const
+
+function determineAITier(a: AIPolicyAnswers): 1 | 2 | 3 {
+    if (a.allow_legal_docs) return 3
+    if (a.allow_invoices || a.allow_specs) return 2
+    return 1
+}
+
+export async function getAIModuleTierIds() {
+    return AI_TIER_MODULE_IDS
+}
+
+export async function saveAIPolicyQuiz(
+    answers: AIPolicyAnswers,
+    targetOrgId?: string
+): Promise<{ success: boolean; message?: string; tier?: 1 | 2 | 3; moduleId?: string }> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, message: 'Unauthorized' }
+
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    const orgId = await resolveOrgId(supabase, user.id, !!isSuperAdmin, targetOrgId)
+    if (!orgId) return { success: false, message: 'Unauthorized' }
+
+    const tier = determineAITier(answers)
+    const moduleId = AI_TIER_MODULE_IDS[`tier${tier}` as keyof typeof AI_TIER_MODULE_IDS]
+
+    const { error: policyError } = await supabase
+        .from('organization_ai_policy')
+        .upsert({
+            organization_id: orgId,
+            completed_by: user.id,
+            ...answers,
+            assigned_tier: tier,
+            assigned_module_id: moduleId,
+            updated_at: new Date().toISOString(),
+        }, { onConflict: 'organization_id' })
+
+    if (policyError) return { success: false, message: policyError.message }
+
+    // Remove the other two AI tier modules if previously assigned
+    const otherModuleIds = Object.values(AI_TIER_MODULE_IDS).filter(id => id !== moduleId)
+    for (const otherId of otherModuleIds) {
+        await supabase
+            .from('organization_modules')
+            .delete()
+            .eq('organization_id', orgId)
+            .eq('module_id', otherId)
+    }
+
+    const assignResult = await setModuleAssignment(moduleId, true, orgId)
+    if (!assignResult.success) return { success: false, message: assignResult.message }
+
+    return { success: true, tier, moduleId }
+}
+
+export async function getAIPolicyStatus(targetOrgId?: string): Promise<{
+    completed: boolean
+    tier?: 1 | 2 | 3
+    moduleId?: string
+    moduleName?: string
+    answers?: AIPolicyAnswers
+} | null> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    const orgId = await resolveOrgId(supabase, user.id, !!isSuperAdmin, targetOrgId)
+    if (!orgId) return null
+
+    const { data, error } = await supabase
+        .from('organization_ai_policy')
+        .select(`
+            assigned_tier,
+            assigned_module_id,
+            allow_invoices,
+            allow_specs,
+            allow_legal_docs,
+            allow_situational,
+            modules ( title )
+        `)
+        .eq('organization_id', orgId)
+        .maybeSingle()
+
+    if (error || !data) return { completed: false }
+
+    return {
+        completed: true,
+        tier: data.assigned_tier as 1 | 2 | 3,
+        moduleId: data.assigned_module_id,
+        moduleName: (data as any).modules?.title,
+        answers: {
+            allow_invoices: data.allow_invoices,
+            allow_specs: data.allow_specs,
+            allow_legal_docs: data.allow_legal_docs,
+            allow_situational: data.allow_situational,
+        }
+    }
 }

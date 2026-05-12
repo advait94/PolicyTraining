@@ -83,13 +83,14 @@ export function QuizPlayer({
     }
 
     const handleNext = async () => {
-        setIsSubmitted(false)
-        setSelectedAnswerId(null)
-        setFeedbackMessage(null)
-
         if (isLastQuestion) {
+            // Don't clear state — stay on the submitted Q view while saving,
+            // then showResult=true takes over once finishQuiz completes.
             await finishQuiz()
         } else {
+            setIsSubmitted(false)
+            setSelectedAnswerId(null)
+            setFeedbackMessage(null)
             setCurrentQuestionIndex(i => i + 1)
         }
     }
