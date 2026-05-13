@@ -1263,21 +1263,25 @@ export default function AdminDashboard() {
                                         <span className="text-slate-600">Click a module to assign departments</span>
                                     </div>
                                     {orgModules.map((module) => (
-                                        <div key={module.id} className={`rounded-xl border transition-colors ${module.isLocked ? 'bg-amber-500/5 border-amber-500/20' : module.isAssigned ? 'bg-purple-500/5 border-purple-500/20' : 'bg-white/5 border-white/5'}`}>
+                                        <div key={module.id} className={`rounded-xl border transition-colors ${module.isAIPolicyModule ? 'bg-indigo-500/5 border-indigo-500/20' : module.isLocked ? 'bg-amber-500/5 border-amber-500/20' : module.isAssigned ? 'bg-purple-500/5 border-purple-500/20' : 'bg-white/5 border-white/5'}`}>
                                             {/* Module row */}
                                             <div className="flex items-center justify-between p-4">
                                                 <button
                                                     className="flex items-center gap-4 flex-1 text-left"
-                                                    onClick={() => !module.isLocked && setExpandedModule(expandedModule === module.id ? null : module.id)}
+                                                    onClick={() => !module.isLocked && module.isAssigned && setExpandedModule(expandedModule === module.id ? null : module.id)}
                                                 >
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${module.isAssigned ? 'bg-purple-500/20 text-purple-400' : 'bg-white/5 text-slate-600'}`}>
-                                                        <BookOpen className="w-5 h-5" />
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${module.isAIPolicyModule ? 'bg-indigo-500/20 text-indigo-400' : module.isAssigned ? 'bg-purple-500/20 text-purple-400' : 'bg-white/5 text-slate-600'}`}>
+                                                        {module.isAIPolicyModule ? <ShieldCheck className="w-5 h-5" /> : <BookOpen className="w-5 h-5" />}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className={`font-medium transition-colors ${module.isAssigned ? 'text-white' : 'text-slate-400'}`}>
                                                             {module.title}
                                                         </div>
-                                                        {module.isLocked ? (
+                                                        {module.isAIPolicyModule ? (
+                                                            <div className="text-xs mt-0.5 text-indigo-400 flex items-center gap-1">
+                                                                <ShieldCheck className="w-3 h-3" /> Managed by AI Policy
+                                                            </div>
+                                                        ) : module.isLocked ? (
                                                             <div className="text-xs mt-0.5 text-amber-500 flex items-center gap-1">
                                                                 <Lock className="w-3 h-3" /> Locked by administrator
                                                             </div>
@@ -1300,7 +1304,7 @@ export default function AdminDashboard() {
                                                 </button>
                                                 <Switch
                                                     checked={module.isAssigned}
-                                                    disabled={togglingModule === module.id || module.isLocked}
+                                                    disabled={togglingModule === module.id || module.isLocked || module.isAIPolicyModule}
                                                     onCheckedChange={(checked) => handleToggleModule(module.id, checked)}
                                                     className="ml-4"
                                                 />

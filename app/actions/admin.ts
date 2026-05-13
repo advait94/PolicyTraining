@@ -343,7 +343,9 @@ export async function getOrgModules(targetOrgId?: string) {
         orgId = userData.organization_id
     }
 
-    const [modulesResult, assignedResult, deptModulesResult, deptsResult, locksResult] = await Promise.all([
+    const allAITierIds = new Set(Object.values(AI_TIER_MODULE_IDS))
+
+    const [modulesResult, assignedResult, deptModulesResult, deptsResult, locksResult, aiPolicyResult] = await Promise.all([
         supabase
             .from('modules')
             .select('id, title, description, sequence_order')
@@ -364,8 +366,15 @@ export async function getOrgModules(targetOrgId?: string) {
         supabase
             .from('organization_module_locks')
             .select('module_id')
+            .eq('organization_id', orgId),
+        supabase
+            .from('organization_ai_policy')
+            .select('assigned_module_id')
             .eq('organization_id', orgId)
+            .maybeSingle()
     ])
+
+    const assignedAIModuleId: string | null = aiPolicyResult.data?.assigned_module_id ?? null
 
     const assignedSet = new Set(assignedResult.data?.map((a: any) => a.module_id) || [])
     const allEmployeesSet = new Set(
@@ -380,14 +389,23 @@ export async function getOrgModules(targetOrgId?: string) {
         deptAssignmentsMap.set(row.module_id, existing)
     }
 
-    return {
-        modules: (modulesResult.data || []).map((m: any) => ({
+    const modules = (modulesResult.data || [])
+        .filter((m: any) => {
+            // Hide AI tier modules that are not the one assigned by the current AI policy
+            if (allAITierIds.has(m.id)) return m.id === assignedAIModuleId
+            return true
+        })
+        .map((m: any) => ({
             ...m,
             isAssigned: assignedSet.has(m.id),
             allEmployees: allEmployeesSet.has(m.id),
             deptIds: deptAssignmentsMap.get(m.id) || [],
             isLocked: lockedSet.has(m.id),
-        })),
+            isAIPolicyModule: allAITierIds.has(m.id),
+        }))
+
+    return {
+        modules,
         departments: deptsResult.data || []
     }
 }
@@ -430,7 +448,10 @@ export async function setModuleAssignment(moduleId: string, assign: boolean, tar
     if (assign) {
         const { error } = await supabase
             .from('organization_modules')
-            .upsert({ organization_id: orgId, module_id: moduleId, assigned_by: user.id })
+            .upsert(
+                { organization_id: orgId, module_id: moduleId, assigned_by: user.id },
+                { onConflict: 'organization_id,module_id' }
+            )
         if (error) return { success: false, message: error.message }
     } else {
         const { error } = await supabase
