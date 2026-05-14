@@ -18,20 +18,26 @@ interface WelcomeGuideModalProps {
 }
 
 const GUIDE_URLS: Record<string, string> = {
-    admin: '/guides/AA_Plus_Admin_How-To_Guide.pptx',
-    learner: '/guides/AA_Plus_Learner_How-To_Guide.pptx',
-    manager: '/guides/AA_Plus_Learner_How-To_Guide.pptx',
+    admin: '/guides/AA_Plus_Admin_How-To_Guide.pdf',
+    learner: '/guides/AA_Plus_Learner_How-To_Guide.pdf',
+    manager: '/guides/AA_Plus_Learner_How-To_Guide.pdf',
 }
+
+// Session-level flag so navigating between pages never re-opens the modal
+// even if the server-rendered prop arrives stale before the DB write lands.
+const SESSION_KEY = 'aa_guide_dismissed'
 
 export function WelcomeGuideModal({ role, hasSeenGuide }: WelcomeGuideModalProps) {
     const [open, setOpen] = useState(false)
 
     useEffect(() => {
-        if (!hasSeenGuide) setOpen(true)
+        const alreadyDismissedThisSession = sessionStorage.getItem(SESSION_KEY) === '1'
+        if (!hasSeenGuide && !alreadyDismissedThisSession) setOpen(true)
     }, [hasSeenGuide])
 
     const dismiss = async () => {
         setOpen(false)
+        sessionStorage.setItem(SESSION_KEY, '1')
         await markGuideAsSeen()
     }
 
