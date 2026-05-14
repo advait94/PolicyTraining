@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { BookOpen, Download, X } from 'lucide-react'
+import { BookOpen, Presentation } from 'lucide-react'
 import {
     Dialog,
     DialogContent,
@@ -17,10 +17,13 @@ interface WelcomeGuideModalProps {
     hasSeenGuide: boolean
 }
 
+const BASE_URL = 'https://training.aaplus.app'
+
+// Microsoft Office Online viewer — renders PPTX in any browser, no PowerPoint needed
 const GUIDE_URLS: Record<string, string> = {
-    admin: '/guides/AA_Plus_Admin_How-To_Guide.pdf',
-    learner: '/guides/AA_Plus_Learner_How-To_Guide.pdf',
-    manager: '/guides/AA_Plus_Learner_How-To_Guide.pdf',
+    admin:   `https://view.officeapps.live.com/op/view.aspx?src=${BASE_URL}/guides/AA_Plus_Admin_How-To_Guide.pptx`,
+    learner: `https://view.officeapps.live.com/op/view.aspx?src=${BASE_URL}/guides/AA_Plus_Learner_How-To_Guide.pptx`,
+    manager: `https://view.officeapps.live.com/op/view.aspx?src=${BASE_URL}/guides/AA_Plus_Learner_How-To_Guide.pptx`,
 }
 
 // Session-level flag so navigating between pages never re-opens the modal
@@ -43,14 +46,10 @@ export function WelcomeGuideModal({ role, hasSeenGuide }: WelcomeGuideModalProps
 
     const openGuide = async () => {
         setOpen(false)
+        sessionStorage.setItem(SESSION_KEY, '1')
         await markGuideAsSeen()
         const url = GUIDE_URLS[role] ?? GUIDE_URLS.learner
-        const a = document.createElement('a')
-        a.href = url
-        a.download = url.split('/').pop() ?? 'guide.pptx'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
+        window.open(url, '_blank', 'noopener,noreferrer')
     }
 
     return (
@@ -110,12 +109,15 @@ export function WelcomeGuideModal({ role, hasSeenGuide }: WelcomeGuideModalProps
                                 border: '1px solid rgba(139,92,246,0.25)',
                             }}
                         >
-                            <Download className="w-4 h-4 text-violet-400 shrink-0" />
-                            <span className="text-sm text-slate-300">
-                                {role === 'admin'
-                                    ? 'AA Plus Admin How-To Guide.pptx'
-                                    : 'AA Plus Learner How-To Guide.pptx'}
-                            </span>
+                            <Presentation className="w-4 h-4 text-violet-400 shrink-0" />
+                            <div>
+                                <p className="text-sm text-slate-300">
+                                    {role === 'admin'
+                                        ? 'AA Plus Admin How-To Guide.pptx'
+                                        : 'AA Plus Learner How-To Guide.pptx'}
+                                </p>
+                                <p className="text-xs text-slate-500 mt-0.5">Opens in your browser — no PowerPoint needed</p>
+                            </div>
                         </div>
 
                         {/* Actions */}
