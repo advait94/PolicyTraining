@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Navbar } from '@/components/shared/navbar'
 import { DashboardSidebar } from '@/components/shared/dashboard-sidebar'
+import { WelcomeGuideModal } from '@/components/feature/onboarding/welcome-guide-modal'
 
 export default async function DashboardLayout({
     children,
@@ -15,10 +16,10 @@ export default async function DashboardLayout({
         redirect('/login')
     }
 
-    // Fetch full user profile for display name
+    // Fetch full user profile for display name and guide flag
     const { data: profile } = await supabase
         .from('users')
-        .select('display_name, role')
+        .select('display_name, role, has_seen_guide')
         .eq('id', user.id)
         .single()
 
@@ -31,6 +32,10 @@ export default async function DashboardLayout({
                     {children}
                 </main>
             </div>
+            <WelcomeGuideModal
+                role={profile?.role ?? 'learner'}
+                hasSeenGuide={profile?.has_seen_guide ?? false}
+            />
         </div>
     )
 }

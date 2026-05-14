@@ -1201,3 +1201,22 @@ export async function getAIPolicyStatus(targetOrgId?: string): Promise<{
         }
     }
 }
+
+export async function markGuideAsSeen() {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('users').update({ has_seen_guide: true }).eq('id', user.id)
+}
+
+export async function getHasSeenGuide(): Promise<boolean> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return true
+    const { data } = await supabase
+        .from('users')
+        .select('has_seen_guide')
+        .eq('id', user.id)
+        .single()
+    return data?.has_seen_guide ?? false
+}

@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { inviteUser, getAdminStats, getCompanyUsers, getComplianceReport, bulkInviteUsers, getOrgModules, setModuleAssignment, setModuleAllEmployees, getDepartments, createDepartment, deleteDepartment, updateUserDepartment, setDeptModuleAssignment, bulkAssignDepartment, bulkAssignSelectedUsers, setModuleDeadline, getModuleDeadlines, updateUserRole, getReportChartData, revokeUserAccess, getDeptRptAccess, setDeptRptAccess as setDeptRptAccessAction, getAIPolicyStatus } from '@/app/actions/admin'
+import { inviteUser, getAdminStats, getCompanyUsers, getComplianceReport, bulkInviteUsers, getOrgModules, setModuleAssignment, setModuleAllEmployees, getDepartments, createDepartment, deleteDepartment, updateUserDepartment, setDeptModuleAssignment, bulkAssignDepartment, bulkAssignSelectedUsers, setModuleDeadline, getModuleDeadlines, updateUserRole, getReportChartData, revokeUserAccess, getDeptRptAccess, setDeptRptAccess as setDeptRptAccessAction, getAIPolicyStatus, getHasSeenGuide } from '@/app/actions/admin'
+import { WelcomeGuideModal } from '@/components/feature/onboarding/welcome-guide-modal'
 import { getAuditLog, getBulkCertificates, exportAuditLog } from '@/app/actions/audit'
 import { ComplianceCharts } from '@/components/feature/reports/compliance-charts'
 import * as XLSX from 'xlsx'
@@ -87,6 +88,9 @@ export default function AdminDashboard() {
     // AI Policy status
     const [aiPolicyStatus, setAiPolicyStatus] = useState<{ completed: boolean; tier?: 1 | 2 | 3; moduleName?: string } | null>(null)
     const [aiPolicyLoading, setAiPolicyLoading] = useState(true)
+
+    // Welcome guide modal
+    const [hasSeenGuide, setHasSeenGuide] = useState<boolean>(true)
 
     // Handle File Upload & Parse
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,6 +214,10 @@ export default function AdminDashboard() {
             }
 
             setIsAdmin(true)
+
+            // Fetch whether this admin has already seen the welcome guide
+            const seenGuide = await getHasSeenGuide()
+            setHasSeenGuide(seenGuide)
 
             // First-time settings check — redirect org admins who haven't configured yet
             if (!superAdminCheck && userData?.organization_id) {
@@ -581,6 +589,8 @@ export default function AdminDashboard() {
 
     return (
         <div className="min-h-screen bg-[#0B0F19] p-8 md:p-12 space-y-8">
+
+            <WelcomeGuideModal role="admin" hasSeenGuide={hasSeenGuide} />
 
             {/* Header */}
             <div className="flex justify-between items-start">
