@@ -103,11 +103,9 @@ export default async function CertificatePage({
     return (
         <>
         <style>{`
+            @page { size: 11in 8.5in landscape; margin: 0; }
             .cert-paper { zoom: 0.70; }
-            @media print {
-                @page { size: 11in 8.5in landscape; margin: 0; }
-                .cert-paper { zoom: 1 !important; }
-            }
+            @media print { .cert-paper { zoom: 1 !important; } }
         `}</style>
         <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-8">
             <div className="mb-6 flex gap-3 print:hidden">
@@ -134,7 +132,7 @@ export default async function CertificatePage({
                 </div>
 
                 {/* Main Content Area */}
-                <div className="flex-1 flex flex-col items-center w-full h-full py-16 px-20 z-10 relative">
+                <div className="flex-1 flex flex-col items-center w-full h-full py-12 px-20 z-10 relative">
 
                     {/* 1. Header Section */}
                     <div className="w-full flex flex-col items-center space-y-6 flex-none">
@@ -177,27 +175,27 @@ export default async function CertificatePage({
                     </div>
 
                     {/* 2. Recipient Section - Grows to fill space */}
-                    <div className="w-full flex flex-col items-center justify-center flex-1 space-y-4 my-8">
+                    <div className="w-full flex flex-col items-center justify-center flex-1 space-y-4 my-4">
                         <p className="text-lg text-slate-500 italic font-serif">This is to certify that</p>
 
                         <h2 className="text-5xl font-bold text-slate-900 font-serif border-b-2 border-slate-300 pb-2 px-12 inline-block min-w-[500px] text-center">
                             {studentName}
                         </h2>
 
-                        <p className="text-lg text-slate-500 italic font-serif mt-4">
+                        <p className="text-lg text-slate-500 italic font-serif">
                             Has successfully completed the training module
                         </p>
 
-                        <h3 className="text-3xl font-bold text-[#003366] mt-1 max-w-3xl leading-tight">
+                        <h3 className="text-3xl font-bold text-[#003366] max-w-3xl leading-tight">
                             {moduleData.title}
                         </h3>
                     </div>
 
-                    {/* 3. Signatures Footer - Fixed at bottom of flow */}
-                    <div className="w-full grid grid-cols-2 gap-32 items-end pt-8 flex-none mb-6">
+                    {/* 3. Signatures + QR Footer - 3 columns, no extra vertical height */}
+                    <div className="w-full grid grid-cols-3 gap-12 items-end pt-6 flex-none mb-3">
                         {/* Authorized Signature */}
                         <div className="flex flex-col items-center">
-                            <div className="h-24 w-56 relative mb-2 flex items-end justify-center">
+                            <div className="h-20 w-full relative mb-2 flex items-end justify-center">
                                 <img src="/papa_signature.jpg" alt="Authorized Signature" className="max-h-full max-w-full object-contain mix-blend-multiply" />
                             </div>
                             <div className="border-t-2 border-slate-400 w-full"></div>
@@ -206,35 +204,32 @@ export default async function CertificatePage({
 
                         {/* Date & Validity */}
                         <div className="flex flex-col items-center">
-                            <div className="h-24 w-full flex flex-col items-center justify-end mb-2">
+                            <div className="h-20 w-full flex flex-col items-center justify-end mb-2">
                                 <p className="text-2xl font-serif text-slate-900 pb-1">{dateStr}</p>
                                 <p className="text-xs text-slate-500 uppercase tracking-widest">Valid Till: {validTillStr}</p>
                             </div>
                             <div className="border-t-2 border-slate-400 w-full"></div>
                             <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mt-2">Date Completed</p>
                         </div>
+
+                        {/* QR Code */}
+                        <div className="flex flex-col items-center">
+                            <div className="h-20 w-full flex items-end justify-center mb-2">
+                                <img src={qrDataUrl} alt="Verify certificate" width={76} height={76} className="rounded" />
+                            </div>
+                            <div className="border-t-2 border-slate-400 w-full"></div>
+                            <p className="text-[8px] text-slate-400 uppercase tracking-widest mt-2">Scan to Verify</p>
+                        </div>
                     </div>
 
-                    {/* Bottom: QR Code + Certificate ID */}
-                    <div className="w-full flex items-end justify-between flex-none">
-                        {/* QR Code */}
-                        <div className="flex flex-col items-center gap-1">
-                            <img src={qrDataUrl} alt="Verify certificate" width={90} height={90} className="rounded" />
-                            <p className="text-[8px] text-slate-400 uppercase tracking-widest">Scan to Verify</p>
-                        </div>
-
-                        {/* Centre text */}
-                        <div className="flex flex-col items-center text-center space-y-1">
-                            <p className="text-[10px] text-slate-300 uppercase tracking-widest">
-                                Certificate ID: <span className="font-mono select-text cursor-text">{certificateId}</span>
-                            </p>
-                            <p className="text-[10px] text-slate-300 uppercase tracking-widest">
-                                AA Plus Policy Training Platform • Proficiency Assessment Verified
-                            </p>
-                        </div>
-
-                        {/* Spacer to balance QR */}
-                        <div className="w-[72px]" />
+                    {/* Certificate ID */}
+                    <div className="w-full text-center flex-none mt-2">
+                        <p className="text-[9px] text-slate-300 uppercase tracking-widest">
+                            Certificate ID: <span className="font-mono select-text cursor-text">{certificateId}</span>
+                        </p>
+                        <p className="text-[9px] text-slate-300 uppercase tracking-widest">
+                            AA Plus Policy Training Platform • Proficiency Assessment Verified
+                        </p>
                     </div>
                 </div>
             </div>
