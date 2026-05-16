@@ -103,9 +103,9 @@ export default async function CertificatePage({
     return (
         <>
         <style>{`
-            @page { size: 11in 8.5in landscape; margin: 0; }
+            @page { size: A4 landscape; margin: 0; }
             .cert-paper { zoom: 0.70; }
-            @media print { .cert-paper { zoom: 1 !important; } }
+            @media print { .cert-paper { zoom: 0.973 !important; } }
         `}</style>
         <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-8">
             <div className="mb-6 flex gap-3 print:hidden">
