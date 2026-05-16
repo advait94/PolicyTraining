@@ -1206,7 +1206,9 @@ export async function markGuideAsSeen() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    await supabase.from('users').update({ has_seen_guide: true }).eq('id', user.id)
+    // Use service-role client to bypass RLS — no UPDATE policy exists for the users table
+    const admin = createAdminClient()
+    await admin.from('users').update({ has_seen_guide: true }).eq('id', user.id)
 }
 
 export async function getHasSeenGuide(): Promise<boolean> {

@@ -13,13 +13,13 @@ export async function POST(req: NextRequest) {
 
     const { data: current } = await supabase
         .from('user_progress')
-        .select('attempts')
+        .select('attempts, certificate_id')
         .eq('user_id', user.id)
         .eq('module_id', moduleId)
         .maybeSingle()
 
     const newAttempts   = (current?.attempts ?? 0) + 1
-    const certificateId = passed ? crypto.randomUUID() : undefined
+    const certificateId = passed ? (current?.certificate_id ?? crypto.randomUUID()) : undefined
 
     const payload: Record<string, unknown> = {
         user_id:      user.id,
