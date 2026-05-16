@@ -119,7 +119,7 @@ export default async function CertificatePage({
             </div>
 
             {/* Paper Container */}
-            <div className="cert-paper bg-white w-[11in] h-[8.5in] shadow-2xl relative flex flex-col items-center text-center p-0 overflow-hidden print:shadow-none select-none">
+            <div className="cert-paper bg-white w-[11in] h-[8.5in] shadow-2xl relative flex flex-col items-center text-center p-0 overflow-hidden print:shadow-none print:mx-auto select-none">
 
                 {/* Decorative Double Border Frame */}
                 <div className="absolute inset-4 border-[8px] border-double border-slate-900/10 pointer-events-none z-20"></div>
