@@ -107,7 +107,7 @@ export default async function CertificatePage({
             .cert-paper { zoom: 0.70; }
             @media print { .cert-paper { zoom: 0.973 !important; } }
         `}</style>
-        <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-8">
+        <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-8 print:min-h-0 print:p-0 print:bg-white print:block">
             <div className="mb-6 flex gap-3 print:hidden">
                 <PrintButton />
                 <LinkedInShareButton
