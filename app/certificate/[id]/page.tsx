@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { PrintButton } from '@/components/feature/certificate/print-button'
 import { LinkedInShareButton } from '@/components/feature/certificate/linkedin-share-button'
+import QRCode from 'qrcode'
 
 // Params need to be awaited in Next.js 15
 export default async function CertificatePage({
@@ -74,6 +75,13 @@ export default async function CertificatePage({
             .eq('id', progress.id)
     }
 
+    const verifyUrl = `https://www.aaplusconsultants.com/verify.html?id=${certificateId}`
+    const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
+        width: 200,
+        margin: 1,
+        color: { dark: '#1e293b', light: '#ffffff' },
+    })
+
     // Verify data access - organizations is likely returned as an array by the query builder if not 1:1 inferred perfectly
     // or just safe access it. Based on error it is an array.
     const studentName = userData?.display_name || (viewUserId === user.id ? user.email : '') || 'Student'
@@ -93,8 +101,13 @@ export default async function CertificatePage({
     })
 
     return (
+        <>
+        <style>{`
+            .cert-paper { zoom: 0.70; }
+            @media print { .cert-paper { zoom: 1 !important; } }
+        `}</style>
         <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-8">
-            <div className="mb-6 -mt-12 flex gap-3 print:hidden">
+            <div className="mb-6 flex gap-3 print:hidden">
                 <PrintButton />
                 <LinkedInShareButton
                     moduleTitle={moduleData.title}
@@ -105,7 +118,7 @@ export default async function CertificatePage({
             </div>
 
             {/* Paper Container */}
-            <div className="bg-white w-[11in] h-[8.5in] shadow-2xl relative flex flex-col items-center text-center p-0 overflow-hidden print:shadow-none print:w-full print:h-auto print:mx-auto">
+            <div className="cert-paper bg-white w-[11in] h-[8.5in] shadow-2xl relative flex flex-col items-center text-center p-0 overflow-hidden print:shadow-none select-none">
 
                 {/* Decorative Double Border Frame */}
                 <div className="absolute inset-4 border-[8px] border-double border-slate-900/10 pointer-events-none z-20"></div>
@@ -178,7 +191,7 @@ export default async function CertificatePage({
                     </div>
 
                     {/* 3. Signatures Footer - Fixed at bottom of flow */}
-                    <div className="w-full grid grid-cols-2 gap-32 items-end pt-8 flex-none mb-12">
+                    <div className="w-full grid grid-cols-2 gap-32 items-end pt-8 flex-none mb-6">
                         {/* Authorized Signature */}
                         <div className="flex flex-col items-center">
                             <div className="h-24 w-56 relative mb-2 flex items-end justify-center">
@@ -199,17 +212,30 @@ export default async function CertificatePage({
                         </div>
                     </div>
 
-                    {/* Bottom Watermark & ID - In flow */}
-                    <div className="w-full flex flex-col items-center text-center space-y-1 flex-none">
-                        <p className="text-[10px] text-slate-300 uppercase tracking-widest">
-                            Certificate ID: <span className="font-mono">{certificateId}</span>
-                        </p>
-                        <p className="text-[10px] text-slate-300 uppercase tracking-widest">
-                            AA Plus Policy Training Platform • Proficiency Assessment Verified
-                        </p>
+                    {/* Bottom: QR Code + Certificate ID */}
+                    <div className="w-full flex items-end justify-between flex-none">
+                        {/* QR Code */}
+                        <div className="flex flex-col items-center gap-1">
+                            <img src={qrDataUrl} alt="Verify certificate" width={90} height={90} className="rounded" />
+                            <p className="text-[8px] text-slate-400 uppercase tracking-widest">Scan to Verify</p>
+                        </div>
+
+                        {/* Centre text */}
+                        <div className="flex flex-col items-center text-center space-y-1">
+                            <p className="text-[10px] text-slate-300 uppercase tracking-widest">
+                                Certificate ID: <span className="font-mono select-text cursor-text">{certificateId}</span>
+                            </p>
+                            <p className="text-[10px] text-slate-300 uppercase tracking-widest">
+                                AA Plus Policy Training Platform • Proficiency Assessment Verified
+                            </p>
+                        </div>
+
+                        {/* Spacer to balance QR */}
+                        <div className="w-[72px]" />
                     </div>
                 </div>
             </div>
         </div>
+        </>
     )
 }
