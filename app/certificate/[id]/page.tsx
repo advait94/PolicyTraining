@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { PrintButton } from '@/components/feature/certificate/print-button'
@@ -68,8 +69,8 @@ export default async function CertificatePage({
     let certificateId = progress.certificate_id
     if (!certificateId && progress.is_completed) {
         certificateId = crypto.randomUUID()
-        // Save back to DB
-        await supabase
+        const adminClient = createAdminClient()
+        await adminClient
             .from('user_progress')
             .update({ certificate_id: certificateId })
             .eq('id', progress.id)

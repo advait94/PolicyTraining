@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
 import { getCompanyEmployees } from '@/lib/data/employees'
 import { getOrgModules } from '@/app/actions/admin'

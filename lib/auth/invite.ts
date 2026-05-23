@@ -2,15 +2,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-        autoRefreshToken: false,
-        persistSession: false
-    }
-});
+function getSupabaseAdmin() {
+    return createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+}
 
 interface InviteData {
     email: string;
@@ -31,6 +29,7 @@ interface OrgBranding {
 }
 
 async function getOrgBranding(organizationId: string): Promise<OrgBranding> {
+    const supabaseAdmin = getSupabaseAdmin();
     try {
         const { data: org } = await supabaseAdmin
             .from('organizations')
@@ -145,6 +144,8 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
     if (!email) {
         throw new Error('Email is required');
     }
+
+    const supabaseAdmin = getSupabaseAdmin();
 
     try {
         // Fetch org branding once upfront

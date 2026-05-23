@@ -12,7 +12,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts'
-import { Loader2, UserPlus, FileBarChart, Users, AlertTriangle, GraduationCap, Download, Search, CheckCircle, Clock, LogOut, BookOpen, ChevronDown, ChevronRight, Plus, Trash2, Building2, Calendar, UsersRound, Trophy, Medal, ShieldCheck, Webhook, Activity, UserMinus, Lock, Sparkles } from 'lucide-react'
+import { Loader2, UserPlus, FileBarChart, Users, AlertTriangle, GraduationCap, Download, Search, CheckCircle, Clock, LogOut, BookOpen, ChevronDown, ChevronRight, Plus, Trash2, Building2, Calendar, UsersRound, Trophy, Medal, ShieldCheck, Webhook, Activity, UserMinus, Lock, Sparkles, HelpCircle } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import { DeadlinePicker } from '@/components/ui/deadline-picker'
 import { toast } from 'sonner'
@@ -91,6 +92,9 @@ export default function AdminDashboard() {
 
     // Welcome guide modal
     const [hasSeenGuide, setHasSeenGuide] = useState<boolean>(true)
+
+    // Help video modal
+    const [showHelpVideo, setShowHelpVideo] = useState(false)
 
     // Handle File Upload & Parse
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -592,6 +596,27 @@ export default function AdminDashboard() {
 
             <WelcomeGuideModal role="admin" hasSeenGuide={hasSeenGuide} />
 
+            {/* Help Video Modal */}
+            <Dialog open={showHelpVideo} onOpenChange={setShowHelpVideo}>
+                <DialogContent className="bg-[#151A29] border-white/10 text-white max-w-4xl w-full p-0 overflow-hidden">
+                    <DialogHeader className="px-6 pt-6 pb-4">
+                        <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+                            <HelpCircle className="w-5 h-5 text-blue-400" />
+                            Admin How-To Guide
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="px-6 pb-6">
+                        <video
+                            controls
+                            className="w-full rounded-lg bg-black"
+                            src="/guides/AA_Plus_Admin_How-To_Guide.mp4"
+                        >
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             {/* Header */}
             <div className="flex justify-between items-start">
                 <div>
@@ -624,6 +649,14 @@ export default function AdminDashboard() {
                     >
                         <span className="mr-2">⚙️</span>
                         Settings
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        onClick={() => setShowHelpVideo(true)}
+                        className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-lg"
+                    >
+                        <HelpCircle className="w-4 h-4 mr-2" />
+                        Help
                     </Button>
                     <Button
                         variant="ghost"
