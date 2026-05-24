@@ -29,6 +29,8 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
+    // getUser() validates the token server-side (one network call) and calls setAll
+    // if a refresh happened — updating request.cookies with the new token.
     const { data: { user } } = await supabase.auth.getUser()
 
     // Protected Routes Logic
@@ -48,18 +50,11 @@ export async function updateSession(request: NextRequest) {
             return response
         }
 
-        // ── Fast path: read org/plan data from JWT claims (custom_access_token_hook) ──
-        // getSession() is purely local — reads cookies already refreshed by getUser() above.
-        const { data: { session } } = await supabase.auth.getSession()
-        const jwtClaims = (() => {
-            try {
-                const payload = session?.access_token?.split('.')?.[1]
-                if (!payload) return null
-                // JWT uses base64url; atob needs standard base64
-                const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
-                return JSON.parse(atob(normalized))
-            } catch { return null }
-        })()
+        // ── Fast path: read JWT claims directly from cookies (synchronous, zero network calls) ──
+        // getUser() above already refreshed the token if needed — request.cookies now has
+        // the up-to-date JWT. readJWTClaimsFromCookies() parses it synchronously;
+        // no getSession() call needed (which would trigger another Auth API round-trip).
+        const jwtClaims = readJWTClaimsFromCookies(request.cookies.getAll())
 
         const claimedOrgId    = jwtClaims?.app_metadata?.org_id    as string | undefined
         const claimedPlanTier = jwtClaims?.app_metadata?.plan_tier  as string | undefined
@@ -124,4 +119,54 @@ export async function updateSession(request: NextRequest) {
     }
 
     return response
+}
+
+// Reads the Supabase auth cookie from request cookies and decodes the JWT payload.
+// Handles both chunked (sb-xxx-auth-token.0/.1) and non-chunked cookie formats.
+// Called after getUser() so the cookie reflects any token refresh that occurred.
+function readJWTClaimsFromCookies(cookies: { name: string; value: string }[]): Record<string, any> | null {
+    const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL
+        ?.replace(/^https?:\/\//, '')
+        ?.replace(/\.supabase\.co.*$/, '')
+    if (!projectRef) return null
+
+    const cookieName = `sb-${projectRef}-auth-token`
+    let accessToken: string | null = null
+
+    // Non-chunked cookie
+    const direct = cookies.find(c => c.name === cookieName)
+    if (direct?.value) {
+        try {
+            const session = JSON.parse(direct.value)
+            accessToken = session.access_token ?? null
+        } catch { /* malformed cookie */ }
+    }
+
+    // Chunked cookies (.0, .1, …) — reassemble then parse
+    if (!accessToken) {
+        const chunks: string[] = []
+        for (let i = 0; ; i++) {
+            const chunk = cookies.find(c => c.name === `${cookieName}.${i}`)
+            if (!chunk) break
+            chunks.push(chunk.value)
+        }
+        if (chunks.length > 0) {
+            try {
+                const session = JSON.parse(chunks.join(''))
+                accessToken = session.access_token ?? null
+            } catch { /* malformed chunks */ }
+        }
+    }
+
+    if (!accessToken) return null
+
+    // Decode JWT payload (base64url → JSON)
+    try {
+        const payload = accessToken.split('.')[1]
+        if (!payload) return null
+        const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+        return JSON.parse(atob(normalized))
+    } catch {
+        return null
+    }
 }
