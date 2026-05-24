@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Users, Building, ShieldCheck, Mail, BookOpen } from 'lucide-react'
 import ModuleAccessPanel from './ModuleAccessPanel'
+import PlanBillingCard from './PlanBillingCard'
 
 export default async function OrganizationDetailsPage({
     params,
@@ -96,6 +97,14 @@ export default async function OrganizationDetailsPage({
                     </div>
                 </div>
             </div>
+
+            {/* Plan & Billing */}
+            <PlanBillingCard
+                orgId={id}
+                initialTier={org.plan_tier ?? null}
+                initialExpiresAt={org.plan_expires_at ?? null}
+                initialStartedAt={org.plan_started_at ?? null}
+            />
 
             {/* Module Access */}
             <ModuleAccessPanel

@@ -6,6 +6,7 @@ import { OrganizationProvider } from "@/components/providers/organization-provid
 import { cn } from '@/lib/utils'
 
 import { AuthSync } from '@/components/feature/auth/auth-sync'
+import { ExpiredBanner } from '@/components/feature/plan/expired-banner'
 
 const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' })
 const raleway = Raleway({ subsets: ['latin'], variable: '--font-raleway' })
@@ -37,6 +38,7 @@ export default function RootLayout({
         "font-sans antialiased"
       )}>
         <OrganizationProvider>
+          <ExpiredBanner />
           <AuthSync />
           {children}
           <Toaster position="top-center" richColors />

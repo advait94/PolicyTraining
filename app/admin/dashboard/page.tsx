@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { inviteUser, getAdminStats, getCompanyUsers, getComplianceReport, bulkInviteUsers, getOrgModules, setModuleAssignment, setModuleAllEmployees, getDepartments, createDepartment, deleteDepartment, updateUserDepartment, setDeptModuleAssignment, bulkAssignDepartment, bulkAssignSelectedUsers, setModuleDeadline, getModuleDeadlines, updateUserRole, getReportChartData, revokeUserAccess, getDeptRptAccess, setDeptRptAccess as setDeptRptAccessAction, getAIPolicyStatus, getHasSeenGuide } from '@/app/actions/admin'
+import { PlanGate } from '@/components/feature/plan/plan-gate'
+import { type PlanTier, tierAtLeast, isPlanExpired } from '@/lib/plan-utils'
 import { WelcomeGuideModal } from '@/components/feature/onboarding/welcome-guide-modal'
 import { getAuditLog, getBulkCertificates, exportAuditLog } from '@/app/actions/audit'
 import { ComplianceCharts } from '@/components/feature/reports/compliance-charts'
@@ -95,6 +97,10 @@ export default function AdminDashboard() {
 
     // Help video modal
     const [showHelpVideo, setShowHelpVideo] = useState(false)
+
+    // Plan tier
+    const [planTier, setPlanTier] = useState<PlanTier>('essentials')
+    const [planExpired, setPlanExpired] = useState(false)
 
     // Handle File Upload & Parse
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -227,7 +233,7 @@ export default function AdminDashboard() {
             if (!superAdminCheck && userData?.organization_id) {
                 const { data: orgCheck } = await supabase
                     .from('organizations')
-                    .select('settings_completed')
+                    .select('settings_completed, plan_tier, plan_expires_at')
                     .eq('id', userData.organization_id)
                     .single()
 
@@ -235,6 +241,13 @@ export default function AdminDashboard() {
                     router.push('/admin/settings?firstTime=true')
                     return
                 }
+
+                const tier = (orgCheck?.plan_tier as PlanTier) ?? 'essentials'
+                const expired = orgCheck?.plan_expires_at
+                    ? new Date(orgCheck.plan_expires_at) < new Date()
+                    : false
+                setPlanTier(tier)
+                setPlanExpired(expired)
             }
 
             setLoadingStats(true)
@@ -297,6 +310,29 @@ export default function AdminDashboard() {
         return (
             <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center">
                 <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
+            </div>
+        )
+    }
+
+    if (planExpired) {
+        return (
+            <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center p-8">
+                <div className="max-w-md w-full text-center space-y-4 rounded-2xl border border-red-500/30 bg-red-500/5 p-10">
+                    <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto">
+                        <span className="text-3xl">🔒</span>
+                    </div>
+                    <h2 className="text-2xl font-bold text-white">Plan Expired</h2>
+                    <p className="text-slate-400">
+                        Your organization&apos;s plan has expired. Access to the admin dashboard is suspended.
+                    </p>
+                    <p className="text-slate-500 text-sm">
+                        Contact{' '}
+                        <a href="mailto:praveen@aaplusconsultants.com" className="text-red-400 underline hover:text-red-300">
+                            praveen@aaplusconsultants.com
+                        </a>{' '}
+                        to renew your plan.
+                    </p>
+                </div>
             </div>
         )
     }
@@ -1165,7 +1201,8 @@ export default function AdminDashboard() {
 
                 {/* MODULES TAB */}
                 <TabsContent value="modules" className="space-y-6">
-                    {/* Department Management Card */}
+                    {/* Department Management Card — business+ */}
+                    <PlanGate required="business" tierOverride={planTier} expiredOverride={planExpired}>
                     <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-white">
@@ -1280,6 +1317,7 @@ export default function AdminDashboard() {
                             )}
                         </CardContent>
                     </Card>
+                    </PlanGate>
 
                     {/* Module Assignments Card */}
                     <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
@@ -1356,7 +1394,8 @@ export default function AdminDashboard() {
                                             {/* Department assignment panel */}
                                             {!module.isLocked && module.isAssigned && expandedModule === module.id && (
                                                 <div className="px-4 pb-4 border-t border-white/5 pt-3 space-y-3">
-                                                    {/* Deadline picker */}
+                                                    {/* Deadline picker — business+ (nudges) */}
+                                                    <PlanGate required="business" tierOverride={planTier} expiredOverride={planExpired}>
                                                     <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-white/5 border border-white/10">
                                                         <Calendar className="w-4 h-4 text-amber-400 shrink-0" />
                                                         <div className="flex-1">
@@ -1377,6 +1416,7 @@ export default function AdminDashboard() {
                                                         )}
                                                         {savingDeadline === module.id && <Loader2 className="w-3 h-3 animate-spin text-amber-400" />}
                                                     </div>
+                                                    </PlanGate>
                                                     {/* All Employees toggle */}
                                                     <div className={`flex items-center justify-between px-3 py-3 rounded-lg border transition-colors ${module.allEmployees ? 'bg-blue-500/10 border-blue-500/30' : 'bg-white/5 border-white/10'}`}>
                                                         <div>
@@ -1390,11 +1430,12 @@ export default function AdminDashboard() {
                                                         />
                                                     </div>
 
-                                                    {/* Per-department toggles — only when All Employees is off */}
+                                                    {/* Per-department toggles — corporate+ */}
                                                     {!module.allEmployees && (
                                                         departments.length === 0 ? (
                                                             <p className="text-sm text-slate-500">Create departments above to assign this module to specific groups.</p>
                                                         ) : (
+                                                            <PlanGate required="corporate" tierOverride={planTier} expiredOverride={planExpired}>
                                                             <div className="space-y-2">
                                                                 <p className="text-xs text-slate-500">Or restrict to specific departments:</p>
                                                                 {departments.map(dept => {
@@ -1412,6 +1453,7 @@ export default function AdminDashboard() {
                                                                     )
                                                                 })}
                                                             </div>
+                                                            </PlanGate>
                                                         )
                                                     )}
                                                 </div>
@@ -1422,7 +1464,8 @@ export default function AdminDashboard() {
                             )}
                         </CardContent>
                     </Card>
-                    {/* RPT Simulator Access Card */}
+                    {/* RPT Simulator Access Card — professional+ */}
+                    <PlanGate required="professional" tierOverride={planTier} expiredOverride={planExpired}>
                     <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-white">
@@ -1465,10 +1508,12 @@ export default function AdminDashboard() {
                             )}
                         </CardContent>
                     </Card>
+                    </PlanGate>
                 </TabsContent>
 
-                {/* LEADERBOARD TAB */}
+                {/* LEADERBOARD TAB — professional+ */}
                 <TabsContent value="leaderboard" className="space-y-6">
+                    <PlanGate required="professional" tierOverride={planTier} expiredOverride={planExpired}>
                     <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
                         <CardHeader>
                             <CardTitle className="text-white flex items-center gap-2">
@@ -1517,10 +1562,12 @@ export default function AdminDashboard() {
                             )}
                         </CardContent>
                     </Card>
+                    </PlanGate>
                 </TabsContent>
 
-                {/* AUDIT TRAIL TAB */}
+                {/* AUDIT TRAIL TAB — professional+ */}
                 <TabsContent value="audit" className="space-y-6">
+                    <PlanGate required="professional" tierOverride={planTier} expiredOverride={planExpired}>
                     <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
                         <CardHeader className="space-y-3">
                             <div className="flex flex-row items-start justify-between gap-4 flex-wrap">
@@ -1686,11 +1733,13 @@ export default function AdminDashboard() {
                             )}
                         </CardContent>
                     </Card>
+                    </PlanGate>
                 </TabsContent>
 
                 {/* REPORTS TAB */}
                 <TabsContent value="reports" className="space-y-6">
-                    {/* Bulk Certificate Download */}
+                    {/* Bulk Certificate Download — corporate+ */}
+                    <PlanGate required="corporate" tierOverride={planTier} expiredOverride={planExpired}>
                     <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
                         <CardHeader>
                             <CardTitle className="text-white flex items-center gap-2">
@@ -1822,6 +1871,7 @@ export default function AdminDashboard() {
                             )}
                         </CardContent>
                     </Card>
+                    </PlanGate>
 
                     <ComplianceCharts />
                 </TabsContent>

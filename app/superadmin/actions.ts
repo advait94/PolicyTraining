@@ -5,6 +5,49 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { inviteUser } from '@/lib/auth/invite'
 
+const PLAN_TIERS = ['essentials', 'business', 'professional', 'corporate', 'enterprise'] as const
+type PlanTier = typeof PLAN_TIERS[number]
+
+export async function updateOrgPlan(
+    orgId: string,
+    planTier: PlanTier | null,
+    planExpiresAt: string | null,
+    planStartedAt: string | null,
+) {
+    try {
+        const supabase = await createServerClient()
+        const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+        if (!isSuperAdmin) {
+            return { success: false, error: 'Unauthorized' }
+        }
+
+        if (planTier !== null && !PLAN_TIERS.includes(planTier)) {
+            return { success: false, error: 'Invalid plan tier' }
+        }
+
+        const supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        )
+
+        const { error } = await supabaseAdmin
+            .from('organizations')
+            .update({
+                plan_tier: planTier,
+                plan_expires_at: planExpiresAt || null,
+                plan_started_at: planStartedAt || null,
+            })
+            .eq('id', orgId)
+
+        if (error) throw new Error(error.message)
+
+        revalidatePath(`/superadmin/organizations/${orgId}`)
+        return { success: true }
+    } catch (err: any) {
+        return { success: false, error: err.message }
+    }
+}
+
 export async function createOrganization(prevState: any, formData: FormData) {
     const name = formData.get('name') as string
     const email = formData.get('email') as string

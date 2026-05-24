@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2, Image as ImageIcon, Save, Globe, ArrowLeft, Sparkles, ArrowRight, Webhook } from 'lucide-react'
+import { PlanGate } from '@/components/feature/plan/plan-gate'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
@@ -349,6 +350,7 @@ function AdminSettingsContent() {
                 </CardContent>
             </Card>
 
+            <PlanGate required="professional">
             <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
                 <CardHeader>
                     <CardTitle className="text-white flex items-center gap-2">
@@ -422,6 +424,7 @@ function AdminSettingsContent() {
                     </div>
                 </CardContent>
             </Card>
+            </PlanGate>
         </div>
     )
 }

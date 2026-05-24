@@ -12,6 +12,8 @@ type OrgDetails = {
     helpline_number: string | null
     posh_ic_email: string | null
     theme_color?: string
+    plan_tier: string | null
+    plan_expires_at: string | null
 }
 
 const OrganizationContext = createContext<{

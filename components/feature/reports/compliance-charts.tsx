@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { getReportChartData, getComplianceReport } from '@/app/actions/admin'
+import { PlanGate } from '@/components/feature/plan/plan-gate'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -201,6 +202,7 @@ export function ComplianceCharts() {
                     <h2 className="text-xl font-bold text-white">Compliance Analytics</h2>
                     <p className="text-slate-400 text-sm mt-0.5">Current compliance state as of {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                 </div>
+                <PlanGate required="business">
                 <div className="flex gap-3 flex-wrap">
                     <Button onClick={handleDownloadMatrix} variant="outline" className="border-white/10 text-slate-300 hover:bg-white/10 gap-2">
                         <Download className="w-4 h-4" /> Employee Matrix (.xlsx)
@@ -210,6 +212,7 @@ export function ComplianceCharts() {
                         Full Report (.xlsx)
                     </Button>
                 </div>
+                </PlanGate>
             </div>
 
             {/* ── KPI Cards ── */}
@@ -513,6 +516,7 @@ export function ComplianceCharts() {
                                 Per-employee, per-module completion status and quiz scores
                             </CardDescription>
                         </div>
+                        <PlanGate required="business">
                         <Button
                             size="sm" variant="ghost"
                             onClick={handleDownloadMatrix}
@@ -520,6 +524,7 @@ export function ComplianceCharts() {
                         >
                             <FileDown className="w-4 h-4" /> .xlsx
                         </Button>
+                        </PlanGate>
                     </CardHeader>
                     <CardContent>
                         <div className="overflow-x-auto max-h-[480px] overflow-y-auto">

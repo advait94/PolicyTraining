@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2, ArrowLeft, Download, Save, RefreshCw, Shield } from 'lucide-react'
+import { PlanGate } from '@/components/feature/plan/plan-gate'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -163,6 +164,7 @@ ${content}
     }
 
     return (
+        <PlanGate required="professional">
         <div className="min-h-screen bg-[#0B0F19] p-8 md:p-12 text-white">
             {/* Header */}
             <div className="flex items-center gap-4 mb-8">
@@ -513,5 +515,6 @@ ${content}
                 </div>
             </div>
         </div>
+        </PlanGate>
     )
 }

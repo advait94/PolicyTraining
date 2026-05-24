@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Loader2, ArrowLeft, Brain, Shield, ShieldCheck, ShieldAlert, ChevronRight, CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
+import { PlanGate } from '@/components/feature/plan/plan-gate'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -146,6 +147,7 @@ export default function AIPolicyPage() {
     const TierIcon = tierInfo?.icon
 
     return (
+        <PlanGate required="professional">
         <div className="min-h-screen bg-[#0B0F19] text-white">
             <div className="max-w-2xl mx-auto px-4 py-8">
 
@@ -402,5 +404,6 @@ export default function AIPolicyPage() {
                 )}
             </div>
         </div>
+        </PlanGate>
     )
 }

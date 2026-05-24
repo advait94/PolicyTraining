@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { RptSimulatorClient } from '@/components/feature/rpt-simulator/rpt-simulator-client'
-import { Lock } from 'lucide-react'
+import { Lock, ArrowUpCircle } from 'lucide-react'
+import { getOrgPlan, tierAtLeast } from '@/lib/plan'
 
 export default async function RptSimulatorPage() {
     const supabase = await createClient()
@@ -15,9 +16,56 @@ export default async function RptSimulatorPage() {
     // Users with no department get access by default.
     const { data: userData } = await supabase
         .from('users')
-        .select('department_id, departments(rpt_simulator_enabled)')
+        .select('department_id, organization_id, departments(rpt_simulator_enabled)')
         .eq('id', user.id)
         .single()
+
+    // Plan check — professional+
+    if (userData?.organization_id) {
+        const { tier, expired } = await getOrgPlan(userData.organization_id)
+        if (expired) {
+            return (
+                <div style={{ minHeight: '100vh', backgroundColor: '#0B0F19' }}
+                    className="flex items-center justify-center p-8">
+                    <div className="max-w-md w-full text-center space-y-4 rounded-2xl border border-red-500/30 bg-red-500/5 p-10">
+                        <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto">
+                            <Lock className="w-8 h-8 text-red-400" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-white">Plan Expired</h2>
+                        <p className="text-slate-400">Your organization&apos;s plan has expired.</p>
+                        <p className="text-slate-500 text-sm">
+                            Contact{' '}
+                            <a href="mailto:praveen@aaplusconsultants.com" className="text-red-400 underline">
+                                praveen@aaplusconsultants.com
+                            </a>{' '}
+                            to renew.
+                        </p>
+                    </div>
+                </div>
+            )
+        }
+        if (!tierAtLeast(tier, 'professional')) {
+            return (
+                <div style={{ minHeight: '100vh', backgroundColor: '#0B0F19' }}
+                    className="flex items-center justify-center p-8">
+                    <div className="max-w-md w-full text-center space-y-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-10">
+                        <div className="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mx-auto">
+                            <ArrowUpCircle className="w-8 h-8 text-amber-400" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-white">Upgrade your plan</h2>
+                        <p className="text-slate-400">The RPT Simulator requires the <span className="text-amber-300 font-medium">Professional</span> plan or higher.</p>
+                        <p className="text-slate-500 text-sm">
+                            Contact{' '}
+                            <a href="mailto:praveen@aaplusconsultants.com" className="text-amber-400 underline">
+                                praveen@aaplusconsultants.com
+                            </a>{' '}
+                            to upgrade.
+                        </p>
+                    </div>
+                </div>
+            )
+        }
+    }
 
     const deptRaw = userData?.departments as unknown
     const dept = Array.isArray(deptRaw) ? deptRaw[0] : deptRaw as { rpt_simulator_enabled: boolean } | null

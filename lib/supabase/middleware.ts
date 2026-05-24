@@ -39,6 +39,7 @@ export async function updateSession(request: NextRequest) {
             path.startsWith('/auth') ||
             path.startsWith('/login') ||
             path === '/unauthorized' ||
+            path === '/inactive' ||
             path.startsWith('/_next') ||
             // Only skip specific static assets, NOT all files (so .html pages are protected)
             path.match(/\.(ico|png|jpg|jpeg|svg|css|js|woff|woff2|ttf|eot)$/)
@@ -58,6 +59,24 @@ export async function updateSession(request: NextRequest) {
             // User is "Homeless"
             console.warn('Middleware: User has no organization, redirecting to unauthorized', user.email)
             return NextResponse.redirect(new URL('/unauthorized', request.url))
+        }
+
+        // Check if the org has an active plan; superadmins are always exempt
+        const { data: org } = await supabase
+            .from('organizations')
+            .select('plan_tier, plan_expires_at')
+            .eq('id', membership.organization_id)
+            .single()
+
+        const hasActivePlan =
+            org?.plan_tier != null &&
+            (!org.plan_expires_at || new Date(org.plan_expires_at) > new Date())
+
+        if (!hasActivePlan) {
+            const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+            if (!isSuperAdmin) {
+                return NextResponse.redirect(new URL('/inactive', request.url))
+            }
         }
     } else {
         // Optional: Redirect unauthenticated users trying to access protected routes to login
