@@ -66,6 +66,7 @@ export async function notifyWebhooks(payload: WebhookPayload, organizationId: st
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(buildSlackMessage(enriched)),
+                signal: AbortSignal.timeout(3000),
             }).catch(err => console.error('Slack webhook failed:', err))
         )
     }
@@ -76,6 +77,7 @@ export async function notifyWebhooks(payload: WebhookPayload, organizationId: st
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(buildTeamsMessage(enriched)),
+                signal: AbortSignal.timeout(3000),
             }).catch(err => console.error('Teams webhook failed:', err))
         )
     }

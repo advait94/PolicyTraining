@@ -1,6 +1,21 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { unstable_cache } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { ModulePlayer } from '@/components/feature/learning/module-player'
+
+const getModuleQuestions = unstable_cache(
+    async (moduleId: string) => {
+        const supabase = createAdminClient()
+        const { data } = await supabase
+            .from('questions')
+            .select('id, text, explanation, answers(id, text, is_correct)')
+            .eq('module_id', moduleId)
+        return data || []
+    },
+    ['module-questions'],
+    { revalidate: 3600 }
+)
 
 // Params need to be awaited in Next.js 15
 export default async function ModulePage({ params }: { params: Promise<{ id: string }> }) {
@@ -29,22 +44,12 @@ export default async function ModulePage({ params }: { params: Promise<{ id: str
     // Sort slides just in case
     moduleData.slides.sort((a: any, b: any) => a.sequence_order - b.sequence_order)
 
-    // 2. Fetch Questions (Fetch ALL allowed questions, then randomize 10 server-side)
-    const { data: allQuestions } = await supabase
-        .from('questions')
-        .select(`
-      id,
-      text,
-      explanation,
-      answers (id, text, is_correct)
-    `)
-        .eq('module_id', id)
-
-    // Randomize & Pick 10
-    const shuffled = (allQuestions || []).sort(() => 0.5 - Math.random())
+    // 2. Fetch Questions — cached 1h (static content), randomize per-request after cache hit
+    const allQuestions = await getModuleQuestions(id)
+    const shuffled = [...allQuestions].sort(() => 0.5 - Math.random())
     const selectedQuestions = shuffled.slice(0, 10).map((q: any) => ({
         ...q,
-        answers: q.answers.sort(() => 0.5 - Math.random()) // Randomize answers too
+        answers: [...q.answers].sort(() => 0.5 - Math.random()),
     }))
 
     // 3. Fetch User Progress (to resume? or just show completed state)

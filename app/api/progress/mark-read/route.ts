@@ -13,17 +13,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Missing moduleSlug or sectionNum' }, { status: 400 })
     }
 
-    // Upsert all sections from 1 to sectionNum so that reaching section N
-    // counts as having read all prior sections (handles skipped/direct navigation).
-    const rows = Array.from({ length: sectionNum }, (_, i) => ({
-        user_id:     user.id,
-        module_slug: moduleSlug,
-        section_num: i + 1,
-    }))
-
     const { error } = await supabase
         .from('section_progress')
-        .upsert(rows, { onConflict: 'user_id,module_slug,section_num', ignoreDuplicates: true })
+        .upsert(
+            { user_id: user.id, module_slug: moduleSlug, section_num: sectionNum },
+            { onConflict: 'user_id,module_slug,section_num', ignoreDuplicates: true }
+        )
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

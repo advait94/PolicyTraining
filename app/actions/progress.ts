@@ -9,13 +9,16 @@ export async function saveModuleProgress(moduleId: string, score: number, passed
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Unauthorized')
 
+    const sanitizedScore = Math.min(100, Math.max(0, Math.round(Number(score) || 0)))
+    const sanitizedPassed = sanitizedScore >= 80
+
     const { error } = await supabase
         .from('user_progress')
         .upsert({
             user_id: user.id,
             module_id: moduleId,
-            quiz_score: score,
-            is_completed: passed,
+            quiz_score: sanitizedScore,
+            is_completed: sanitizedPassed,
             completed_at: passed ? new Date().toISOString() : null,
         }, {
             onConflict: 'user_id, module_id',
@@ -31,11 +34,11 @@ export async function saveModuleProgress(moduleId: string, score: number, passed
         user_id: user.id,
         module_id: moduleId,
         event_type: 'quiz_completed',
-        metadata: { score, passed },
+        metadata: { score: sanitizedScore, passed: sanitizedPassed },
     })).catch(() => {})
 
     // Fire webhook if passed
-    if (passed) {
+    if (sanitizedPassed) {
         const { data: userData } = await supabase
             .from('users')
             .select('organization_id, display_name')
@@ -49,11 +52,11 @@ export async function saveModuleProgress(moduleId: string, score: number, passed
             .single()
 
         if (userData?.organization_id && moduleData?.title) {
-            await notifyWebhooks(
+            void notifyWebhooks(
                 {
                     userName: userData.display_name || 'A team member',
                     moduleTitle: moduleData.title,
-                    score,
+                    score: sanitizedScore,
                 },
                 userData.organization_id
             ).catch(err => console.error('Webhook error:', err))

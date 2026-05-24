@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { inviteUser as inviteUserInternal } from '@/lib/auth/invite'
+import { unstable_cache } from 'next/cache'
 
 // Bulk Invite Action
 export async function bulkInviteUsers(users: { name: string, email: string, department_id?: string }[], targetOrganizationId?: string) {
@@ -158,96 +159,79 @@ export async function inviteUser(prevState: any, formData: FormData) {
     }
 }
 
+const _getAdminStatsCached = unstable_cache(
+    async (orgId: string) => {
+        const supabase = createAdminClient()
+
+        const { count: totalEmployees, error: countError } = await supabase
+            .from('organization_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('organization_id', orgId)
+
+        if (countError) return null
+
+        const { data: progressData, error: progressError } = await supabase
+            .from('user_progress')
+            .select('module_id, modules(title), users!inner(organization_id)')
+            .eq('is_completed', true)
+            .eq('users.organization_id', orgId)
+
+        if (progressError) return null
+
+        const moduleCounts = new Map<string, number>()
+        progressData?.forEach((p: any) => {
+            const title = p.modules?.title || 'Unknown Module'
+            moduleCounts.set(title, (moduleCounts.get(title) || 0) + 1)
+        })
+
+        const total = totalEmployees || 1
+        const moduleStats = Array.from(moduleCounts.entries()).map(([name, count]) => ({
+            name,
+            percentage: Math.round((count / total) * 100)
+        }))
+        const avgCompletion = moduleStats.length > 0
+            ? Math.round(moduleStats.reduce((acc, curr) => acc + curr.percentage, 0) / moduleStats.length)
+            : 0
+
+        const { data: expired } = await supabase
+            .from('user_progress')
+            .select('users!inner(display_name, email, organization_id), completed_at, modules(title)')
+            .eq('users.organization_id', orgId)
+            .eq('is_completed', true)
+            .lt('completed_at', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString())
+
+        return {
+            totalEmployees: totalEmployees || 0,
+            avgCompletion,
+            certifiedUsers: 0,
+            moduleStats: moduleStats.length > 0 ? moduleStats : [{ name: 'No Data', percentage: 0 }],
+            expiredCertifications: expired?.map((r: any) => ({
+                display_name: r.users?.display_name,
+                email: r.users?.email,
+                module_title: r.modules?.title || 'Unknown Module',
+                completed_at: r.completed_at
+            })) || []
+        }
+    },
+    ['admin-stats'],
+    { revalidate: 300 }
+)
+
 export async function getAdminStats() {
     const supabase = await createClient()
 
-    // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-        console.error('Auth Error:', authError)
-        return null
-    }
+    if (authError || !user) return null
 
-    // Get Admin's Organization ID and Role Check
     const { data: userData } = await supabase
         .from('users')
         .select('organization_id, role')
         .eq('id', user.id)
         .single()
 
-    if (userData?.role !== 'admin' || !userData?.organization_id) {
-        console.error('Unauthorized: User is not an admin or missing org')
-        return null
-    }
+    if (userData?.role !== 'admin' || !userData?.organization_id) return null
 
-    // 1. Get Total Employees in Org
-    const { count: totalEmployees, error: countError } = await supabase
-        .from('organization_members')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', userData.organization_id)
-
-    if (countError) {
-        console.error('Count Error:', countError)
-        return null
-    }
-
-    // 2. Get Completed Progress for Org Users
-    // We join users!inner to filter by organization_id efficiently
-    const { data: progressData, error: progressError } = await supabase
-        .from('user_progress')
-        .select(`
-            module_id,
-            modules ( title ),
-            users!inner ( organization_id )
-        `)
-        .eq('is_completed', true)
-        .eq('users.organization_id', userData.organization_id)
-
-    if (progressError) {
-        console.error('Progress Error:', progressError)
-        return null
-    }
-
-    // 3. Aggregate by Module
-    const moduleCounts = new Map<string, number>()
-    progressData?.forEach((p: any) => {
-        const title = p.modules?.title || 'Unknown Module'
-        const current = moduleCounts.get(title) || 0
-        moduleCounts.set(title, current + 1)
-    })
-
-    // 4. Calculate Stats
-    const total = totalEmployees || 1 // Avoid dbz
-    const moduleStats = Array.from(moduleCounts.entries()).map(([name, count]) => ({
-        name,
-        percentage: Math.round((count / total) * 100)
-    }))
-
-    // Calculate Overall Avg
-    const avgCompletion = moduleStats.length > 0
-        ? Math.round(moduleStats.reduce((acc, curr) => acc + curr.percentage, 0) / moduleStats.length)
-        : 0
-
-    // 5. Expired Certs (Same as before)
-    const { data: expired } = await supabase
-        .from('user_progress')
-        .select('users!inner(display_name, email, organization_id), completed_at, modules(title)')
-        .eq('users.organization_id', userData.organization_id) // Ensure org filter
-        .eq('is_completed', true)
-        .lt('completed_at', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString())
-
-    return {
-        totalEmployees: totalEmployees || 0,
-        avgCompletion,
-        certifiedUsers: 0, // Deprecated or calculate if needed
-        moduleStats: moduleStats.length > 0 ? moduleStats : [{ name: 'No Data', percentage: 0 }],
-        expiredCertifications: expired?.map((r: any) => ({
-            display_name: r.users?.display_name,
-            email: r.users?.email,
-            module_title: r.modules?.title || 'Unknown Module',
-            completed_at: r.completed_at
-        })) || []
-    }
+    return _getAdminStatsCached(userData.organization_id)
 }
 
 export async function getCompanyUsers() {
@@ -282,16 +266,20 @@ export async function getCompanyUsers() {
             .select('id, display_name, email, role, department_id, departments(id, name)')
             .eq('organization_id', userData.organization_id),
 
-        // C. Get Progress Counts
-        supabase
+        // C. Get Progress Counts — use admin client to bypass RLS (admin already verified above)
+        createAdminClient()
             .from('user_progress')
-            .select('user_id, is_completed')
+            .select('user_id, users!inner(organization_id)')
             .eq('is_completed', true)
+            .eq('users.organization_id', userData.organization_id)
     ])
 
     if (membersResult.error) {
         console.error('Members Fetch Error:', membersResult.error)
         return []
+    }
+    if (progressResult.error) {
+        console.error('Progress Fetch Error:', progressResult.error)
     }
 
     // 3. Merge Data
@@ -582,6 +570,223 @@ export async function getComplianceReport() {
     return reportRows
 }
 
+const _getReportDataCached = unstable_cache(
+    async (orgId: string, startDate?: string, endDate?: string) => {
+        const supabase = createAdminClient()
+
+        const [membersResult, progressResult, modulesResult, deptsResult, deadlinesResult] = await Promise.all([
+            supabase.from('users')
+                .select('id, display_name, email, department_id, departments(name)')
+                .eq('organization_id', orgId),
+            supabase.from('user_progress')
+                .select('user_id, module_id, is_completed, quiz_score, completed_at, attempts, modules(title), users!inner(organization_id)')
+                .eq('users.organization_id', orgId),
+            supabase.from('organization_modules')
+                .select('module_id, modules(title, sequence_order)')
+                .eq('organization_id', orgId),
+            supabase.from('departments')
+                .select('id, name')
+                .eq('organization_id', orgId)
+                .order('name'),
+            supabase.from('organization_module_deadlines')
+                .select('module_id, due_date')
+                .eq('organization_id', orgId),
+        ])
+
+        const members: any[] = membersResult.data || []
+        const progress: any[] = progressResult.data || []
+        const enabledModules: any[] = (modulesResult.data || [])
+            .sort((a: any, b: any) => (a.modules?.sequence_order || 0) - (b.modules?.sequence_order || 0))
+        const depts: any[] = deptsResult.data || []
+        const deadlines: any[] = deadlinesResult.data || []
+        const totalMembers = members.length || 1
+
+        // Build O(1) lookup map: "userId:moduleId" → progress row
+        const progressLookup = new Map<string, any>()
+        progress.forEach((pr: any) => progressLookup.set(`${pr.user_id}:${pr.module_id}`, pr))
+
+        // ── 1. Module Breakdown ──────────────────────────────────────────────
+        const moduleBreakdown = enabledModules.map((om: any) => {
+            const mid = om.module_id
+            const title = om.modules?.title || 'Unknown'
+            const shortTitle = title.length > 30 ? title.substring(0, 28) + '…' : title
+
+            const moduleProgress = progress.filter((p: any) => p.module_id === mid)
+            const completedUsers = new Set(moduleProgress.filter((p: any) => p.is_completed).map((p: any) => p.user_id))
+            const inProgressUsers = new Set(moduleProgress.filter((p: any) => !p.is_completed).map((p: any) => p.user_id))
+            const inProgressOnly = new Set([...inProgressUsers].filter(id => !completedUsers.has(id)))
+            const notStarted = totalMembers - completedUsers.size - inProgressOnly.size
+            const scores = moduleProgress.filter((p: any) => p.is_completed && p.quiz_score != null).map((p: any) => p.quiz_score)
+            const avgScore = scores.length > 0 ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length) : 0
+
+            const completedProgress = moduleProgress.filter((p: any) => p.is_completed)
+            const totalAttemptSum = completedProgress.reduce((sum: number, p: any) => sum + (p.attempts || 1), 0)
+            const avgAttempts = completedProgress.length > 0
+                ? parseFloat((totalAttemptSum / completedProgress.length).toFixed(1))
+                : null
+
+            return {
+                moduleId: mid, title, shortTitle,
+                completed: completedUsers.size, inProgress: inProgressOnly.size,
+                notStarted: Math.max(0, notStarted),
+                completionRate: Math.round((completedUsers.size / totalMembers) * 100),
+                avgScore, totalAttempts: moduleProgress.length, avgAttempts,
+            }
+        })
+
+        // ── 2. Department Completion Rates ───────────────────────────────────
+        const deptBreakdown = depts.map((dept: any) => {
+            const deptMembers = members.filter((m: any) => m.department_id === dept.id)
+            const deptMemberIds = new Set(deptMembers.map((m: any) => m.id))
+            const deptTotal = deptMembers.length || 1
+            const row: any = { dept: dept.name, total: deptMembers.length }
+            let overallCompleted = 0
+            enabledModules.forEach((om: any) => {
+                const completed = progress.filter((p: any) =>
+                    p.module_id === om.module_id && p.is_completed && deptMemberIds.has(p.user_id)
+                ).length
+                row[om.modules?.title || om.module_id] = Math.round((completed / deptTotal) * 100)
+                overallCompleted += completed
+            })
+            row.overallRate = enabledModules.length > 0
+                ? Math.round((overallCompleted / (deptTotal * enabledModules.length)) * 100)
+                : 0
+            return row
+        })
+
+        const noDeptMembers = members.filter((m: any) => !m.department_id)
+        if (noDeptMembers.length > 0) {
+            const noDeptIds = new Set(noDeptMembers.map((m: any) => m.id))
+            const row: any = { dept: 'No Department', total: noDeptMembers.length }
+            let overallCompleted = 0
+            enabledModules.forEach((om: any) => {
+                const completed = progress.filter((p: any) =>
+                    p.module_id === om.module_id && p.is_completed && noDeptIds.has(p.user_id)
+                ).length
+                row[om.modules?.title || om.module_id] = Math.round((completed / (noDeptMembers.length || 1)) * 100)
+                overallCompleted += completed
+            })
+            row.overallRate = enabledModules.length > 0
+                ? Math.round((overallCompleted / ((noDeptMembers.length || 1) * enabledModules.length)) * 100)
+                : 0
+            deptBreakdown.push(row)
+        }
+
+        // ── 3. Score Distribution per Module ────────────────────────────────
+        const scoreDistribution = enabledModules.map((om: any) => {
+            const scores = progress
+                .filter((p: any) => p.module_id === om.module_id && p.is_completed && p.quiz_score != null)
+                .map((p: any) => p.quiz_score)
+            return {
+                title: om.modules?.title || 'Unknown',
+                shortTitle: (om.modules?.title || '').length > 25
+                    ? (om.modules?.title || '').substring(0, 23) + '…'
+                    : (om.modules?.title || ''),
+                '0–39 (Fail)': scores.filter((s: number) => s < 40).length,
+                '40–59': scores.filter((s: number) => s >= 40 && s < 60).length,
+                '60–69': scores.filter((s: number) => s >= 60 && s < 70).length,
+                '70–79 (Pass)': scores.filter((s: number) => s >= 70 && s < 80).length,
+                '80–100 (Distinction)': scores.filter((s: number) => s >= 80).length,
+            }
+        })
+
+        // ── 4. Completion Timeline ───────────────────────────────────────────
+        const now = new Date()
+        const rangeStart = startDate ? new Date(startDate) : null
+        const rangeEnd = endDate ? new Date(endDate + 'T23:59:59') : null
+        const timelineEnd = rangeEnd ?? now
+        const timelineStart = rangeStart ?? new Date(now.getTime() - 83 * 24 * 60 * 60 * 1000)
+        const msDiff = timelineEnd.getTime() - timelineStart.getTime()
+        const totalWeeks = Math.max(1, Math.ceil(msDiff / (7 * 24 * 60 * 60 * 1000)))
+        const weeksToShow = Math.min(totalWeeks, 52)
+
+        const weeks: { label: string, start: Date, end: Date }[] = []
+        for (let i = weeksToShow - 1; i >= 0; i--) {
+            const end = new Date(timelineEnd)
+            end.setDate(end.getDate() - i * 7)
+            const start = new Date(end)
+            start.setDate(start.getDate() - 6)
+            weeks.push({ label: `${start.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`, start, end })
+        }
+
+        const timeline = weeks.map(w => ({
+            week: w.label,
+            completions: progress.filter((p: any) => {
+                if (!p.is_completed || !p.completed_at) return false
+                const d = new Date(p.completed_at)
+                return d >= w.start && d <= w.end
+            }).length
+        }))
+
+        // ── 5. Employee Matrix ───────────────────────────────────────────────
+        const moduleList = enabledModules.map((om: any) => ({
+            id: om.module_id,
+            title: om.modules?.title || 'Unknown',
+        }))
+
+        const employeeMatrix = members.map((m: any) => {
+            const row: any = {
+                name: m.display_name || 'Unknown',
+                email: m.email || '',
+                department: (m.departments as any)?.name || '—',
+            }
+            let completedCount = 0
+            moduleList.forEach(mod => {
+                const p = progressLookup.get(`${m.id}:${mod.id}`)  // O(1) lookup
+                if (p?.is_completed) {
+                    row[mod.title] = `✓ ${p.quiz_score ?? '—'}%`
+                    completedCount++
+                } else if (p) {
+                    row[mod.title] = 'In Progress'
+                } else {
+                    row[mod.title] = 'Not Started'
+                }
+            })
+            row['Modules Completed'] = `${completedCount}/${moduleList.length}`
+            row['Overall Rate'] = `${Math.round((completedCount / (moduleList.length || 1)) * 100)}%`
+            return row
+        })
+
+        // ── 6. Summary KPIs ─────────────────────────────────────────────────
+        const totalCompletions = progress.filter((p: any) => p.is_completed).length
+        const uniqueCompleted = new Set(progress.filter((p: any) => p.is_completed).map((p: any) => p.user_id)).size
+        const allScores = progress.filter((p: any) => p.is_completed && p.quiz_score != null).map((p: any) => p.quiz_score)
+        const overallAvgScore = allScores.length > 0
+            ? Math.round(allScores.reduce((a: number, b: number) => a + b, 0) / allScores.length)
+            : 0
+        const fullyCompliant = members.filter(m => {
+            const completedForMember = new Set(progress.filter((p: any) => p.user_id === m.id && p.is_completed).map((p: any) => p.module_id))
+            return enabledModules.every(om => completedForMember.has(om.module_id))
+        }).length
+
+        const today = new Date()
+        const overdueSet = new Set<string>()
+        deadlines.forEach((dl: any) => {
+            if (new Date(dl.due_date) < today) {
+                members.forEach((m: any) => {
+                    const done = progress.some((p: any) =>
+                        p.user_id === m.id && p.module_id === dl.module_id && p.is_completed
+                    )
+                    if (!done) overdueSet.add(m.id)
+                })
+            }
+        })
+
+        return {
+            summary: {
+                totalMembers, totalModules: enabledModules.length, totalCompletions,
+                uniqueStarted: new Set(progress.map((p: any) => p.user_id)).size,
+                uniqueCompleted, overallAvgScore, fullyCompliant,
+                fullyCompliantRate: Math.round((fullyCompliant / (totalMembers || 1)) * 100),
+                overdueCount: overdueSet.size, hasDeadlines: deadlines.length > 0,
+            },
+            moduleBreakdown, deptBreakdown, scoreDistribution, timeline, moduleList, employeeMatrix,
+        }
+    },
+    ['report-chart-data'],
+    { revalidate: 300 }
+)
+
 export async function getReportChartData(opts?: { startDate?: string; endDate?: string }) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -593,240 +798,7 @@ export async function getReportChartData(opts?: { startDate?: string; endDate?: 
     const orgId = userData?.organization_id
     if (!orgId) return null
 
-    const [membersResult, progressResult, modulesResult, deptsResult, deadlinesResult] = await Promise.all([
-        // All org members with department
-        supabase.from('users')
-            .select('id, display_name, email, department_id, departments(name)')
-            .eq('organization_id', orgId),
-        // All progress records for org — include attempts column
-        supabase.from('user_progress')
-            .select('user_id, module_id, is_completed, quiz_score, completed_at, attempts, modules(title), users!inner(organization_id)')
-            .eq('users.organization_id', orgId),
-        // All org-enabled modules
-        supabase.from('organization_modules')
-            .select('module_id, modules(title, sequence_order)')
-            .eq('organization_id', orgId),
-        // Departments
-        supabase.from('departments')
-            .select('id, name')
-            .eq('organization_id', orgId)
-            .order('name'),
-        // Deadlines — for overdue calculation
-        supabase.from('organization_module_deadlines')
-            .select('module_id, due_date')
-            .eq('organization_id', orgId),
-    ])
-
-    const members: any[] = membersResult.data || []
-    const progress: any[] = progressResult.data || []
-    const enabledModules: any[] = (modulesResult.data || [])
-        .sort((a: any, b: any) => (a.modules?.sequence_order || 0) - (b.modules?.sequence_order || 0))
-    const depts: any[] = deptsResult.data || []
-    const deadlines: any[] = deadlinesResult.data || []
-    const totalMembers = members.length || 1
-
-    // ── 1. Module Breakdown ────────────────────────────────────────────────
-    const moduleBreakdown = enabledModules.map((om: any) => {
-        const mid = om.module_id
-        const title = om.modules?.title || 'Unknown'
-        const shortTitle = title.length > 30 ? title.substring(0, 28) + '…' : title
-
-        const moduleProgress = progress.filter((p: any) => p.module_id === mid)
-        const completedUsers = new Set(moduleProgress.filter((p: any) => p.is_completed).map((p: any) => p.user_id))
-        const inProgressUsers = new Set(moduleProgress.filter((p: any) => !p.is_completed).map((p: any) => p.user_id))
-        // in-progress should exclude those already completed
-        const inProgressOnly = new Set([...inProgressUsers].filter(id => !completedUsers.has(id)))
-        const notStarted = totalMembers - completedUsers.size - inProgressOnly.size
-        const scores = moduleProgress.filter((p: any) => p.is_completed && p.quiz_score != null).map((p: any) => p.quiz_score)
-        const avgScore = scores.length > 0 ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length) : 0
-
-        const completedProgress = moduleProgress.filter((p: any) => p.is_completed)
-        const totalAttemptSum = completedProgress.reduce((sum: number, p: any) => sum + (p.attempts || 1), 0)
-        const avgAttempts = completedProgress.length > 0
-            ? parseFloat((totalAttemptSum / completedProgress.length).toFixed(1))
-            : null
-
-        return {
-            moduleId: mid,
-            title,
-            shortTitle,
-            completed: completedUsers.size,
-            inProgress: inProgressOnly.size,
-            notStarted: Math.max(0, notStarted),
-            completionRate: Math.round((completedUsers.size / totalMembers) * 100),
-            avgScore,
-            totalAttempts: moduleProgress.length,
-            avgAttempts,
-        }
-    })
-
-    // ── 2. Department Completion Rates ─────────────────────────────────────
-    const deptBreakdown = depts.map((dept: any) => {
-        const deptMembers = members.filter((m: any) => m.department_id === dept.id)
-        const deptMemberIds = new Set(deptMembers.map((m: any) => m.id))
-        const deptTotal = deptMembers.length || 1
-
-        const row: any = { dept: dept.name, total: deptMembers.length }
-        let overallCompleted = 0
-        enabledModules.forEach((om: any) => {
-            const completed = progress.filter((p: any) =>
-                p.module_id === om.module_id && p.is_completed && deptMemberIds.has(p.user_id)
-            ).length
-            row[om.modules?.title || om.module_id] = Math.round((completed / deptTotal) * 100)
-            overallCompleted += completed
-        })
-        row.overallRate = enabledModules.length > 0
-            ? Math.round((overallCompleted / (deptTotal * enabledModules.length)) * 100)
-            : 0
-        return row
-    })
-
-    // Add "No Department" row
-    const noDeptMembers = members.filter((m: any) => !m.department_id)
-    if (noDeptMembers.length > 0) {
-        const noDeptIds = new Set(noDeptMembers.map((m: any) => m.id))
-        const row: any = { dept: 'No Department', total: noDeptMembers.length }
-        let overallCompleted = 0
-        enabledModules.forEach((om: any) => {
-            const completed = progress.filter((p: any) =>
-                p.module_id === om.module_id && p.is_completed && noDeptIds.has(p.user_id)
-            ).length
-            row[om.modules?.title || om.module_id] = Math.round((completed / (noDeptMembers.length || 1)) * 100)
-            overallCompleted += completed
-        })
-        row.overallRate = enabledModules.length > 0
-            ? Math.round((overallCompleted / ((noDeptMembers.length || 1) * enabledModules.length)) * 100)
-            : 0
-        deptBreakdown.push(row)
-    }
-
-    // ── 3. Score Distribution per Module ──────────────────────────────────
-    const scoreDistribution = enabledModules.map((om: any) => {
-        const scores = progress
-            .filter((p: any) => p.module_id === om.module_id && p.is_completed && p.quiz_score != null)
-            .map((p: any) => p.quiz_score)
-        return {
-            title: om.modules?.title || 'Unknown',
-            shortTitle: (om.modules?.title || '').length > 25
-                ? (om.modules?.title || '').substring(0, 23) + '…'
-                : (om.modules?.title || ''),
-            '0–39 (Fail)': scores.filter((s: number) => s < 40).length,
-            '40–59': scores.filter((s: number) => s >= 40 && s < 60).length,
-            '60–69': scores.filter((s: number) => s >= 60 && s < 70).length,
-            '70–79 (Pass)': scores.filter((s: number) => s >= 70 && s < 80).length,
-            '80–100 (Distinction)': scores.filter((s: number) => s >= 80).length,
-        }
-    })
-
-    // ── 4. Completion Timeline ────────────────────────────────────────────
-    const now = new Date()
-    const rangeStart = opts?.startDate ? new Date(opts.startDate) : null
-    const rangeEnd = opts?.endDate ? new Date(opts.endDate + 'T23:59:59') : null
-
-    const timelineEnd = rangeEnd ?? now
-    const timelineStart = rangeStart ?? new Date(now.getTime() - 83 * 24 * 60 * 60 * 1000) // 12 weeks back
-
-    const msDiff = timelineEnd.getTime() - timelineStart.getTime()
-    const totalWeeks = Math.max(1, Math.ceil(msDiff / (7 * 24 * 60 * 60 * 1000)))
-    const weeksToShow = Math.min(totalWeeks, 52)
-
-    const weeks: { label: string, start: Date, end: Date }[] = []
-    for (let i = weeksToShow - 1; i >= 0; i--) {
-        const end = new Date(timelineEnd)
-        end.setDate(end.getDate() - i * 7)
-        const start = new Date(end)
-        start.setDate(start.getDate() - 6)
-        weeks.push({
-            label: `${start.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`,
-            start,
-            end,
-        })
-    }
-
-    const timeline = weeks.map(w => {
-        const count = progress.filter((p: any) => {
-            if (!p.is_completed || !p.completed_at) return false
-            const d = new Date(p.completed_at)
-            return d >= w.start && d <= w.end
-        }).length
-        return { week: w.label, completions: count }
-    })
-
-    // ── 5. Employee Matrix (for the table / CSV) ───────────────────────────
-    const moduleList = enabledModules.map((om: any) => ({
-        id: om.module_id,
-        title: om.modules?.title || 'Unknown',
-    }))
-
-    const employeeMatrix = members.map((m: any) => {
-        const row: any = {
-            name: m.display_name || 'Unknown',
-            email: m.email || '',
-            department: (m.departments as any)?.name || '—',
-        }
-        let completedCount = 0
-        moduleList.forEach(mod => {
-            const p = progress.find((pr: any) => pr.user_id === m.id && pr.module_id === mod.id)
-            if (p?.is_completed) {
-                row[mod.title] = `✓ ${p.quiz_score ?? '—'}%`
-                completedCount++
-            } else if (p) {
-                row[mod.title] = 'In Progress'
-            } else {
-                row[mod.title] = 'Not Started'
-            }
-        })
-        row['Modules Completed'] = `${completedCount}/${moduleList.length}`
-        row['Overall Rate'] = `${Math.round((completedCount / (moduleList.length || 1)) * 100)}%`
-        return row
-    })
-
-    // ── 6. Summary KPIs ───────────────────────────────────────────────────
-    const totalCompletions = progress.filter((p: any) => p.is_completed).length
-    const uniqueCompleted = new Set(progress.filter((p: any) => p.is_completed).map((p: any) => p.user_id)).size
-    const allScores = progress.filter((p: any) => p.is_completed && p.quiz_score != null).map((p: any) => p.quiz_score)
-    const overallAvgScore = allScores.length > 0
-        ? Math.round(allScores.reduce((a: number, b: number) => a + b, 0) / allScores.length)
-        : 0
-    const fullyCompliant = members.filter(m => {
-        const completedForMember = new Set(progress.filter((p: any) => p.user_id === m.id && p.is_completed).map((p: any) => p.module_id))
-        return enabledModules.every(om => completedForMember.has(om.module_id))
-    }).length
-
-    // Overdue: unique employees who haven't completed at least one past-deadline module
-    const today = new Date()
-    const overdueSet = new Set<string>()
-    deadlines.forEach((dl: any) => {
-        if (new Date(dl.due_date) < today) {
-            members.forEach((m: any) => {
-                const done = progress.some((p: any) =>
-                    p.user_id === m.id && p.module_id === dl.module_id && p.is_completed
-                )
-                if (!done) overdueSet.add(m.id)
-            })
-        }
-    })
-
-    return {
-        summary: {
-            totalMembers,
-            totalModules: enabledModules.length,
-            totalCompletions,
-            uniqueStarted: new Set(progress.map((p: any) => p.user_id)).size,
-            uniqueCompleted,
-            overallAvgScore,
-            fullyCompliant,
-            fullyCompliantRate: Math.round((fullyCompliant / (totalMembers || 1)) * 100),
-            overdueCount: overdueSet.size,
-            hasDeadlines: deadlines.length > 0,
-        },
-        moduleBreakdown,
-        deptBreakdown,
-        scoreDistribution,
-        timeline,
-        moduleList,
-        employeeMatrix,
-    }
+    return _getReportDataCached(orgId, opts?.startDate, opts?.endDate)
 }
 
 // ─── Department Management ───────────────────────────────────────────────────
@@ -1015,6 +987,8 @@ export async function updateUserRole(userId: string, role: string, targetOrgId?:
     const adminClient = createAdminClient()
     const { error } = await adminClient.from('users').update({ role }).eq('id', userId)
     if (error) return { success: false, message: error.message }
+    // Keep organization_members.role in sync so RLS policies that check it stay consistent
+    await adminClient.from('organization_members').update({ role }).eq('user_id', userId)
     return { success: true }
 }
 
@@ -1033,6 +1007,13 @@ export async function revokeUserAccess(userId: string, targetOrgId?: string) {
     }
 
     const adminClient = createAdminClient()
+
+    if (!orgId) {
+        const { data: targetUser } = await adminClient.from('users').select('organization_id').eq('id', userId).single()
+        orgId = targetUser?.organization_id
+    }
+
+    if (!orgId) return { success: false, message: 'Could not determine organization' }
 
     const { error: memberError } = await adminClient
         .from('organization_members')

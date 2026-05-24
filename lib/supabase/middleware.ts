@@ -41,41 +41,70 @@ export async function updateSession(request: NextRequest) {
             path === '/unauthorized' ||
             path === '/inactive' ||
             path.startsWith('/_next') ||
+            path.startsWith('/api') ||   // API routes handle their own auth; skip org/plan DB checks
             // Only skip specific static assets, NOT all files (so .html pages are protected)
             path.match(/\.(ico|png|jpg|jpeg|svg|css|js|woff|woff2|ttf|eot)$/)
         ) {
             return response
         }
 
-        // Check organization membership
-        // We use a lightweight check. effectively caching could be better but this is safe default.
-        const { data: membership } = await supabase
-            .from('organization_members')
-            .select('organization_id')
-            .eq('user_id', user.id)
-            .single()
+        // ── Fast path: read org/plan data from JWT claims (custom_access_token_hook) ──
+        // getSession() is purely local — reads cookies already refreshed by getUser() above.
+        const { data: { session } } = await supabase.auth.getSession()
+        const jwtClaims = (() => {
+            try {
+                const payload = session?.access_token?.split('.')?.[1]
+                if (!payload) return null
+                // JWT uses base64url; atob needs standard base64
+                const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+                return JSON.parse(atob(normalized))
+            } catch { return null }
+        })()
 
-        if (!membership) {
-            // User is "Homeless"
-            console.warn('Middleware: User has no organization, redirecting to unauthorized', user.email)
-            return NextResponse.redirect(new URL('/unauthorized', request.url))
-        }
+        const claimedOrgId    = jwtClaims?.app_metadata?.org_id    as string | undefined
+        const claimedPlanTier = jwtClaims?.app_metadata?.plan_tier  as string | undefined
+        const claimedExpiry   = jwtClaims?.app_metadata?.plan_expires_at as string | undefined
 
-        // Check if the org has an active plan; superadmins are always exempt
-        const { data: org } = await supabase
-            .from('organizations')
-            .select('plan_tier, plan_expires_at')
-            .eq('id', membership.organization_id)
-            .single()
+        if (claimedOrgId) {
+            // Zero DB queries — org and plan data came from the JWT
+            const hasActivePlan =
+                claimedPlanTier != null &&
+                (!claimedExpiry || new Date(claimedExpiry) > new Date())
 
-        const hasActivePlan =
-            org?.plan_tier != null &&
-            (!org.plan_expires_at || new Date(org.plan_expires_at) > new Date())
+            if (!hasActivePlan) {
+                const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+                if (!isSuperAdmin) {
+                    return NextResponse.redirect(new URL('/inactive', request.url))
+                }
+            }
+        } else {
+            // ── Slow path: DB fallback for sessions issued before the hook was enabled ──
+            const { data: membership } = await supabase
+                .from('organization_members')
+                .select('organization_id')
+                .eq('user_id', user.id)
+                .single()
 
-        if (!hasActivePlan) {
-            const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
-            if (!isSuperAdmin) {
-                return NextResponse.redirect(new URL('/inactive', request.url))
+            if (!membership) {
+                console.warn('Middleware: User has no organization, redirecting to unauthorized', user.email)
+                return NextResponse.redirect(new URL('/unauthorized', request.url))
+            }
+
+            const { data: org } = await supabase
+                .from('organizations')
+                .select('plan_tier, plan_expires_at')
+                .eq('id', membership.organization_id)
+                .single()
+
+            const hasActivePlan =
+                org?.plan_tier != null &&
+                (!org.plan_expires_at || new Date(org.plan_expires_at) > new Date())
+
+            if (!hasActivePlan) {
+                const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+                if (!isSuperAdmin) {
+                    return NextResponse.redirect(new URL('/inactive', request.url))
+                }
             }
         }
     } else {

@@ -11,6 +11,9 @@ export async function POST(req: NextRequest) {
 
     if (!moduleId) return NextResponse.json({ error: 'Missing moduleId' }, { status: 400 })
 
+    const sanitizedScore = Math.min(100, Math.max(0, Math.round(Number(score) || 0)))
+    const sanitizedPassed = sanitizedScore >= 80
+
     const { data: current } = await supabase
         .from('user_progress')
         .select('attempts, certificate_id')
@@ -19,13 +22,13 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
 
     const newAttempts   = (current?.attempts ?? 0) + 1
-    const certificateId = passed ? (current?.certificate_id ?? crypto.randomUUID()) : undefined
+    const certificateId = sanitizedPassed ? (current?.certificate_id ?? crypto.randomUUID()) : undefined
 
     const payload: Record<string, unknown> = {
         user_id:      user.id,
         module_id:    moduleId,
-        quiz_score:   score,
-        is_completed: passed,
+        quiz_score:   sanitizedScore,
+        is_completed: sanitizedPassed,
         completed_at: completionDate ?? new Date().toISOString(),
         attempts:     newAttempts,
     }

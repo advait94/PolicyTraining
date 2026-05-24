@@ -1,10 +1,22 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { unstable_cache } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { PrintButton } from '@/components/feature/certificate/print-button'
 import { LinkedInShareButton } from '@/components/feature/certificate/linkedin-share-button'
 import QRCode from 'qrcode'
+
+// QR content is permanent per certificateId — cache indefinitely
+const generateQRDataUrl = unstable_cache(
+    async (verifyUrl: string) => QRCode.toDataURL(verifyUrl, {
+        width: 200,
+        margin: 1,
+        color: { dark: '#1e293b', light: '#ffffff' },
+    }),
+    ['cert-qr'],
+    { revalidate: false }
+)
 
 // Params need to be awaited in Next.js 15
 export default async function CertificatePage({
@@ -77,11 +89,7 @@ export default async function CertificatePage({
     }
 
     const verifyUrl = `https://www.aaplusconsultants.com/verify.html?id=${certificateId}`
-    const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
-        width: 200,
-        margin: 1,
-        color: { dark: '#1e293b', light: '#ffffff' },
-    })
+    const qrDataUrl = await generateQRDataUrl(verifyUrl)
 
     // Verify data access - organizations is likely returned as an array by the query builder if not 1:1 inferred perfectly
     // or just safe access it. Based on error it is an array.
