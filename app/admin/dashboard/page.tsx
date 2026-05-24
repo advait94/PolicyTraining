@@ -209,6 +209,9 @@ export default function AdminDashboard() {
             const { data: superAdminCheck } = await supabase.rpc('is_super_admin')
             setIsSuperAdmin(!!superAdminCheck)
 
+            // Superadmins always get full feature access in admin view
+            if (superAdminCheck) setPlanTier('enterprise')
+
             // Verify admin role in public table
             const { data: userData } = await supabase
                 .from('users')
