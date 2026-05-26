@@ -3,17 +3,23 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Scale, Users } from 'lucide-react'
+import { LayoutDashboard, Scale, Users, HeartPulse, ShieldAlert, Building2 } from 'lucide-react'
 
 const BASE_NAV = [
-    { label: 'Training Hub', href: '/dashboard', icon: LayoutDashboard, exact: true },
-    { label: 'RPT Simulator', href: '/rpt-simulator', icon: Scale, exact: false },
+    { label: 'Training Hub',       href: '/dashboard',        icon: LayoutDashboard, exact: true  },
+    { label: 'RPT Simulator',      href: '/rpt-simulator',    icon: Scale,           exact: false },
+    { label: 'POSH Simulator',     href: '/posh-simulator',   icon: HeartPulse,      exact: false },
+    { label: 'Breach Response',    href: '/breach-simulator', icon: ShieldAlert,     exact: false },
+    { label: 'Board Checker',      href: '/board-checker',    icon: Building2,       exact: false },
 ]
 
 const MANAGER_NAV = [
-    { label: 'Training Hub', href: '/dashboard', icon: LayoutDashboard, exact: true },
-    { label: 'Team Overview', href: '/manager/dashboard', icon: Users, exact: false },
-    { label: 'RPT Simulator', href: '/rpt-simulator', icon: Scale, exact: false },
+    { label: 'Training Hub',       href: '/dashboard',        icon: LayoutDashboard, exact: true  },
+    { label: 'Team Overview',      href: '/manager/dashboard', icon: Users,          exact: false },
+    { label: 'RPT Simulator',      href: '/rpt-simulator',    icon: Scale,           exact: false },
+    { label: 'POSH Simulator',     href: '/posh-simulator',   icon: HeartPulse,      exact: false },
+    { label: 'Breach Response',    href: '/breach-simulator', icon: ShieldAlert,     exact: false },
+    { label: 'Board Checker',      href: '/board-checker',    icon: Building2,       exact: false },
 ]
 
 export function DashboardSidebar({ role }: { role?: string }) {

@@ -77,6 +77,10 @@ export default async function CertificatePage({
         return <div className="p-8 text-center text-red-500">Certificate not available. Please complete the module first.</div>
     }
 
+    if (!progress?.attestation_accepted) {
+        return <div className="p-8 text-center text-red-500">Certificate not available. Please sign the attestation after completing the assessment.</div>
+    }
+
     // Lazy Generate Certificate ID if missing
     let certificateId = progress.certificate_id
     if (!certificateId && progress.is_completed) {

@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { BookOpen, CheckCircle, Lock, PlayCircle, Star, Trophy, Shield, HeartPulse, Scale, FileText, Globe, ArrowRight, RefreshCw } from 'lucide-react'
+import { BookOpen, CheckCircle, Lock, PlayCircle, Star, Trophy, Shield, HeartPulse, Scale, FileText, Globe, ArrowRight, RefreshCw, ShieldAlert, Building2 } from 'lucide-react'
 import Image from 'next/image'
+import { getOrgPlan, tierAtLeast, type PlanTier } from '@/lib/plan'
 
 // Helper to determine module styling based on title/keywords - Mapped to Neon Palette
 const getModuleTheme = (title: string) => {
@@ -82,10 +83,10 @@ export default async function DashboardPage() {
         redirect('/admin/dashboard')
     }
 
-    // Fetch user's org + department + name
+    // Fetch user's org + department + name + simulator flags
     const { data: userData } = await supabase
         .from('users')
-        .select('organization_id, department_id, display_name')
+        .select('organization_id, department_id, display_name, departments(rpt_simulator_enabled, posh_simulator_enabled, breach_simulator_enabled, board_checker_enabled)')
         .eq('id', user?.id)
         .single()
 
@@ -182,6 +183,24 @@ export default async function DashboardPage() {
     if (modulesError) {
         return <div className="p-8 text-center text-red-400">Error loading modules.</div>
     }
+
+    // Fetch plan tier for tool gating
+    let planTier: PlanTier = 'essentials'
+    let planExpired = false
+    if (userData?.organization_id) {
+        const planInfo = await getOrgPlan(userData.organization_id)
+        planTier = planInfo.tier
+        planExpired = planInfo.expired
+    }
+
+    // Extract department simulator flags
+    const deptRaw = userData?.departments as unknown
+    const dept = Array.isArray(deptRaw) ? deptRaw[0] : (deptRaw as { rpt_simulator_enabled?: boolean; posh_simulator_enabled?: boolean; breach_simulator_enabled?: boolean; board_checker_enabled?: boolean } | null)
+    const rptEnabled = !planExpired && tierAtLeast(planTier, 'professional') && dept?.rpt_simulator_enabled !== false
+    const poshEnabled = !planExpired && tierAtLeast(planTier, 'professional') && dept?.posh_simulator_enabled !== false
+    const breachEnabled = !planExpired && tierAtLeast(planTier, 'professional') && dept?.breach_simulator_enabled !== false
+    const boardEnabled = !planExpired && tierAtLeast(planTier, 'corporate') && dept?.board_checker_enabled !== false
+    const hasAnyTool = rptEnabled || poshEnabled || breachEnabled || boardEnabled
 
     // Merge progress into modules
     const modules = modulesData?.map((m: any) => ({
@@ -286,6 +305,7 @@ export default async function DashboardPage() {
                         const progress = mod.user_progress?.[0]
                         const slideCount = mod.slides?.length || 0
                         const isCompleted = (progress?.quiz_score || 0) >= 70
+                        const attestationSigned = !!progress?.attestation_accepted
                         const score = progress?.quiz_score
                         const theme = getModuleTheme(mod.title)
                         const ThemeIcon = getIcon(mod.title)
@@ -353,7 +373,7 @@ export default async function DashboardPage() {
                                     </CardContent>
 
                                     <CardFooter className="pt-4 pb-8 px-8 relative z-10">
-                                        {isCompleted ? (
+                                        {isCompleted && attestationSigned ? (
                                             <div className="w-full flex gap-3">
                                                 <a href={`/certificate/${mod.id}`} className="flex-1">
                                                     <Button className="w-full h-12 text-sm font-bold uppercase tracking-wider rounded-xl transition-all duration-300 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] text-white border border-white/10">
@@ -366,6 +386,14 @@ export default async function DashboardPage() {
                                                     </Button>
                                                 </a>
                                             </div>
+                                        ) : isCompleted && !attestationSigned ? (
+                                            <a href={`/modules/${mod.id}`} className="w-full">
+                                                <Button className="w-full h-12 text-sm font-bold uppercase tracking-wider rounded-xl transition-all duration-300 cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 hover:shadow-[0_0_20px_rgba(245,158,11,0.4)] text-white border border-white/10">
+                                                    <span className="flex items-center">
+                                                        Sign Attestation <ArrowRight className="ml-2 w-4 h-4" />
+                                                    </span>
+                                                </Button>
+                                            </a>
                                         ) : (
                                             <a href={`/modules/${mod.id}`} className="w-full">
                                                 <Button className="w-full h-12 text-sm font-bold uppercase tracking-wider rounded-xl transition-all duration-300 cursor-pointer bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] text-white border border-white/10">
@@ -382,6 +410,75 @@ export default async function DashboardPage() {
                     })}
                 </div>
             </div>
+
+            {/* Compliance Tools Section */}
+            {hasAnyTool && (
+                <div>
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="h-px flex-1 bg-white/5" />
+                        <span className="text-[11px] uppercase tracking-widest font-bold text-slate-500">Compliance Tools</span>
+                        <div className="h-px flex-1 bg-white/5" />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                        {rptEnabled && (
+                            <Link href="/rpt-simulator" className="group relative overflow-hidden rounded-2xl border border-cyan-500/20 bg-cyan-900/10 p-6 flex flex-col gap-4 hover:border-cyan-500/40 hover:bg-cyan-900/20 transition-all">
+                                <div className="w-10 h-10 rounded-xl bg-cyan-500/15 flex items-center justify-center">
+                                    <Scale className="w-5 h-5 text-cyan-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="text-sm font-bold text-white mb-1">RPT Simulator</div>
+                                    <p className="text-xs text-slate-400 leading-relaxed">Analyse related party transactions under Sections 177/188/189 of the Companies Act, 2013.</p>
+                                </div>
+                                <div className="flex items-center gap-1 text-xs font-semibold text-cyan-400">
+                                    Launch <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                                </div>
+                            </Link>
+                        )}
+                        {poshEnabled && (
+                            <Link href="/posh-simulator" className="group relative overflow-hidden rounded-2xl border border-pink-500/20 bg-pink-900/10 p-6 flex flex-col gap-4 hover:border-pink-500/40 hover:bg-pink-900/20 transition-all">
+                                <div className="w-10 h-10 rounded-xl bg-pink-500/15 flex items-center justify-center">
+                                    <HeartPulse className="w-5 h-5 text-pink-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="text-sm font-bold text-white mb-1">POSH Simulator</div>
+                                    <p className="text-xs text-slate-400 leading-relaxed">Determine ICC/LCC jurisdiction, inquiry timelines, and employer obligations under the POSH Act, 2013.</p>
+                                </div>
+                                <div className="flex items-center gap-1 text-xs font-semibold text-pink-400">
+                                    Launch <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                                </div>
+                            </Link>
+                        )}
+                        {breachEnabled && (
+                            <Link href="/breach-simulator" className="group relative overflow-hidden rounded-2xl border border-blue-500/20 bg-blue-900/10 p-6 flex flex-col gap-4 hover:border-blue-500/40 hover:bg-blue-900/20 transition-all">
+                                <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center">
+                                    <ShieldAlert className="w-5 h-5 text-blue-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="text-sm font-bold text-white mb-1">Breach Response</div>
+                                    <p className="text-xs text-slate-400 leading-relaxed">Generate CERT-In and DPDP Act notification obligations for a data breach scenario.</p>
+                                </div>
+                                <div className="flex items-center gap-1 text-xs font-semibold text-blue-400">
+                                    Launch <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                                </div>
+                            </Link>
+                        )}
+                        {boardEnabled && (
+                            <Link href="/board-checker" className="group relative overflow-hidden rounded-2xl border border-amber-500/20 bg-amber-900/10 p-6 flex flex-col gap-4 hover:border-amber-500/40 hover:bg-amber-900/20 transition-all">
+                                <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center">
+                                    <Building2 className="w-5 h-5 text-amber-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="text-sm font-bold text-white mb-1">Board Checker</div>
+                                    <p className="text-xs text-slate-400 leading-relaxed">Check board composition compliance against Companies Act 2013 and SEBI LODR requirements.</p>
+                                </div>
+                                <div className="flex items-center gap-1 text-xs font-semibold text-amber-400">
+                                    Launch <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                                </div>
+                            </Link>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

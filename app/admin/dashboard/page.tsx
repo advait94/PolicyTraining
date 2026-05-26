@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { inviteUser, getAdminStats, getCompanyUsers, getComplianceReport, bulkInviteUsers, getOrgModules, setModuleAssignment, setModuleAllEmployees, getDepartments, createDepartment, deleteDepartment, updateUserDepartment, setDeptModuleAssignment, bulkAssignDepartment, bulkAssignSelectedUsers, setModuleDeadline, getModuleDeadlines, updateUserRole, getReportChartData, revokeUserAccess, getDeptRptAccess, setDeptRptAccess as setDeptRptAccessAction, getAIPolicyStatus, getHasSeenGuide } from '@/app/actions/admin'
+import { inviteUser, getAdminStats, getCompanyUsers, getComplianceReport, bulkInviteUsers, getOrgModules, setModuleAssignment, setModuleAllEmployees, getDepartments, createDepartment, deleteDepartment, updateUserDepartment, setDeptModuleAssignment, bulkAssignDepartment, bulkAssignSelectedUsers, setModuleDeadline, getModuleDeadlines, updateUserRole, getReportChartData, revokeUserAccess, getDeptRptAccess, setDeptRptAccess as setDeptRptAccessAction, getDeptPoshSimulatorAccess, setDeptPoshSimulatorAccess as setDeptPoshSimAction, getDeptBreachSimulatorAccess, setDeptBreachSimulatorAccess as setDeptBreachSimAction, getDeptBoardCheckerAccess, setDeptBoardCheckerAccess as setDeptBoardCheckerAction, getAIPolicyStatus, getHasSeenGuide, getAdminModuleQuestions, updateQuestionSlideGroup } from '@/app/actions/admin'
 import { PlanGate } from '@/components/feature/plan/plan-gate'
 import { type PlanTier, tierAtLeast, isPlanExpired } from '@/lib/plan-utils'
 import { WelcomeGuideModal } from '@/components/feature/onboarding/welcome-guide-modal'
@@ -53,6 +53,18 @@ export default function AdminDashboard() {
     const [deptRptAccess, setDeptRptAccess] = useState<{ id: string; name: string; rpt_simulator_enabled: boolean }[]>([])
     const [togglingDeptRpt, setTogglingDeptRpt] = useState<string | null>(null)
 
+    // POSH Simulator access per department
+    const [deptPoshAccess, setDeptPoshAccess] = useState<{ id: string; name: string; posh_simulator_enabled: boolean }[]>([])
+    const [togglingDeptPosh, setTogglingDeptPosh] = useState<string | null>(null)
+
+    // Breach Simulator access per department
+    const [deptBreachAccess, setDeptBreachAccess] = useState<{ id: string; name: string; breach_simulator_enabled: boolean }[]>([])
+    const [togglingDeptBreach, setTogglingDeptBreach] = useState<string | null>(null)
+
+    // Board Checker access per department
+    const [deptBoardAccess, setDeptBoardAccess] = useState<{ id: string; name: string; board_checker_enabled: boolean }[]>([])
+    const [togglingDeptBoard, setTogglingDeptBoard] = useState<string | null>(null)
+
     // Bulk Invite State
     const [bulkPreview, setBulkPreview] = useState<{ name: string, email: string, department_id?: string, departmentName?: string }[]>([])
     const [isBulkUploading, setIsBulkUploading] = useState(false)
@@ -97,6 +109,12 @@ export default function AdminDashboard() {
 
     // Help video modal
     const [showHelpVideo, setShowHelpVideo] = useState(false)
+
+    // Question manager state
+    const [questionModuleId, setQuestionModuleId] = useState('')
+    const [questionsList, setQuestionsList] = useState<{ id: string; text: string; slide_group: number | null; answer_count: number }[]>([])
+    const [loadingQuestions, setLoadingQuestions] = useState(false)
+    const [updatingQuestionGroup, setUpdatingQuestionGroup] = useState<string | null>(null)
 
     // Plan tier
     const [planTier, setPlanTier] = useState<PlanTier>('essentials')
@@ -261,13 +279,16 @@ export default function AdminDashboard() {
                 setOrgs(orgsData || []);
             }
 
-            const [statsData, usersData, modulesData, deadlinesData, rptData, aiPolicyData] = await Promise.all([
+            const [statsData, usersData, modulesData, deadlinesData, rptData, aiPolicyData, poshData, breachData, boardData] = await Promise.all([
                 getAdminStats(),
                 getCompanyUsers(),
                 getOrgModules(),
                 getModuleDeadlines(),
                 getDeptRptAccess(),
-                getAIPolicyStatus()
+                getAIPolicyStatus(),
+                getDeptPoshSimulatorAccess(),
+                getDeptBreachSimulatorAccess(),
+                getDeptBoardCheckerAccess(),
             ])
             setStats(statsData)
             setUsers(usersData || [])
@@ -277,6 +298,9 @@ export default function AdminDashboard() {
             }
             setDeptRptAccess(rptData || [])
             setAiPolicyStatus(aiPolicyData)
+            setDeptPoshAccess(poshData || [])
+            setDeptBreachAccess(breachData || [])
+            setDeptBoardAccess(boardData || [])
             setAiPolicyLoading(false)
             const dlMap: Record<string, string> = {}
             ;(deadlinesData || []).forEach((d: any) => { dlMap[d.module_id] = d.due_date })
@@ -436,9 +460,12 @@ export default function AdminDashboard() {
         if (result.success) {
             toast.success(`Department "${newDeptName}" created`)
             setNewDeptName('')
-            const [fresh, freshRpt] = await Promise.all([getDepartments(), getDeptRptAccess()])
+            const [fresh, freshRpt, freshPosh, freshBreach, freshBoard] = await Promise.all([getDepartments(), getDeptRptAccess(), getDeptPoshSimulatorAccess(), getDeptBreachSimulatorAccess(), getDeptBoardCheckerAccess()])
             if (fresh) setDepartments(fresh)
             setDeptRptAccess(freshRpt || [])
+            setDeptPoshAccess(freshPosh || [])
+            setDeptBreachAccess(freshBreach || [])
+            setDeptBoardAccess(freshBoard || [])
         } else {
             toast.error(result.message || 'Failed to create department')
         }
@@ -469,6 +496,45 @@ export default function AdminDashboard() {
             toast.success(enabled ? 'RPT Simulator enabled for department' : 'RPT Simulator disabled for department')
         }
         setTogglingDeptRpt(null)
+    }
+
+    async function handleToggleDeptPosh(departmentId: string, enabled: boolean) {
+        setTogglingDeptPosh(departmentId)
+        setDeptPoshAccess(prev => prev.map(d => d.id === departmentId ? { ...d, posh_simulator_enabled: enabled } : d))
+        const result = await setDeptPoshSimAction(departmentId, enabled)
+        if (!result.success) {
+            setDeptPoshAccess(prev => prev.map(d => d.id === departmentId ? { ...d, posh_simulator_enabled: !enabled } : d))
+            toast.error(result.message || 'Failed to update POSH Simulator access')
+        } else {
+            toast.success(enabled ? 'POSH Simulator enabled for department' : 'POSH Simulator disabled for department')
+        }
+        setTogglingDeptPosh(null)
+    }
+
+    async function handleToggleDeptBreach(departmentId: string, enabled: boolean) {
+        setTogglingDeptBreach(departmentId)
+        setDeptBreachAccess(prev => prev.map(d => d.id === departmentId ? { ...d, breach_simulator_enabled: enabled } : d))
+        const result = await setDeptBreachSimAction(departmentId, enabled)
+        if (!result.success) {
+            setDeptBreachAccess(prev => prev.map(d => d.id === departmentId ? { ...d, breach_simulator_enabled: !enabled } : d))
+            toast.error(result.message || 'Failed to update Breach Simulator access')
+        } else {
+            toast.success(enabled ? 'Breach Simulator enabled for department' : 'Breach Simulator disabled for department')
+        }
+        setTogglingDeptBreach(null)
+    }
+
+    async function handleToggleDeptBoard(departmentId: string, enabled: boolean) {
+        setTogglingDeptBoard(departmentId)
+        setDeptBoardAccess(prev => prev.map(d => d.id === departmentId ? { ...d, board_checker_enabled: enabled } : d))
+        const result = await setDeptBoardCheckerAction(departmentId, enabled)
+        if (!result.success) {
+            setDeptBoardAccess(prev => prev.map(d => d.id === departmentId ? { ...d, board_checker_enabled: !enabled } : d))
+            toast.error(result.message || 'Failed to update Board Checker access')
+        } else {
+            toast.success(enabled ? 'Board Checker enabled for department' : 'Board Checker disabled for department')
+        }
+        setTogglingDeptBoard(null)
     }
 
     async function handleUpdateUserDepartment(userId: string, departmentId: string | null) {
@@ -716,6 +782,7 @@ export default function AdminDashboard() {
                     <TabsTrigger value="leaderboard" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6" onClick={async () => { if (leaderboardLoaded) return; setLoadingLeaderboard(true); const d = await getReportChartData(); setLeaderboardData(d?.deptBreakdown?.sort((a: any, b: any) => b.overallRate - a.overallRate) ?? []); setLeaderboardLoaded(true); setLoadingLeaderboard(false) }}>🏆 Leaderboard</TabsTrigger>
                     <TabsTrigger value="audit" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6" onClick={async () => { if (auditLoaded) return; await loadAuditPage(0); setAuditLoaded(true) }}>Audit Trail</TabsTrigger>
                     <TabsTrigger value="reports" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6">Reports</TabsTrigger>
+                    <TabsTrigger value="questions" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg px-6">Questions</TabsTrigger>
                 </TabsList>
 
                 {/* OVERVIEW TAB */}
@@ -1247,9 +1314,12 @@ export default function AdminDashboard() {
                                                         setCreatingDept(true)
                                                         const result = await createDepartment(preset.name)
                                                         if (result.success) {
-                                                            const [fresh, freshRpt] = await Promise.all([getDepartments(), getDeptRptAccess()])
+                                                            const [fresh, freshRpt, freshPosh, freshBreach, freshBoard] = await Promise.all([getDepartments(), getDeptRptAccess(), getDeptPoshSimulatorAccess(), getDeptBreachSimulatorAccess(), getDeptBoardCheckerAccess()])
                                                             if (fresh) setDepartments(fresh)
                                                             setDeptRptAccess(freshRpt || [])
+                                                            setDeptPoshAccess(freshPosh || [])
+                                                            setDeptBreachAccess(freshBreach || [])
+                                                            setDeptBoardAccess(freshBoard || [])
                                                         } else {
                                                             toast.error(result.message || 'Failed to create department')
                                                         }
@@ -1504,6 +1574,144 @@ export default function AdminDashboard() {
                                                 checked={dept.rpt_simulator_enabled}
                                                 disabled={togglingDeptRpt === dept.id}
                                                 onCheckedChange={(checked) => handleToggleDeptRpt(dept.id, checked)}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                    </PlanGate>
+
+                    {/* POSH Simulator Access Card — professional+ */}
+                    <PlanGate required="professional" tierOverride={planTier} expiredOverride={planExpired}>
+                    <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-white">
+                                <Lock className="w-5 h-5 text-pink-400" />
+                                POSH Simulator Access
+                            </CardTitle>
+                            <CardDescription className="text-slate-400">
+                                Control which departments can access the POSH Complaint Flow Simulator. Enabled by default — toggle off to restrict a department.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {deptPoshAccess.length === 0 ? (
+                                <p className="text-sm text-slate-500 text-center py-4">
+                                    No departments yet. Create departments above to control POSH Simulator access.
+                                </p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {deptPoshAccess.map(dept => (
+                                        <div
+                                            key={dept.id}
+                                            className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${dept.posh_simulator_enabled ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-2 h-2 rounded-full ${dept.posh_simulator_enabled ? 'bg-green-400' : 'bg-red-400'}`} />
+                                                <span className={`text-sm font-medium ${dept.posh_simulator_enabled ? 'text-slate-200' : 'text-slate-400'}`}>
+                                                    {dept.name}
+                                                </span>
+                                                {!dept.posh_simulator_enabled && (
+                                                    <span className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full">Restricted</span>
+                                                )}
+                                            </div>
+                                            <Switch
+                                                checked={dept.posh_simulator_enabled}
+                                                disabled={togglingDeptPosh === dept.id}
+                                                onCheckedChange={(checked) => handleToggleDeptPosh(dept.id, checked)}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                    </PlanGate>
+
+                    {/* Breach Simulator Access Card — professional+ */}
+                    <PlanGate required="professional" tierOverride={planTier} expiredOverride={planExpired}>
+                    <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-white">
+                                <Lock className="w-5 h-5 text-blue-400" />
+                                Breach Response Simulator Access
+                            </CardTitle>
+                            <CardDescription className="text-slate-400">
+                                Control which departments can access the Data Breach Response Simulator. Enabled by default — toggle off to restrict a department.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {deptBreachAccess.length === 0 ? (
+                                <p className="text-sm text-slate-500 text-center py-4">
+                                    No departments yet. Create departments above to control Breach Simulator access.
+                                </p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {deptBreachAccess.map(dept => (
+                                        <div
+                                            key={dept.id}
+                                            className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${dept.breach_simulator_enabled ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-2 h-2 rounded-full ${dept.breach_simulator_enabled ? 'bg-green-400' : 'bg-red-400'}`} />
+                                                <span className={`text-sm font-medium ${dept.breach_simulator_enabled ? 'text-slate-200' : 'text-slate-400'}`}>
+                                                    {dept.name}
+                                                </span>
+                                                {!dept.breach_simulator_enabled && (
+                                                    <span className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full">Restricted</span>
+                                                )}
+                                            </div>
+                                            <Switch
+                                                checked={dept.breach_simulator_enabled}
+                                                disabled={togglingDeptBreach === dept.id}
+                                                onCheckedChange={(checked) => handleToggleDeptBreach(dept.id, checked)}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                    </PlanGate>
+
+                    {/* Board Checker Access Card — corporate+ */}
+                    <PlanGate required="corporate" tierOverride={planTier} expiredOverride={planExpired}>
+                    <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-white">
+                                <Lock className="w-5 h-5 text-amber-400" />
+                                Board Composition Checker Access
+                            </CardTitle>
+                            <CardDescription className="text-slate-400">
+                                Control which departments can access the Board Composition Checker. Enabled by default — toggle off to restrict a department.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {deptBoardAccess.length === 0 ? (
+                                <p className="text-sm text-slate-500 text-center py-4">
+                                    No departments yet. Create departments above to control Board Checker access.
+                                </p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {deptBoardAccess.map(dept => (
+                                        <div
+                                            key={dept.id}
+                                            className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${dept.board_checker_enabled ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-2 h-2 rounded-full ${dept.board_checker_enabled ? 'bg-green-400' : 'bg-red-400'}`} />
+                                                <span className={`text-sm font-medium ${dept.board_checker_enabled ? 'text-slate-200' : 'text-slate-400'}`}>
+                                                    {dept.name}
+                                                </span>
+                                                {!dept.board_checker_enabled && (
+                                                    <span className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full">Restricted</span>
+                                                )}
+                                            </div>
+                                            <Switch
+                                                checked={dept.board_checker_enabled}
+                                                disabled={togglingDeptBoard === dept.id}
+                                                onCheckedChange={(checked) => handleToggleDeptBoard(dept.id, checked)}
                                             />
                                         </div>
                                     ))}
@@ -1878,6 +2086,136 @@ export default function AdminDashboard() {
 
                     <ComplianceCharts />
                 </TabsContent>
+
+                {/* QUESTIONS TAB */}
+                <TabsContent value="questions" className="space-y-6">
+                    <Card className="bg-[#151A29]/80 border-white/10 backdrop-blur-md">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-white">
+                                <BookOpen className="w-5 h-5 text-purple-400" />
+                                Question Manager
+                            </CardTitle>
+                            <CardDescription className="text-slate-400">
+                                Assign questions to slide checkpoints so learners see relevant refresher questions after every 3 slides.
+                                Questions set to <strong className="text-slate-300">Final Quiz Only</strong> appear only at the end. Questions assigned to a checkpoint appear as a mid-module knowledge check and are excluded from the final quiz.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            {/* Module selector */}
+                            <div className="flex items-center gap-4">
+                                <label className="text-sm text-slate-400 shrink-0">Select module:</label>
+                                <select
+                                    value={questionModuleId}
+                                    onChange={async (e) => {
+                                        const mid = e.target.value
+                                        setQuestionModuleId(mid)
+                                        setQuestionsList([])
+                                        if (!mid) return
+                                        setLoadingQuestions(true)
+                                        const qs = await getAdminModuleQuestions(mid)
+                                        setQuestionsList(qs)
+                                        setLoadingQuestions(false)
+                                    }}
+                                    className="flex-1 max-w-sm text-sm bg-black/30 border border-white/10 text-white rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                >
+                                    <option value="">— Pick a module —</option>
+                                    {orgModules.map((m: any) => (
+                                        <option key={m.id} value={m.id}>{m.title}</option>
+                                    ))}
+                                </select>
+                                {loadingQuestions && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+                            </div>
+
+                            {/* Checkpoint legend */}
+                            {questionModuleId && !loadingQuestions && (
+                                <div className="flex flex-wrap gap-3 text-xs">
+                                    {[
+                                        { label: 'Final Quiz Only', color: 'bg-slate-500/20 text-slate-400 border-slate-500/30' },
+                                        { label: 'After slides 1–3', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
+                                        { label: 'After slides 4–6', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+                                        { label: 'After slides 7–9', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+                                        { label: 'After slides 10–12', color: 'bg-green-500/20 text-green-300 border-green-500/30' },
+                                    ].map(({ label, color }) => (
+                                        <span key={label} className={`px-2 py-1 rounded-full border ${color}`}>{label}</span>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Question list */}
+                            {questionsList.length > 0 && (
+                                <div className="rounded-md border border-white/10 overflow-hidden">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-white/5 text-slate-300 font-medium">
+                                            <tr>
+                                                <th className="p-4">#</th>
+                                                <th className="p-4">Question</th>
+                                                <th className="p-4 text-center">Answers</th>
+                                                <th className="p-4">Checkpoint assignment</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-white/5">
+                                            {questionsList.map((q, idx) => {
+                                                const groupColors: Record<number, string> = {
+                                                    1: 'text-cyan-300',
+                                                    2: 'text-purple-300',
+                                                    3: 'text-amber-300',
+                                                    4: 'text-green-300',
+                                                }
+                                                return (
+                                                    <tr key={q.id} className="hover:bg-white/5 transition-colors">
+                                                        <td className="p-4 text-slate-500 tabular-nums">{idx + 1}</td>
+                                                        <td className="p-4 text-white max-w-lg">
+                                                            <span className="line-clamp-2">{q.text}</span>
+                                                        </td>
+                                                        <td className="p-4 text-center text-slate-400">{q.answer_count}</td>
+                                                        <td className="p-4">
+                                                            <div className="flex items-center gap-2">
+                                                                {updatingQuestionGroup === q.id ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                                                                ) : (
+                                                                    <select
+                                                                        value={q.slide_group ?? ''}
+                                                                        onChange={async (e) => {
+                                                                            const raw = e.target.value
+                                                                            const val = raw === '' ? null : parseInt(raw, 10)
+                                                                            setUpdatingQuestionGroup(q.id)
+                                                                            const res = await updateQuestionSlideGroup(q.id, val)
+                                                                            if (res.success) {
+                                                                                setQuestionsList(prev => prev.map(x =>
+                                                                                    x.id === q.id ? { ...x, slide_group: val } : x
+                                                                                ))
+                                                                                toast.success('Saved')
+                                                                            } else {
+                                                                                toast.error('Failed to save')
+                                                                            }
+                                                                            setUpdatingQuestionGroup(null)
+                                                                        }}
+                                                                        className={`text-xs bg-black/30 border border-white/10 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-500 ${q.slide_group ? groupColors[q.slide_group] ?? 'text-slate-300' : 'text-slate-400'}`}
+                                                                    >
+                                                                        <option value="">Final Quiz Only</option>
+                                                                        <option value="1">After slides 1–3</option>
+                                                                        <option value="2">After slides 4–6</option>
+                                                                        <option value="3">After slides 7–9</option>
+                                                                        <option value="4">After slides 10–12</option>
+                                                                    </select>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {questionModuleId && !loadingQuestions && questionsList.length === 0 && (
+                                <p className="text-slate-500 text-sm text-center py-8">No questions found for this module.</p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
             </Tabs>
         </div >
     )

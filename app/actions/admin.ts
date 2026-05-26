@@ -1068,6 +1068,120 @@ export async function setDeptRptAccess(departmentId: string, enabled: boolean) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// POSH SIMULATOR ACCESS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getDeptPoshSimulatorAccess(targetOrgId?: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    const orgId = await resolveOrgId(supabase, user.id, !!isSuperAdmin, targetOrgId)
+    if (!orgId) return []
+
+    const { data } = await supabase
+        .from('departments')
+        .select('id, name, posh_simulator_enabled')
+        .eq('organization_id', orgId)
+        .order('name', { ascending: true })
+    return (data || []) as { id: string; name: string; posh_simulator_enabled: boolean }[]
+}
+
+export async function setDeptPoshSimulatorAccess(departmentId: string, enabled: boolean) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, message: 'Unauthorized' }
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    if (!isSuperAdmin) {
+        const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single()
+        if (userData?.role !== 'admin') return { success: false, message: 'Unauthorized' }
+    }
+
+    const { error } = await supabase
+        .from('departments')
+        .update({ posh_simulator_enabled: enabled })
+        .eq('id', departmentId)
+    if (error) return { success: false, message: error.message }
+    return { success: true }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BREACH SIMULATOR ACCESS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getDeptBreachSimulatorAccess(targetOrgId?: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    const orgId = await resolveOrgId(supabase, user.id, !!isSuperAdmin, targetOrgId)
+    if (!orgId) return []
+
+    const { data } = await supabase
+        .from('departments')
+        .select('id, name, breach_simulator_enabled')
+        .eq('organization_id', orgId)
+        .order('name', { ascending: true })
+    return (data || []) as { id: string; name: string; breach_simulator_enabled: boolean }[]
+}
+
+export async function setDeptBreachSimulatorAccess(departmentId: string, enabled: boolean) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, message: 'Unauthorized' }
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    if (!isSuperAdmin) {
+        const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single()
+        if (userData?.role !== 'admin') return { success: false, message: 'Unauthorized' }
+    }
+
+    const { error } = await supabase
+        .from('departments')
+        .update({ breach_simulator_enabled: enabled })
+        .eq('id', departmentId)
+    if (error) return { success: false, message: error.message }
+    return { success: true }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOARD CHECKER ACCESS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getDeptBoardCheckerAccess(targetOrgId?: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    const orgId = await resolveOrgId(supabase, user.id, !!isSuperAdmin, targetOrgId)
+    if (!orgId) return []
+
+    const { data } = await supabase
+        .from('departments')
+        .select('id, name, board_checker_enabled')
+        .eq('organization_id', orgId)
+        .order('name', { ascending: true })
+    return (data || []) as { id: string; name: string; board_checker_enabled: boolean }[]
+}
+
+export async function setDeptBoardCheckerAccess(departmentId: string, enabled: boolean) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, message: 'Unauthorized' }
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    if (!isSuperAdmin) {
+        const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single()
+        if (userData?.role !== 'admin') return { success: false, message: 'Unauthorized' }
+    }
+
+    const { error } = await supabase
+        .from('departments')
+        .update({ board_checker_enabled: enabled })
+        .eq('id', departmentId)
+    if (error) return { success: false, message: error.message }
+    return { success: true }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AI POLICY QUIZ
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1202,4 +1316,58 @@ export async function getHasSeenGuide(): Promise<boolean> {
         .eq('id', user.id)
         .single()
     return data?.has_seen_guide ?? false
+}
+
+export async function getAdminModuleQuestions(moduleId: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    if (!isSuperAdmin) {
+        const { data: userData } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single()
+        if (userData?.role !== 'admin') return []
+    }
+
+    const admin = createAdminClient()
+    const { data } = await admin
+        .from('questions')
+        .select('id, text, slide_group, answers(id)')
+        .eq('module_id', moduleId)
+        .order('created_at', { ascending: true })
+
+    return (data ?? []).map((q: any) => ({
+        id: q.id,
+        text: q.text,
+        slide_group: q.slide_group ?? null,
+        answer_count: q.answers?.length ?? 0,
+    }))
+}
+
+export async function updateQuestionSlideGroup(questionId: string, slideGroup: number | null) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false }
+
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    if (!isSuperAdmin) {
+        const { data: userData } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single()
+        if (userData?.role !== 'admin') return { success: false }
+    }
+
+    const admin = createAdminClient()
+    const { error } = await admin
+        .from('questions')
+        .update({ slide_group: slideGroup })
+        .eq('id', questionId)
+
+    return { success: !error }
 }

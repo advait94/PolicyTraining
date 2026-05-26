@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -25,19 +25,32 @@ export function QuizPlayer({
     questions,
     moduleId,
     moduleTitle,
-    onComplete
+    onComplete,
+    initialShowResult,
+    initialScore,
 }: {
     questions: Question[]
     moduleId: string
     moduleTitle?: string
     onComplete: (score: number, passed: boolean) => void
+    initialShowResult?: boolean
+    initialScore?: number
 }) {
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
     const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null)
     const [isSubmitted, setIsSubmitted] = useState(false)
     const [score, setScore] = useState(0)
-    const [showResult, setShowResult] = useState(false)
+    const [showResult, setShowResult] = useState(!!initialShowResult)
     const [feedbackMessage, setFeedbackMessage] = useState<{ text: string; isCorrect: boolean } | null>(null)
+    // Snapshot the totals at the moment the quiz finishes so a React prop update
+    // (e.g. after saveModuleProgress triggers a rerender with fresh questions) cannot
+    // overwrite the displayed score with a mismatched questions.length.
+    const initCorrect = (initialShowResult && initialScore != null)
+        ? Math.round(initialScore * questions.length / 100)
+        : null
+    const [finalTotals, setFinalTotals] = useState<{ correct: number; total: number } | null>(
+        initCorrect != null ? { correct: initCorrect, total: questions.length } : null
+    )
 
     // Attestation state
     const [attestationChecked, setAttestationChecked] = useState(false)
@@ -45,6 +58,37 @@ export function QuizPlayer({
     const [isSavingAttestation, setIsSavingAttestation] = useState(false)
 
     const router = useRouter()
+
+    useEffect(() => {
+        if (showResult) return
+
+        const blockShortcuts = (e: KeyboardEvent) => {
+            const blocked =
+                (e.ctrlKey && ['c', 'a', 'p', 'u', 's'].includes(e.key.toLowerCase())) ||
+                e.key === 'F12' ||
+                (e.ctrlKey && e.shiftKey && ['i', 'j', 'c'].includes(e.key.toLowerCase()))
+            if (blocked) e.preventDefault()
+        }
+
+        // Can't block the OS screenshot, but we can wipe the clipboard immediately after
+        const clearOnPrintScreen = (e: KeyboardEvent) => {
+            if (e.key === 'PrintScreen') {
+                navigator.clipboard?.writeText('').catch(() => {})
+            }
+        }
+
+        const blockContextMenu = (e: MouseEvent) => e.preventDefault()
+
+        document.addEventListener('keydown', blockShortcuts)
+        document.addEventListener('keyup', clearOnPrintScreen)
+        document.addEventListener('contextmenu', blockContextMenu)
+
+        return () => {
+            document.removeEventListener('keydown', blockShortcuts)
+            document.removeEventListener('keyup', clearOnPrintScreen)
+            document.removeEventListener('contextmenu', blockContextMenu)
+        }
+    }, [showResult])
 
     const currentQuestion = questions[currentQuestionIndex]
     const isLastQuestion = currentQuestionIndex === questions.length - 1
@@ -107,12 +151,16 @@ export function QuizPlayer({
     const [isSaving, setIsSaving] = useState(false)
 
     const finishQuiz = async () => {
-        const percentage = Math.round((score / questions.length) * 100)
+        // Snapshot correct/total NOW so the results screen is immune to any
+        // prop change (e.g. a rerender with fresh questions after saveModuleProgress).
+        const correct = score
+        const total = questions.length
+        const percentage = Math.round((correct / total) * 100)
         const passed = percentage >= 80
 
+        setFinalTotals({ correct, total })
         setIsSaving(true)
         try {
-            // Log quiz_started is fired from module-player; log completion here via server action
             await logActivity(moduleId, 'quiz_completed', { score: percentage, passed })
             await onComplete(percentage, passed)
         } catch (error) {
@@ -139,9 +187,11 @@ export function QuizPlayer({
 
     // Results Screen
     if (showResult) {
-        const percentage = Math.round((score / questions.length) * 100)
+        const correct = finalTotals?.correct ?? score
+        const total = finalTotals?.total ?? questions.length
+        const percentage = Math.round((correct / Math.max(total, 1)) * 100)
         const passed = percentage >= 80
-        const incorrect = questions.length - score
+        const incorrect = total - correct
 
         return (
             <div className="quiz-page">
@@ -184,7 +234,7 @@ export function QuizPlayer({
 
                         <div className="score-display">
                             <div className="score-item">
-                                <div className="score-number correct">{score}</div>
+                                <div className="score-number correct">{correct}</div>
                                 <div className="score-label">Correct</div>
                             </div>
                             <div className="score-item">
@@ -192,7 +242,7 @@ export function QuizPlayer({
                                 <div className="score-label">Incorrect</div>
                             </div>
                             <div className="score-item">
-                                <div className="score-number total">{questions.length}</div>
+                                <div className="score-number total">{total}</div>
                                 <div className="score-label">Total</div>
                             </div>
                         </div>
@@ -305,7 +355,11 @@ export function QuizPlayer({
 
     // Quiz Screen
     return (
-        <div className="quiz-page">
+        <div
+            className="quiz-page"
+            style={{ userSelect: 'none' }}
+            onCopy={e => e.preventDefault()}
+        >
             {/* Header Bar */}
             <div className="quiz-header-bar">
                 <Image
