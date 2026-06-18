@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { inviteUser, getAdminStats, getCompanyUsers, getComplianceReport, bulkInviteUsers, getOrgModules, setModuleAssignment, setModuleAllEmployees, getDepartments, createDepartment, deleteDepartment, updateUserDepartment, setDeptModuleAssignment, bulkAssignDepartment, bulkAssignSelectedUsers, setModuleDeadline, getModuleDeadlines, updateUserRole, getReportChartData, revokeUserAccess, getDeptRptAccess, setDeptRptAccess as setDeptRptAccessAction, getDeptPoshSimulatorAccess, setDeptPoshSimulatorAccess as setDeptPoshSimAction, getDeptBreachSimulatorAccess, setDeptBreachSimulatorAccess as setDeptBreachSimAction, getDeptBoardCheckerAccess, setDeptBoardCheckerAccess as setDeptBoardCheckerAction, getAIPolicyStatus, getHasSeenGuide, getAdminModuleQuestions, updateQuestionSlideGroup } from '@/app/actions/admin'
+import { inviteUser, getAdminStats, getCompanyUsers, bulkInviteUsers, getOrgModules, setModuleAssignment, setModuleAllEmployees, getDepartments, createDepartment, deleteDepartment, updateUserDepartment, setDeptModuleAssignment, bulkAssignDepartment, bulkAssignSelectedUsers, setModuleDeadline, getModuleDeadlines, updateUserRole, getReportChartData, revokeUserAccess, getDeptRptAccess, setDeptRptAccess as setDeptRptAccessAction, getDeptPoshSimulatorAccess, setDeptPoshSimulatorAccess as setDeptPoshSimAction, getDeptBreachSimulatorAccess, setDeptBreachSimulatorAccess as setDeptBreachSimAction, getDeptBoardCheckerAccess, setDeptBoardCheckerAccess as setDeptBoardCheckerAction, getAIPolicyStatus, getHasSeenGuide, getAdminModuleQuestions, updateQuestionSlideGroup } from '@/app/actions/admin'
 import { PlanGate } from '@/components/feature/plan/plan-gate'
 import { type PlanTier, tierAtLeast, isPlanExpired } from '@/lib/plan-utils'
 import { WelcomeGuideModal } from '@/components/feature/onboarding/welcome-guide-modal'
@@ -374,32 +374,6 @@ export default function AdminDashboard() {
             setUsers(newUsers || [])
         } else {
             toast.error(result.message)
-        }
-    }
-
-    // CSV Download
-    async function handleDownloadReport() {
-        try {
-            toast.info('Generating report...')
-            const reportData = await getComplianceReport()
-            if (!reportData) throw new Error("No data received")
-
-            // Convert to CSV
-            const headers = Object.keys(reportData[0]).join(',')
-            const rows = reportData.map((row: any) => Object.values(row).map(v => `"${v}"`).join(',')).join('\n')
-            const csvContent = "data:text/csv;charset=utf-8," + headers + '\n' + rows
-
-            const encodedUri = encodeURI(csvContent)
-            const link = document.createElement("a")
-            link.setAttribute("href", encodedUri)
-            link.setAttribute("download", `compliance_report_${new Date().toISOString().slice(0, 10)}.csv`)
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-
-            toast.success('Report downloaded successfully')
-        } catch (e) {
-            toast.error('Failed to download report')
         }
     }
 
@@ -2007,8 +1981,11 @@ export default function AdminDashboard() {
                                                         c.attestationAccepted ? 'Signed' : 'Pending',
                                                         c.certificateId ?? '',
                                                     ])
-                                                    const csv = [headers, ...rows].map(r => r.map((v: string) => `"${v}"`).join(',')).join('\n')
-                                                    const blob = new Blob([csv], { type: 'text/csv' })
+                                                    // RFC-4180 escaping (double inner quotes) + UTF-8 BOM so Excel
+                                                    // renders ₹, names and commas correctly.
+                                                    const esc = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`
+                                                    const csv = '﻿' + [headers, ...rows].map(r => r.map(esc).join(',')).join('\r\n')
+                                                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
                                                     const url = URL.createObjectURL(blob)
                                                     const a = document.createElement('a')
                                                     a.href = url

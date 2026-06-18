@@ -155,14 +155,77 @@ export function ComplianceCharts() {
 
     useEffect(() => { fetchData() }, [])
 
-    async function handleDownloadCsv() {
+    const rangeLabel = startDate || endDate
+        ? `${startDate || 'start'} to ${endDate || 'today'}`
+        : 'All time'
+
+    // Consolidated, multi-sheet workbook: Summary · Module Breakdown ·
+    // Department Breakdown · Employee Matrix · Detailed Records.
+    async function handleDownloadXlsx() {
+        if (!data) { toast.error('No data to export'); return }
         setDownloadingCsv(true)
         try {
-            const rows = await getComplianceReport()
-            if (!rows?.length) { toast.error('No data to export'); return }
-            const ws = XLSX.utils.json_to_sheet(rows)
+            const { summary, moduleBreakdown, deptBreakdown, employeeMatrix } = data
+            const generatedOn = new Date().toLocaleString('en-IN')
             const wb = XLSX.utils.book_new()
-            XLSX.utils.book_append_sheet(wb, ws, 'Compliance')
+
+            // 1. Summary — KPI key/value sheet
+            const summaryRows = [
+                ['AA Plus — Compliance Report'],
+                ['Generated on', generatedOn],
+                ['Reporting period', rangeLabel],
+                [],
+                ['Metric', 'Value'],
+                ['Total employees', summary.totalMembers],
+                ['Enabled modules', summary.totalModules],
+                ['Fully compliant employees', summary.fullyCompliant],
+                ['Fully compliant rate (%)', summary.fullyCompliantRate],
+                ['Total completions', summary.totalCompletions],
+                ['Unique learners started', summary.uniqueStarted],
+                ['Unique learners completed ≥1', summary.uniqueCompleted],
+                ['Average quiz score (%)', summary.overallAvgScore],
+                ...(summary.hasDeadlines ? [['Employees overdue', summary.overdueCount]] : []),
+            ]
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'Summary')
+
+            // 2. Module Breakdown
+            if (moduleBreakdown.length) {
+                const modRows = moduleBreakdown.map((m: any) => ({
+                    Module: m.title,
+                    Completed: m.completed,
+                    'In Progress': m.inProgress,
+                    'Not Started': m.notStarted,
+                    'Completion %': m.completionRate,
+                    'Avg Score (%)': m.avgScore,
+                    'Avg Attempts': m.avgAttempts ?? '—',
+                }))
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(modRows), 'Module Breakdown')
+            }
+
+            // 3. Department Breakdown (rename leading keys, keep per-module % columns)
+            if (deptBreakdown.length) {
+                const deptRows = deptBreakdown.map((d: any) => {
+                    const { dept, total, overallRate, ...modulePct } = d
+                    return { Department: dept, Employees: total, 'Overall %': overallRate, ...modulePct }
+                })
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(deptRows), 'Department Breakdown')
+            }
+
+            // 4. Employee Matrix
+            if (employeeMatrix.length) {
+                const matrixRows = employeeMatrix.map((m: any) => {
+                    const { name, email, department, ...rest } = m
+                    return { Name: name, Email: email, Department: department, ...rest }
+                })
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(matrixRows), 'Employee Matrix')
+            }
+
+            // 5. Detailed Records — one row per employee × module
+            const detailed = await getComplianceReport()
+            if (detailed?.length) {
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detailed), 'Detailed Records')
+            }
+
             XLSX.writeFile(wb, `compliance_report_${new Date().toISOString().slice(0, 10)}.xlsx`)
             toast.success('Report downloaded')
         } catch {
@@ -172,13 +235,102 @@ export function ComplianceCharts() {
         }
     }
 
-    async function handleDownloadMatrix() {
+    // Single-sheet export for the contextual button on the Employee Matrix table.
+    function handleDownloadMatrix() {
         if (!data?.employeeMatrix?.length) return
-        const ws = XLSX.utils.json_to_sheet(data.employeeMatrix)
+        const matrixRows = data.employeeMatrix.map((m: any) => {
+            const { name, email, department, ...rest } = m
+            return { Name: name, Email: email, Department: department, ...rest }
+        })
+        const ws = XLSX.utils.json_to_sheet(matrixRows)
         const wb = XLSX.utils.book_new()
         XLSX.utils.book_append_sheet(wb, ws, 'Employee Matrix')
         XLSX.writeFile(wb, `employee_module_matrix_${new Date().toISOString().slice(0, 10)}.xlsx`)
         toast.success('Matrix downloaded')
+    }
+
+    // Branded, print-to-PDF compliance summary — matches the certificate
+    // print idiom used elsewhere in the app (no extra PDF dependency).
+    function handleDownloadPdf() {
+        if (!data) { toast.error('No data to export'); return }
+        const { summary, moduleBreakdown, deptBreakdown } = data
+        const win = window.open('', '_blank')
+        if (!win) { toast.error('Allow pop-ups to export the PDF summary'); return }
+
+        const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string))
+        const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+        const logoSrc = `${window.location.origin}/aaplus_logo.png`
+
+        const kpi = (label: string, value: string, accent: string) =>
+            `<div class="kpi"><div class="kv" style="color:${accent}">${esc(value)}</div><div class="kl">${esc(label)}</div></div>`
+
+        const moduleRows = moduleBreakdown.map((m: any) => `
+            <tr>
+              <td class="l">${esc(m.title)}</td>
+              <td>${m.completed}</td><td>${m.inProgress}</td><td>${m.notStarted}</td>
+              <td><b>${m.completionRate}%</b></td><td>${m.avgScore}%</td>
+            </tr>`).join('')
+
+        const deptRows = deptBreakdown.map((d: any) => `
+            <tr><td class="l">${esc(d.dept)}</td><td>${d.total}</td>
+              <td><b>${d.overallRate}%</b></td></tr>`).join('')
+
+        win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+        <title>Compliance Summary — ${esc(today)}</title>
+        <style>
+          *{box-sizing:border-box;margin:0;padding:0;}
+          body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#0b1220;padding:40px;max-width:900px;margin:0 auto;}
+          .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #01356f;padding-bottom:18px;margin-bottom:8px;}
+          .top img{height:42px;}
+          .top .meta{text-align:right;font-size:12px;color:#475569;}
+          h1{font-size:24px;color:#01356f;margin:22px 0 4px;}
+          .subtitle{font-size:13px;color:#64748b;margin-bottom:24px;}
+          .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;}
+          .kpi{border:1px solid #e2e8f0;border-radius:10px;padding:16px;text-align:center;}
+          .kv{font-size:26px;font-weight:800;line-height:1;}
+          .kl{font-size:11px;color:#64748b;margin-top:8px;}
+          h2{font-size:15px;color:#01356f;margin:24px 0 10px;border-left:4px solid #009ee2;padding-left:10px;}
+          table{width:100%;border-collapse:collapse;font-size:12.5px;}
+          th,td{padding:8px 10px;text-align:center;border-bottom:1px solid #e2e8f0;}
+          th{background:#f1f5f9;color:#334155;font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
+          td.l,th.l{text-align:left;}
+          .attest{margin-top:34px;padding:16px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:12.5px;color:#334155;line-height:1.6;}
+          .sign{display:flex;justify-content:space-between;margin-top:46px;font-size:12px;color:#475569;}
+          .sign .line{border-top:1.5px solid #0b1220;padding-top:6px;width:220px;text-align:center;color:#0b1220;font-weight:600;}
+          .foot{margin-top:30px;text-align:center;font-size:10.5px;color:#94a3b8;}
+          @media print{body{padding:24px;}.kpi{break-inside:avoid;}table{break-inside:avoid;}}
+        </style></head><body>
+          <div class="top">
+            <img src="${logoSrc}" alt="AA Plus" onerror="this.style.display='none'">
+            <div class="meta">Generated ${esc(today)}<br>Reporting period: ${esc(rangeLabel)}</div>
+          </div>
+          <h1>Compliance Summary Report</h1>
+          <div class="subtitle">Workforce training & regulatory compliance status</div>
+          <div class="kpis">
+            ${kpi('Total Employees', String(summary.totalMembers), '#01356f')}
+            ${kpi('Fully Compliant', `${summary.fullyCompliantRate}%`, '#16a34a')}
+            ${kpi('Avg Quiz Score', `${summary.overallAvgScore}%`, '#7c3aed')}
+            ${summary.hasDeadlines
+                ? kpi('Overdue', String(summary.overdueCount), summary.overdueCount > 0 ? '#dc2626' : '#16a34a')
+                : kpi('Active Learners', String(summary.uniqueStarted), '#ea580c')}
+          </div>
+          <h2>Module Completion</h2>
+          <table><thead><tr><th class="l">Module</th><th>Completed</th><th>In&nbsp;Progress</th><th>Not&nbsp;Started</th><th>Completion</th><th>Avg&nbsp;Score</th></tr></thead><tbody>${moduleRows}</tbody></table>
+          ${deptRows ? `<h2>Department Completion</h2><table><thead><tr><th class="l">Department</th><th>Employees</th><th>Overall&nbsp;Rate</th></tr></thead><tbody>${deptRows}</tbody></table>` : ''}
+          <div class="attest">
+            <b>${summary.fullyCompliant}</b> of <b>${summary.totalMembers}</b> employees
+            (<b>${summary.fullyCompliantRate}%</b>) have completed all ${summary.totalModules} assigned
+            compliance modules as of ${esc(today)}. This report reflects the organization's current
+            training records and may be used to support statutory and regulatory compliance attestations.
+          </div>
+          <div class="sign">
+            <div class="line">Authorized Signatory</div>
+            <div class="line">Date</div>
+          </div>
+          <div class="foot">Generated by AA Plus Policy Training Platform · training.aaplus.app</div>
+          <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script>
+        </body></html>`)
+        win.document.close()
     }
 
     if (loading) return (
@@ -204,10 +356,10 @@ export function ComplianceCharts() {
                 </div>
                 <PlanGate required="business">
                 <div className="flex gap-3 flex-wrap">
-                    <Button onClick={handleDownloadMatrix} variant="outline" className="border-white/10 text-slate-300 hover:bg-white/10 gap-2">
-                        <Download className="w-4 h-4" /> Employee Matrix (.xlsx)
+                    <Button onClick={handleDownloadPdf} variant="outline" className="border-white/10 text-slate-300 hover:bg-white/10 gap-2">
+                        <FileDown className="w-4 h-4" /> Summary (PDF)
                     </Button>
-                    <Button onClick={handleDownloadCsv} disabled={downloadingCsv} className="bg-green-600 hover:bg-green-500 text-white gap-2">
+                    <Button onClick={handleDownloadXlsx} disabled={downloadingCsv} className="bg-green-600 hover:bg-green-500 text-white gap-2">
                         {downloadingCsv ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                         Full Report (.xlsx)
                     </Button>
