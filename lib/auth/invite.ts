@@ -194,14 +194,78 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
                 throw new Error(`Failed to add user to organization: ${memberError.message}`);
             }
 
+            // Detect whether this account can log in with a password. A user that was
+            // previously removed (revokeUserAccess) still exists in auth but may never
+            // have set a password. If their only identity is SSO (azure/google), they
+            // log in with that provider and don't need a set-password link.
+            const providers = (existingUser.app_metadata?.providers as string[] | undefined) || [];
+            const hasSSO = providers.includes('azure') || providers.includes('google');
+
             const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-            const dashboardLink = `${appUrl}/dashboard`;
 
-            const { subject, html, text } = buildInviteEmail(dashboardLink, branding, true);
+            if (hasSSO) {
+                // SSO users: a plain dashboard link is correct — they authenticate via
+                // their provider, not a password.
+                const dashboardLink = `${appUrl}/dashboard`;
+                const { subject, html, text } = buildInviteEmail(dashboardLink, branding, true);
+                await sendEmail({ to: email, subject, html, text });
+                return { success: true, message: 'User added to organization correctly.' };
+            }
 
-            await sendEmail({ to: email, subject, html, text });
+            // Password-based (or never-onboarded) user: send them through the same
+            // magic-link → set-password flow as a brand new invite, so a re-invited
+            // user who was removed can regain access even if they never set a password.
+            // Mark is_invite so /auth/callback routes them to /auth/update-password.
+            await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+                user_metadata: {
+                    ...existingUser.user_metadata,
+                    ...userData,
+                    is_invite: true
+                }
+            });
 
-            return { success: true, message: 'User added to organization correctly.' };
+            const existingUserRedirect = `${appUrl}/auth/callback`;
+
+            const { data: existingLinkData, error: existingLinkError } = await supabaseAdmin.auth.admin.generateLink({
+                type: 'magiclink',
+                email,
+                options: { redirectTo: existingUserRedirect }
+            });
+
+            if (existingLinkError) throw existingLinkError;
+
+            const existingMagicLink = existingLinkData.properties?.action_link;
+            if (!existingMagicLink) {
+                throw new Error('Failed to generate re-invite link (no action_link returned)');
+            }
+
+            const { data: existingTokenRecord, error: existingTokenError } = await supabaseAdmin
+                .from('safe_link_tokens')
+                .upsert({
+                    magic_link: existingMagicLink,
+                    email: email.toLowerCase(),
+                    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                    used: false
+                }, { onConflict: 'email' })
+                .select('id')
+                .single();
+
+            if (existingTokenError || !existingTokenRecord) {
+                console.error('Failed to create safe link token for existing user:', existingTokenError);
+                throw new Error('Failed to create secure re-invite link');
+            }
+
+            const existingSafeLink = `${appUrl}/auth/verify-invite?token=${existingTokenRecord.id}`;
+
+            const { subject, html, text } = buildInviteEmail(existingSafeLink, branding, false);
+
+            const existingEmailResult = await sendEmail({ to: email, subject, html, text });
+
+            if (!existingEmailResult.success) {
+                throw new Error(`Email sending failed: ${existingEmailResult.error}`);
+            }
+
+            return { success: true, message: 'User re-invited with set-password link.' };
         }
 
         // --- NEW USER FLOW ---
