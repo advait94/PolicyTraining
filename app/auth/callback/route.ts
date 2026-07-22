@@ -117,6 +117,13 @@ export async function GET(request: Request) {
                 destination = `${origin}/auth/update-password`
             }
 
+            // Re-invited users (including SSO accounts) must set a password. This flag is
+            // set on re-invite and cleared once the password is saved, so normal SSO
+            // logins are unaffected.
+            if (session.user.user_metadata?.force_password_setup) {
+                destination = `${origin}/auth/update-password`
+            }
+
             // Check if destination path is absolute or relative
             // Actually, 'next' usually is relative e.g. /dashboard
 

@@ -205,7 +205,12 @@ export default function UpdatePasswordPage() {
             return
         }
 
-        const { error } = await supabase.auth.updateUser({ password })
+        // Clear the invite/re-invite flags so future logins (including SSO) go straight
+        // to the dashboard instead of being routed back to set-password.
+        const { error } = await supabase.auth.updateUser({
+            password,
+            data: { is_invite: false, force_password_setup: false }
+        })
 
         if (error) {
             // Improve error message for "Same as old password"

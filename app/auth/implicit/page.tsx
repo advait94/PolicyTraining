@@ -168,6 +168,13 @@ function ImplicitCallbackContent() {
                     destination = '/auth/update-password'
                 }
 
+                // Re-invited users (including SSO accounts) must set a password. This
+                // flag is set on re-invite and cleared once the password is saved, so
+                // normal SSO logins are unaffected.
+                if (session.user.user_metadata?.force_password_setup) {
+                    destination = '/auth/update-password'
+                }
+
                 if (intendedEmail && !destination.includes('email=')) {
                     const separator = destination.includes('?') ? '&' : '?'
                     destination = `${destination}${separator}email=${encodeURIComponent(intendedEmail)}`

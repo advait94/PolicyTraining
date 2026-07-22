@@ -203,19 +203,22 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
             // password. This also covers users who were removed (revokeUserAccess) and
             // may never have set a password.
             //
-            // We force the post-login destination with an explicit `next` param on the
-            // magic link rather than relying on the callback's is_invite/!hasSSO check,
-            // which deliberately skips SSO accounts. is_invite is still set as a fallback
-            // for non-SSO accounts in case `next` is ever dropped.
+            // Routing is driven by the `force_password_setup` metadata flag (checked in
+            // /auth/callback and /auth/implicit), which works for SSO accounts too and,
+            // unlike is_invite, is cleared once the password is set so normal SSO logins
+            // are never diverted. We deliberately do NOT add query params to redirectTo:
+            // Supabase validates redirectTo against its Redirect-URL allow-list, and an
+            // unlisted variant silently falls back to the Site URL (the login page).
             await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
                 user_metadata: {
                     ...existingUser.user_metadata,
                     ...userData,
-                    is_invite: true
+                    is_invite: true,
+                    force_password_setup: true
                 }
             });
 
-            const existingUserRedirect = `${appUrl}/auth/callback?next=${encodeURIComponent('/auth/update-password')}`;
+            const existingUserRedirect = `${appUrl}/auth/callback`;
 
             const { data: existingLinkData, error: existingLinkError } = await supabaseAdmin.auth.admin.generateLink({
                 type: 'magiclink',
