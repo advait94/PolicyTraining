@@ -1,9 +1,12 @@
 import { LoginForm } from '@/components/feature/auth/login-form'
+import { AuthHashRecovery } from '@/components/feature/auth/auth-hash-recovery'
 import Image from 'next/image'
 
 export default function LoginPage() {
     return (
         <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden p-6 md:p-12">
+            <AuthHashRecovery />
+
 
             {/* Background Glows matching design */}
             <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-purple-900/20 rounded-full blur-[120px] pointer-events-none" />
