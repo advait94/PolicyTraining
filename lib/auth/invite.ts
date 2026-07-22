@@ -194,28 +194,19 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
                 throw new Error(`Failed to add user to organization: ${memberError.message}`);
             }
 
-            // Detect whether this account can log in with a password. A user that was
-            // previously removed (revokeUserAccess) still exists in auth but may never
-            // have set a password. If their only identity is SSO (azure/google), they
-            // log in with that provider and don't need a set-password link.
-            const providers = (existingUser.app_metadata?.providers as string[] | undefined) || [];
-            const hasSSO = providers.includes('azure') || providers.includes('google');
-
             const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-            if (hasSSO) {
-                // SSO users: a plain dashboard link is correct — they authenticate via
-                // their provider, not a password.
-                const dashboardLink = `${appUrl}/dashboard`;
-                const { subject, html, text } = buildInviteEmail(dashboardLink, branding, true);
-                await sendEmail({ to: email, subject, html, text });
-                return { success: true, message: 'User added to organization correctly.' };
-            }
-
-            // Password-based (or never-onboarded) user: send them through the same
-            // magic-link → set-password flow as a brand new invite, so a re-invited
-            // user who was removed can regain access even if they never set a password.
-            // Mark is_invite so /auth/callback routes them to /auth/update-password.
+            // Send every re-invited user through the magic-link → set-password flow,
+            // even if they signed up via Microsoft/Google SSO. Setting a password does
+            // not remove SSO — it just adds email+password as a second way to log in —
+            // so an SSO user who doesn't want to keep using their provider can gain a
+            // password. This also covers users who were removed (revokeUserAccess) and
+            // may never have set a password.
+            //
+            // We force the post-login destination with an explicit `next` param on the
+            // magic link rather than relying on the callback's is_invite/!hasSSO check,
+            // which deliberately skips SSO accounts. is_invite is still set as a fallback
+            // for non-SSO accounts in case `next` is ever dropped.
             await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
                 user_metadata: {
                     ...existingUser.user_metadata,
@@ -224,7 +215,7 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
                 }
             });
 
-            const existingUserRedirect = `${appUrl}/auth/callback`;
+            const existingUserRedirect = `${appUrl}/auth/callback?next=${encodeURIComponent('/auth/update-password')}`;
 
             const { data: existingLinkData, error: existingLinkError } = await supabaseAdmin.auth.admin.generateLink({
                 type: 'magiclink',
