@@ -10,6 +10,26 @@ function getSupabaseAdmin() {
     );
 }
 
+/**
+ * Canonical base URL for auth links. The magic-link `redirect_to` must match a
+ * Supabase Redirect-URL allow-list entry EXACTLY (scheme + host + path); if it
+ * doesn't, GoTrue silently discards it and falls back to the Site URL root,
+ * which dumps the user on /login instead of the set-password page.
+ *
+ * The allow-list only contains the https origin, but NEXT_PUBLIC_APP_URL has been
+ * seen set to http:// in production (Vercel then 308-upgrades page loads, hiding
+ * the misconfig). So we force https and strip a `www.`/trailing slash for any
+ * non-local host to guarantee the generated redirect matches the allow-list.
+ */
+function getAppUrl(): string {
+    let url = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)/.test(url);
+    if (!isLocal) {
+        url = url.replace(/^http:\/\//, 'https://').replace(/^https:\/\/www\./, 'https://');
+    }
+    return url.replace(/\/+$/, '');
+}
+
 interface InviteData {
     email: string;
     redirectTo?: string;
@@ -194,7 +214,7 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
                 throw new Error(`Failed to add user to organization: ${memberError.message}`);
             }
 
-            const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const appUrl = getAppUrl();
 
             // Send every re-invited user through the magic-link → set-password flow,
             // even if they signed up via Microsoft/Google SSO. Setting a password does
@@ -307,7 +327,7 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
                 .eq('id', createUserData.user.id);
         }
 
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const appUrl = getAppUrl();
         const finalRedirect = `${appUrl}/auth/callback`;
 
         console.log('Generating magic link with simplified redirect:', finalRedirect);
