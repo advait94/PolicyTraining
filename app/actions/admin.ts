@@ -4,6 +4,32 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { inviteUser as inviteUserInternal } from '@/lib/auth/invite'
 import { unstable_cache } from 'next/cache'
+import { MAX_ADMINS_PER_ORG, isAssignableRole } from '@/lib/org-limits'
+import type { PlanTier } from '@/lib/plan-utils'
+
+const ADMIN_CAP_MESSAGE = `This organization already has the maximum of ${MAX_ADMINS_PER_ORG} admins. Change an existing admin to another role first.`
+
+/**
+ * Counts the admins in an organization. `excludeUserId` leaves one user out of
+ * the tally, which is what you want when that user's own role is being changed
+ * (their current role shouldn't count against the seat they're moving into).
+ *
+ * Uses the service-role client so the count is complete regardless of RLS —
+ * callers must verify the caller's authority over `orgId` themselves.
+ */
+async function countOrgAdmins(orgId: string, excludeUserId?: string) {
+    let query = createAdminClient()
+        .from('users')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .eq('role', 'admin')
+
+    if (excludeUserId) query = query.neq('id', excludeUserId)
+
+    const { count, error } = await query
+    if (error) throw new Error(`Could not verify the organization's admin count: ${error.message}`)
+    return count ?? 0
+}
 
 // Bulk Invite Action
 export async function bulkInviteUsers(users: { name: string, email: string, department_id?: string }[], targetOrganizationId?: string) {
@@ -136,7 +162,16 @@ export async function inviteUser(prevState: any, formData: FormData) {
         return { success: false, message: 'Email and Name are required' }
     }
 
+    // The role now comes from a form any org admin can submit, so don't trust it.
+    if (!isAssignableRole(role)) {
+        return { success: false, message: 'Invalid role' }
+    }
+
     try {
+        if (role === 'admin' && await countOrgAdmins(targetOrgId) >= MAX_ADMINS_PER_ORG) {
+            return { success: false, message: ADMIN_CAP_MESSAGE }
+        }
+
         const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/auth/update-password&email=${encodeURIComponent(email)}`;
         await inviteUserInternal({
             email,
@@ -234,44 +269,29 @@ export async function getAdminStats() {
     return _getAdminStatsCached(userData.organization_id)
 }
 
-export async function getCompanyUsers() {
-    const supabase = await createClient()
-
-    // 1. Auth & Org Check
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
-
-    const { data: userData } = await supabase
-        .from('users')
-        .select('organization_id, role')
-        .eq('id', user.id)
-        .single()
-
-    if (userData?.role !== 'admin' || !userData?.organization_id) {
-        console.error('Unauthorized: User is not an admin or missing org')
-        return null
-    }
-
-    // 2. Fetch Members + Profiles + Progress in Parallel
+// Core fetch — assumes the caller has already verified admin access to `orgId`.
+// Split out so getAdminBootstrap can reuse it without repeating the auth preamble.
+async function _fetchCompanyUsers(supabase: any, orgId: string) {
+    // Fetch Members + Profiles + Progress in Parallel
     const [membersResult, profilesResult, progressResult] = await Promise.all([
         // A. Get Members IDs & Roles
         supabase
             .from('organization_members')
             .select('user_id, role')
-            .eq('organization_id', userData.organization_id),
+            .eq('organization_id', orgId),
 
         // B. Get Public Profiles
         supabase
             .from('users')
             .select('id, display_name, email, role, department_id, departments(id, name)')
-            .eq('organization_id', userData.organization_id),
+            .eq('organization_id', orgId),
 
         // C. Get Progress Counts — use admin client to bypass RLS (admin already verified above)
         createAdminClient()
             .from('user_progress')
             .select('user_id, users!inner(organization_id)')
             .eq('is_completed', true)
-            .eq('users.organization_id', userData.organization_id)
+            .eq('users.organization_id', orgId)
     ])
 
     if (membersResult.error) {
@@ -311,6 +331,26 @@ export async function getCompanyUsers() {
     return users
 }
 
+export async function getCompanyUsers() {
+    const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+
+    const { data: userData } = await supabase
+        .from('users')
+        .select('organization_id, role')
+        .eq('id', user.id)
+        .single()
+
+    if (userData?.role !== 'admin' || !userData?.organization_id) {
+        console.error('Unauthorized: User is not an admin or missing org')
+        return null
+    }
+
+    return _fetchCompanyUsers(supabase, userData.organization_id)
+}
+
 export async function getOrgModules(targetOrgId?: string) {
     const supabase = await createClient()
 
@@ -330,7 +370,28 @@ export async function getOrgModules(targetOrgId?: string) {
         if (!userData?.organization_id) return null
         orgId = userData.organization_id
     }
+    if (!orgId) return null
 
+    return _fetchOrgModules(supabase, orgId)
+}
+
+export type OrgModuleRow = {
+    id: string
+    title: string
+    description: string | null
+    sequence_order: number
+    isAssigned: boolean
+    allEmployees: boolean
+    deptIds: string[]
+    isLocked: boolean
+    isAIPolicyModule: boolean
+}
+
+// Core fetch — assumes the caller has already verified admin access to `orgId`.
+async function _fetchOrgModules(supabase: any, orgId: string): Promise<{
+    modules: OrgModuleRow[]
+    departments: { id: string; name: string }[]
+}> {
     const allAITierIds = new Set(Object.values(AI_TIER_MODULE_IDS))
 
     const [modulesResult, assignedResult, deptModulesResult, deptsResult, locksResult, aiPolicyResult] = await Promise.all([
@@ -517,6 +578,8 @@ export async function getComplianceReport() {
         return null
     }
 
+    const orgId = userData.organization_id
+
     // 2. Fetch Nested Data
     const { data: orgProgress, error: progError } = await supabase
         .from('users')
@@ -530,12 +593,12 @@ export async function getComplianceReport() {
                 modules ( title )
             )
         `)
-        .eq('organization_id', userData.organization_id)
+        .eq('organization_id', orgId)
 
     if (progError) throw new Error(progError.message)
 
     // 3. Fetch Emails (Using Service Role for Auth Admin access if needed, assuming public.users has email)
-    const { data: publicUsers } = await supabase.from('users').select('id, email').eq('organization_id', userData.organization_id)
+    const { data: publicUsers } = await supabase.from('users').select('id, email').eq('organization_id', orgId)
     const emailMap = new Map(publicUsers?.map(u => [u.id, u.email]) || [])
 
     // 4. Flatten for CSV
@@ -968,27 +1031,89 @@ export async function getModuleDeadlines(targetOrgId?: string) {
     const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
     const orgId = await resolveOrgId(supabase, user.id, !!isSuperAdmin, targetOrgId)
     if (!orgId) return []
+    return _fetchModuleDeadlines(supabase, orgId)
+}
+
+// Core fetch — assumes the caller has already verified admin access to `orgId`.
+async function _fetchModuleDeadlines(supabase: any, orgId: string) {
     const { data } = await supabase
         .from('organization_module_deadlines')
         .select('module_id, due_date')
         .eq('organization_id', orgId)
-    return data || []
+    return (data || []) as { module_id: string; due_date: string }[]
 }
 
 export async function updateUserRole(userId: string, role: string, targetOrgId?: string) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { success: false, message: 'Unauthorized' }
+
+    if (!isAssignableRole(role)) return { success: false, message: 'Invalid role' }
+
     const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
-    if (!isSuperAdmin) {
-        const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single()
-        if (userData?.role !== 'admin') return { success: false, message: 'Unauthorized' }
-    }
     const adminClient = createAdminClient()
+
+    const { data: targetUser } = await adminClient
+        .from('users')
+        .select('role, organization_id')
+        .eq('id', userId)
+        .single()
+
+    if (!targetUser) return { success: false, message: 'User not found' }
+
+    let orgId = targetUser.organization_id
+
+    if (!isSuperAdmin) {
+        const { data: callerData } = await supabase
+            .from('users')
+            .select('role, organization_id')
+            .eq('id', user.id)
+            .single()
+
+        if (callerData?.role !== 'admin') return { success: false, message: 'Unauthorized' }
+
+        // An org admin may only change roles for members of their own organization.
+        // Without this the target is addressable by id alone, across tenants.
+        if (!callerData.organization_id || callerData.organization_id !== targetUser.organization_id) {
+            return { success: false, message: 'Unauthorized' }
+        }
+        orgId = callerData.organization_id
+
+        if (userId === user.id) {
+            return { success: false, message: 'You cannot change your own role. Ask another admin to do it.' }
+        }
+    } else if (targetOrgId && targetOrgId !== targetUser.organization_id) {
+        return { success: false, message: 'User is not a member of that organization' }
+    }
+
+    if (!orgId) return { success: false, message: 'Could not determine organization' }
+
+    try {
+        // Promoting into a new admin seat — only if one is free.
+        if (role === 'admin' && targetUser.role !== 'admin') {
+            if (await countOrgAdmins(orgId, userId) >= MAX_ADMINS_PER_ORG) {
+                return { success: false, message: ADMIN_CAP_MESSAGE }
+            }
+        }
+
+        // Demoting the last admin would leave the org with nobody who can manage it.
+        if (targetUser.role === 'admin' && role !== 'admin') {
+            if (await countOrgAdmins(orgId, userId) === 0) {
+                return { success: false, message: 'This is the only admin in the organization. Promote another user to admin first.' }
+            }
+        }
+    } catch (err) {
+        return { success: false, message: err instanceof Error ? err.message : 'Could not verify the admin count' }
+    }
+
     const { error } = await adminClient.from('users').update({ role }).eq('id', userId)
     if (error) return { success: false, message: error.message }
     // Keep organization_members.role in sync so RLS policies that check it stay consistent
-    await adminClient.from('organization_members').update({ role }).eq('user_id', userId)
+    await adminClient
+        .from('organization_members')
+        .update({ role })
+        .eq('user_id', userId)
+        .eq('organization_id', orgId)
     return { success: true }
 }
 
@@ -1033,6 +1158,47 @@ export async function revokeUserAccess(userId: string, targetOrgId?: string) {
     return { success: true }
 }
 
+// All four simulator flags live on the same `departments` row, so one query serves
+// every per-department access list. Callers that need more than one must use this
+// rather than issuing a query per flag.
+type DeptAccessRow = {
+    id: string
+    name: string
+    rpt_simulator_enabled: boolean
+    posh_simulator_enabled: boolean
+    breach_simulator_enabled: boolean
+    board_checker_enabled: boolean
+}
+
+async function _fetchDeptAccess(supabase: any, orgId: string): Promise<DeptAccessRow[]> {
+    const { data } = await supabase
+        .from('departments')
+        .select('id, name, rpt_simulator_enabled, posh_simulator_enabled, breach_simulator_enabled, board_checker_enabled')
+        .eq('organization_id', orgId)
+        .order('name', { ascending: true })
+    return (data || []) as DeptAccessRow[]
+}
+
+// Departments plus every simulator access list, in a single round trip.
+// Replaces the getDepartments + 4×getDept*Access fan-out on refresh paths.
+export async function getDepartmentsWithAccess(targetOrgId?: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
+    const orgId = await resolveOrgId(supabase, user.id, !!isSuperAdmin, targetOrgId)
+    if (!orgId) return null
+
+    const rows = await _fetchDeptAccess(supabase, orgId)
+    return {
+        departments: rows.map(d => ({ id: d.id, name: d.name })),
+        rpt: rows,
+        posh: rows,
+        breach: rows,
+        board: rows,
+    }
+}
+
 export async function getDeptRptAccess(targetOrgId?: string) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -1041,12 +1207,7 @@ export async function getDeptRptAccess(targetOrgId?: string) {
     const orgId = await resolveOrgId(supabase, user.id, !!isSuperAdmin, targetOrgId)
     if (!orgId) return []
 
-    const { data } = await supabase
-        .from('departments')
-        .select('id, name, rpt_simulator_enabled')
-        .eq('organization_id', orgId)
-        .order('name', { ascending: true })
-    return (data || []) as { id: string; name: string; rpt_simulator_enabled: boolean }[]
+    return _fetchDeptAccess(supabase, orgId)
 }
 
 export async function setDeptRptAccess(departmentId: string, enabled: boolean) {
@@ -1079,12 +1240,7 @@ export async function getDeptPoshSimulatorAccess(targetOrgId?: string) {
     const orgId = await resolveOrgId(supabase, user.id, !!isSuperAdmin, targetOrgId)
     if (!orgId) return []
 
-    const { data } = await supabase
-        .from('departments')
-        .select('id, name, posh_simulator_enabled')
-        .eq('organization_id', orgId)
-        .order('name', { ascending: true })
-    return (data || []) as { id: string; name: string; posh_simulator_enabled: boolean }[]
+    return _fetchDeptAccess(supabase, orgId)
 }
 
 export async function setDeptPoshSimulatorAccess(departmentId: string, enabled: boolean) {
@@ -1117,12 +1273,7 @@ export async function getDeptBreachSimulatorAccess(targetOrgId?: string) {
     const orgId = await resolveOrgId(supabase, user.id, !!isSuperAdmin, targetOrgId)
     if (!orgId) return []
 
-    const { data } = await supabase
-        .from('departments')
-        .select('id, name, breach_simulator_enabled')
-        .eq('organization_id', orgId)
-        .order('name', { ascending: true })
-    return (data || []) as { id: string; name: string; breach_simulator_enabled: boolean }[]
+    return _fetchDeptAccess(supabase, orgId)
 }
 
 export async function setDeptBreachSimulatorAccess(departmentId: string, enabled: boolean) {
@@ -1155,12 +1306,7 @@ export async function getDeptBoardCheckerAccess(targetOrgId?: string) {
     const orgId = await resolveOrgId(supabase, user.id, !!isSuperAdmin, targetOrgId)
     if (!orgId) return []
 
-    const { data } = await supabase
-        .from('departments')
-        .select('id, name, board_checker_enabled')
-        .eq('organization_id', orgId)
-        .order('name', { ascending: true })
-    return (data || []) as { id: string; name: string; board_checker_enabled: boolean }[]
+    return _fetchDeptAccess(supabase, orgId)
 }
 
 export async function setDeptBoardCheckerAccess(departmentId: string, enabled: boolean) {
@@ -1267,6 +1413,11 @@ export async function getAIPolicyStatus(targetOrgId?: string): Promise<{
     const orgId = await resolveOrgId(supabase, user.id, !!isSuperAdmin, targetOrgId)
     if (!orgId) return null
 
+    return _fetchAIPolicyStatus(supabase, orgId)
+}
+
+// Core fetch — assumes the caller has already verified admin access to `orgId`.
+async function _fetchAIPolicyStatus(supabase: any, orgId: string) {
     const { data, error } = await supabase
         .from('organization_ai_policy')
         .select(`
@@ -1316,6 +1467,115 @@ export async function getHasSeenGuide(): Promise<boolean> {
         .eq('id', user.id)
         .single()
     return data?.has_seen_guide ?? false
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN DASHBOARD BOOTSTRAP
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Everything the admin dashboard needs on mount, in ONE server action.
+//
+// Why this exists: Next.js serializes Server Action requests from a client — they
+// go through a single router action queue (see dispatchAppRouterAction), so a
+// `Promise.all([...])` over N actions is N sequential HTTP round trips, not N
+// parallel ones. The dashboard used to issue 10 of them plus 4 direct Supabase
+// calls before it could paint. Everything below runs in one request, where
+// Promise.all genuinely parallelizes, and auth is resolved exactly once.
+export type AdminBootstrap =
+    | { status: 'unauthenticated' }
+    | { status: 'not-admin' }
+    | { status: 'needs-settings' }
+    | {
+        status: 'ok'
+        userId: string
+        isSuperAdmin: boolean
+        hasSeenGuide: boolean
+        planTier: PlanTier
+        planExpired: boolean
+        orgs: { id: string; name: string }[]
+        stats: any
+        users: any[]
+        modules: any[]
+        departments: { id: string; name: string }[]
+        deptAccess: DeptAccessRow[]
+        deadlines: { module_id: string; due_date: string }[]
+        aiPolicy: any
+    }
+
+export async function getAdminBootstrap(targetOrgId?: string): Promise<AdminBootstrap> {
+    const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { status: 'unauthenticated' }
+
+    // Caller identity, superadmin flag and guide flag — resolved once, reused throughout.
+    const [{ data: isSuperAdminRaw }, { data: callerData }] = await Promise.all([
+        supabase.rpc('is_super_admin'),
+        supabase
+            .from('users')
+            .select('organization_id, role, has_seen_guide')
+            .eq('id', user.id)
+            .single(),
+    ])
+
+    const isSuperAdmin = !!isSuperAdminRaw
+
+    // Matches the pre-existing gate: the admin dashboard requires users.role === 'admin'
+    // for everyone, superadmins included. Superadmin status only widens what is shown
+    // (plan tier, the org switcher, skipping the first-run settings redirect).
+    if (callerData?.role !== 'admin') return { status: 'not-admin' }
+
+    const orgId = targetOrgId || callerData?.organization_id
+    if (!orgId) return { status: 'not-admin' }
+
+    // Org-level gating. Superadmins bypass the first-run settings redirect and
+    // always get full feature access in the admin view.
+    const { data: orgCheck } = await supabase
+        .from('organizations')
+        .select('settings_completed, plan_tier, plan_expires_at')
+        .eq('id', orgId)
+        .single()
+
+    if (!isSuperAdmin && orgCheck && !orgCheck.settings_completed) {
+        return { status: 'needs-settings' }
+    }
+
+    const planTier: PlanTier = isSuperAdmin
+        ? 'enterprise'
+        : ((orgCheck?.plan_tier as PlanTier) ?? 'essentials')
+    const planExpired = !isSuperAdmin && !!orgCheck?.plan_expires_at
+        && new Date(orgCheck.plan_expires_at) < new Date()
+
+    // The real payload. These are independent queries inside a single request,
+    // so Promise.all actually runs them concurrently here.
+    const [stats, users, orgModules, deadlines, deptAccess, aiPolicy, orgs] = await Promise.all([
+        _getAdminStatsCached(orgId),
+        _fetchCompanyUsers(supabase, orgId),
+        _fetchOrgModules(supabase, orgId),
+        _fetchModuleDeadlines(supabase, orgId),
+        _fetchDeptAccess(supabase, orgId),
+        _fetchAIPolicyStatus(supabase, orgId),
+        isSuperAdmin
+            ? supabase.from('organizations').select('id, name').order('name').then((r: any) => r.data || [])
+            : Promise.resolve([]),
+    ])
+
+    return {
+        status: 'ok',
+        userId: user.id,
+        isSuperAdmin,
+        hasSeenGuide: callerData?.has_seen_guide ?? false,
+        planTier,
+        planExpired,
+        orgs,
+        stats,
+        users: users || [],
+        modules: orgModules?.modules || [],
+        departments: orgModules?.departments || [],
+        deptAccess,
+        deadlines,
+        aiPolicy,
+    }
 }
 
 export async function getAdminModuleQuestions(moduleId: string) {

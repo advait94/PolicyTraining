@@ -43,3 +43,6 @@ next-env.d.ts
 mcp_config.json
 .vercel
 .env*.local
+
+# local resources / non-app assets (marketing decks, docs, one-off scripts)
+/resources/

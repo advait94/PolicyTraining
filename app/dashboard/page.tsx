@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { AuthSync } from '@/components/feature/auth/auth-sync'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
@@ -73,22 +72,17 @@ export default async function DashboardPage() {
         redirect('/superadmin')
     }
 
-    const { data: userRole } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user?.id)
-        .single()
-
-    if (userRole?.role === 'admin') {
-        redirect('/admin/dashboard')
-    }
-
-    // Fetch user's org + department + name + simulator flags
+    // Role, org, department, name and simulator flags all come off the same row —
+    // one query instead of two sequential round trips.
     const { data: userData } = await supabase
         .from('users')
-        .select('organization_id, department_id, display_name, departments(rpt_simulator_enabled, posh_simulator_enabled, breach_simulator_enabled, board_checker_enabled)')
+        .select('role, organization_id, department_id, display_name, departments(rpt_simulator_enabled, posh_simulator_enabled, breach_simulator_enabled, board_checker_enabled)')
         .eq('id', user?.id)
         .single()
+
+    if (userData?.role === 'admin') {
+        redirect('/admin/dashboard')
+    }
 
     // If the user has no department assigned, show the contact-admin screen
     if (!userData?.department_id) {
@@ -223,7 +217,8 @@ export default async function DashboardPage() {
 
     return (
         <div className="space-y-12 pb-24 relative">
-            <AuthSync />
+            {/* AuthSync is mounted once in the root layout — a second instance here
+                would open a duplicate onAuthStateChange subscription. */}
             {/* Background Glows for Dashboard */}
             <div className="fixed top-20 right-0 w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[100px] pointer-events-none -z-10" />
             <div className="fixed bottom-0 left-0 w-[600px] h-[600px] bg-cyan-600/5 rounded-full blur-[120px] pointer-events-none -z-10" />

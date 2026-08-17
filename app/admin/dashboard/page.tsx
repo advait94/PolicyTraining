@@ -1,19 +1,29 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { inviteUser, getAdminStats, getCompanyUsers, bulkInviteUsers, getOrgModules, setModuleAssignment, setModuleAllEmployees, getDepartments, createDepartment, deleteDepartment, updateUserDepartment, setDeptModuleAssignment, bulkAssignDepartment, bulkAssignSelectedUsers, setModuleDeadline, getModuleDeadlines, updateUserRole, getReportChartData, revokeUserAccess, getDeptRptAccess, setDeptRptAccess as setDeptRptAccessAction, getDeptPoshSimulatorAccess, setDeptPoshSimulatorAccess as setDeptPoshSimAction, getDeptBreachSimulatorAccess, setDeptBreachSimulatorAccess as setDeptBreachSimAction, getDeptBoardCheckerAccess, setDeptBoardCheckerAccess as setDeptBoardCheckerAction, getAIPolicyStatus, getHasSeenGuide, getAdminModuleQuestions, updateQuestionSlideGroup } from '@/app/actions/admin'
+import { inviteUser, getAdminBootstrap, getCompanyUsers, bulkInviteUsers, setModuleAssignment, setModuleAllEmployees, getDepartmentsWithAccess, createDepartment, deleteDepartment, updateUserDepartment, setDeptModuleAssignment, bulkAssignDepartment, bulkAssignSelectedUsers, setModuleDeadline, updateUserRole, getReportChartData, revokeUserAccess, setDeptRptAccess as setDeptRptAccessAction, setDeptPoshSimulatorAccess as setDeptPoshSimAction, setDeptBreachSimulatorAccess as setDeptBreachSimAction, setDeptBoardCheckerAccess as setDeptBoardCheckerAction, getAdminModuleQuestions, updateQuestionSlideGroup } from '@/app/actions/admin'
 import { PlanGate } from '@/components/feature/plan/plan-gate'
 import { type PlanTier, tierAtLeast, isPlanExpired } from '@/lib/plan-utils'
+import { MAX_ADMINS_PER_ORG } from '@/lib/org-limits'
 import { WelcomeGuideModal } from '@/components/feature/onboarding/welcome-guide-modal'
 import { getAuditLog, getBulkCertificates, exportAuditLog } from '@/app/actions/audit'
-import { ComplianceCharts } from '@/components/feature/reports/compliance-charts'
-import * as XLSX from 'xlsx'
+import dynamic from 'next/dynamic'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts'
+
+// recharts is heavy and only renders below the fold on the Reports tab, so both
+// chart surfaces are code-split. xlsx is loaded on demand inside its handlers.
+const ModuleCompletionChart = dynamic(
+    () => import('@/components/feature/reports/module-completion-chart').then(m => m.ModuleCompletionChart),
+    { ssr: false, loading: () => <div className="h-[300px] flex items-center justify-center"><Loader2 className="animate-spin" /></div> }
+)
+const ComplianceCharts = dynamic(
+    () => import('@/components/feature/reports/compliance-charts').then(m => m.ComplianceCharts),
+    { ssr: false, loading: () => <div className="h-[300px] flex items-center justify-center"><Loader2 className="animate-spin" /></div> }
+)
 import { Loader2, UserPlus, FileBarChart, Users, AlertTriangle, GraduationCap, Download, Search, CheckCircle, Clock, LogOut, BookOpen, ChevronDown, ChevronRight, Plus, Trash2, Building2, Calendar, UsersRound, Trophy, Medal, ShieldCheck, Webhook, Activity, UserMinus, Lock, Sparkles, HelpCircle } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
@@ -29,6 +39,7 @@ export default function AdminDashboard() {
     // Stats State
     const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
     const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false)
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null)
     const [stats, setStats] = useState<any>(null)
     const [users, setUsers] = useState<any[]>([])
     const [loadingStats, setLoadingStats] = useState(true)
@@ -126,7 +137,8 @@ export default function AdminDashboard() {
         if (!file) return
 
         const reader = new FileReader()
-        reader.onload = (evt) => {
+        reader.onload = async (evt) => {
+            const XLSX = await import('xlsx')
             const bstr = evt.target?.result
             const wb = XLSX.read(bstr, { type: 'binary' })
             const wsname = wb.SheetNames[0]
@@ -216,94 +228,50 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         async function checkAuthAndLoadData() {
-            const { data: { user } } = await supabase.auth.getUser()
+            setLoadingStats(true)
 
-            if (!user) {
+            // One server action for the whole mount. Server Actions are queued and
+            // executed one at a time by the Next.js router, so fanning this back out
+            // into several calls would re-serialize them into N round trips.
+            const boot = await getAdminBootstrap()
+
+            if (boot.status === 'unauthenticated') {
                 router.push('/login')
                 return
             }
 
-            // Check Superadmin status
-            const { data: superAdminCheck } = await supabase.rpc('is_super_admin')
-            setIsSuperAdmin(!!superAdminCheck)
-
-            // Superadmins always get full feature access in admin view
-            if (superAdminCheck) setPlanTier('enterprise')
-
-            // Verify admin role in public table
-            const { data: userData } = await supabase
-                .from('users')
-                .select('role, organization_id')
-                .eq('id', user.id)
-                .single()
-
-            if (userData?.role !== 'admin') {
+            if (boot.status === 'not-admin') {
                 setIsAdmin(false)
                 toast.error('Unauthorized access. Redirecting...')
                 setTimeout(() => router.push('/dashboard'), 2000)
                 return
             }
 
+            if (boot.status === 'needs-settings') {
+                router.push('/admin/settings?firstTime=true')
+                return
+            }
+
+            setCurrentUserId(boot.userId)
+            setIsSuperAdmin(boot.isSuperAdmin)
             setIsAdmin(true)
+            setHasSeenGuide(boot.hasSeenGuide)
+            setPlanTier(boot.planTier)
+            setPlanExpired(boot.planExpired)
+            setOrgs(boot.orgs)
 
-            // Fetch whether this admin has already seen the welcome guide
-            const seenGuide = await getHasSeenGuide()
-            setHasSeenGuide(seenGuide)
-
-            // First-time settings check — redirect org admins who haven't configured yet
-            if (!superAdminCheck && userData?.organization_id) {
-                const { data: orgCheck } = await supabase
-                    .from('organizations')
-                    .select('settings_completed, plan_tier, plan_expires_at')
-                    .eq('id', userData.organization_id)
-                    .single()
-
-                if (orgCheck && !orgCheck.settings_completed) {
-                    router.push('/admin/settings?firstTime=true')
-                    return
-                }
-
-                const tier = (orgCheck?.plan_tier as PlanTier) ?? 'essentials'
-                const expired = orgCheck?.plan_expires_at
-                    ? new Date(orgCheck.plan_expires_at) < new Date()
-                    : false
-                setPlanTier(tier)
-                setPlanExpired(expired)
-            }
-
-            setLoadingStats(true)
-
-            // If superadmin, fetch orgs
-            if (superAdminCheck) {
-                const { data: orgsData } = await supabase.from('organizations').select('id, name').order('name');
-                setOrgs(orgsData || []);
-            }
-
-            const [statsData, usersData, modulesData, deadlinesData, rptData, aiPolicyData, poshData, breachData, boardData] = await Promise.all([
-                getAdminStats(),
-                getCompanyUsers(),
-                getOrgModules(),
-                getModuleDeadlines(),
-                getDeptRptAccess(),
-                getAIPolicyStatus(),
-                getDeptPoshSimulatorAccess(),
-                getDeptBreachSimulatorAccess(),
-                getDeptBoardCheckerAccess(),
-            ])
-            setStats(statsData)
-            setUsers(usersData || [])
-            if (modulesData) {
-                setOrgModules(modulesData.modules || [])
-                setDepartments(modulesData.departments || [])
-            }
-            setDeptRptAccess(rptData || [])
-            setAiPolicyStatus(aiPolicyData)
-            setDeptPoshAccess(poshData || [])
-            setDeptBreachAccess(breachData || [])
-            setDeptBoardAccess(boardData || [])
+            setStats(boot.stats)
+            setUsers(boot.users)
+            setOrgModules(boot.modules)
+            setDepartments(boot.departments)
+            setDeptRptAccess(boot.deptAccess)
+            setDeptPoshAccess(boot.deptAccess)
+            setDeptBreachAccess(boot.deptAccess)
+            setDeptBoardAccess(boot.deptAccess)
+            setAiPolicyStatus(boot.aiPolicy)
             setAiPolicyLoading(false)
             const dlMap: Record<string, string> = {}
-            ;(deadlinesData || []).forEach((d: any) => { dlMap[d.module_id] = d.due_date })
+            boot.deadlines.forEach((d) => { dlMap[d.module_id] = d.due_date })
             setModuleDeadlines(dlMap)
             setLoadingStats(false)
         }
@@ -363,6 +331,13 @@ export default function AdminDashboard() {
             </div>
         )
     }
+
+    // Admin seat usage. The server enforces the cap; this only keeps the UI
+    // honest so admins aren't offered a seat that will be rejected. Superadmins
+    // invite into other organizations, where the local user list says nothing
+    // useful — they get the server's answer instead.
+    const orgAdminCount = users.filter(u => u.role === 'admin').length
+    const adminSeatsFull = !isSuperAdmin && orgAdminCount >= MAX_ADMINS_PER_ORG
 
     // Invite Form Handler
     async function handleInvite(formData: FormData) {
@@ -434,12 +409,14 @@ export default function AdminDashboard() {
         if (result.success) {
             toast.success(`Department "${newDeptName}" created`)
             setNewDeptName('')
-            const [fresh, freshRpt, freshPosh, freshBreach, freshBoard] = await Promise.all([getDepartments(), getDeptRptAccess(), getDeptPoshSimulatorAccess(), getDeptBreachSimulatorAccess(), getDeptBoardCheckerAccess()])
-            if (fresh) setDepartments(fresh)
-            setDeptRptAccess(freshRpt || [])
-            setDeptPoshAccess(freshPosh || [])
-            setDeptBreachAccess(freshBreach || [])
-            setDeptBoardAccess(freshBoard || [])
+            const fresh = await getDepartmentsWithAccess()
+            if (fresh) {
+                setDepartments(fresh.departments)
+                setDeptRptAccess(fresh.rpt)
+                setDeptPoshAccess(fresh.posh)
+                setDeptBreachAccess(fresh.breach)
+                setDeptBoardAccess(fresh.board)
+            }
         } else {
             toast.error(result.message || 'Failed to create department')
         }
@@ -615,6 +592,7 @@ export default function AdminDashboard() {
                 eventType: auditEventFilter || undefined,
             })
             if (!rows?.length) { toast.error('No audit data to export'); return }
+            const XLSX = await import('xlsx')
             const exportRows = rows.map((e: any) => ({
                 Timestamp: new Date(e.createdAt).toLocaleString('en-IN'),
                 Employee: e.userName,
@@ -865,19 +843,27 @@ export default function AdminDashboard() {
                                                     <Label htmlFor="email" className="text-slate-300 text-xs">Email Address <span className="text-red-400">*</span></Label>
                                                     <Input id="email" name="email" type="email" placeholder="jane@company.com" required className="bg-black/20 border-white/10 text-white h-9" />
                                                 </div>
-                                                {isSuperAdmin && (
-                                                    <div className="space-y-1.5">
-                                                        <Label htmlFor="role" className="text-slate-300 text-xs">Role</Label>
-                                                        <select
-                                                            id="role"
-                                                            name="role"
-                                                            className="flex h-9 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                        >
-                                                            <option value="learner" className="bg-[#151A29]">Learner</option>
-                                                            <option value="admin" className="bg-[#151A29]">Admin</option>
-                                                        </select>
-                                                    </div>
-                                                )}
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="role" className="text-slate-300 text-xs">Role</Label>
+                                                    <select
+                                                        id="role"
+                                                        name="role"
+                                                        defaultValue="learner"
+                                                        className="flex h-9 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                    >
+                                                        <option value="learner" className="bg-[#151A29]">Learner</option>
+                                                        <option value="manager" className="bg-[#151A29]">Manager</option>
+                                                        <option value="admin" disabled={adminSeatsFull} className="bg-[#151A29]">
+                                                            Admin{adminSeatsFull ? ' — no seats left' : ''}
+                                                        </option>
+                                                    </select>
+                                                    {!isSuperAdmin && (
+                                                        <p className={`text-xs ${adminSeatsFull ? 'text-amber-400' : 'text-slate-500'}`}>
+                                                            {orgAdminCount} of {MAX_ADMINS_PER_ORG} admin seats used
+                                                            {adminSeatsFull ? ' — change an existing admin to another role to free one.' : '.'}
+                                                        </p>
+                                                    )}
+                                                </div>
                                                 <div className="space-y-1.5">
                                                     <Label htmlFor="departmentId" className="text-slate-300 text-xs">Department <span className="text-slate-500">(optional)</span></Label>
                                                     <select
@@ -1048,19 +1034,7 @@ export default function AdminDashboard() {
                                 </CardHeader>
                                 <CardContent>
                                     {loadingStats ? <div className="h-[300px] flex items-center justify-center"><Loader2 className="animate-spin" /></div> : (
-                                        <div className="h-[300px] w-full">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <BarChart data={stats?.moduleStats || []} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                                                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                                                    <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} unit="%" />
-                                                    <RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }} itemStyle={{ color: '#fff' }} cursor={{ fill: '#ffffff05' }} formatter={(value: any) => [`${value}%`, 'Completion']} />
-                                                    <Bar dataKey="percentage" name="Completion %" radius={[4, 4, 0, 0]}>
-                                                        {stats?.moduleStats?.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={['#c084fc', '#22d3ee', '#fb7185', '#fb923c'][index % 4]} />)}
-                                                    </Bar>
-                                                </BarChart>
-                                            </ResponsiveContainer>
-                                        </div>
+                                        <ModuleCompletionChart data={stats?.moduleStats || []} />
                                     )}
                                 </CardContent>
                             </Card>
@@ -1198,7 +1172,7 @@ export default function AdminDashboard() {
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">
-                                                        {user.role !== 'admin' && (
+                                                        {user.id !== currentUserId && (
                                                             updatingUserRole === user.id ? (
                                                                 <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
                                                             ) : (
@@ -1209,6 +1183,9 @@ export default function AdminDashboard() {
                                                                 >
                                                                     <option value="learner">Learner</option>
                                                                     <option value="manager">Manager</option>
+                                                                    <option value="admin" disabled={adminSeatsFull && user.role !== 'admin'}>
+                                                                        Admin{adminSeatsFull && user.role !== 'admin' ? ' — no seats left' : ''}
+                                                                    </option>
                                                                 </select>
                                                             )
                                                         )}
@@ -1288,12 +1265,14 @@ export default function AdminDashboard() {
                                                         setCreatingDept(true)
                                                         const result = await createDepartment(preset.name)
                                                         if (result.success) {
-                                                            const [fresh, freshRpt, freshPosh, freshBreach, freshBoard] = await Promise.all([getDepartments(), getDeptRptAccess(), getDeptPoshSimulatorAccess(), getDeptBreachSimulatorAccess(), getDeptBoardCheckerAccess()])
-                                                            if (fresh) setDepartments(fresh)
-                                                            setDeptRptAccess(freshRpt || [])
-                                                            setDeptPoshAccess(freshPosh || [])
-                                                            setDeptBreachAccess(freshBreach || [])
-                                                            setDeptBoardAccess(freshBoard || [])
+                                                            const fresh = await getDepartmentsWithAccess()
+                                                            if (fresh) {
+                                                                setDepartments(fresh.departments)
+                                                                setDeptRptAccess(fresh.rpt)
+                                                                setDeptPoshAccess(fresh.posh)
+                                                                setDeptBreachAccess(fresh.breach)
+                                                                setDeptBoardAccess(fresh.board)
+                                                            }
                                                         } else {
                                                             toast.error(result.message || 'Failed to create department')
                                                         }

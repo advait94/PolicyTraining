@@ -94,6 +94,10 @@ export function ModulePlayer({
     const loggedSlides = useRef<Set<string>>(new Set())
     const supabase = createClient()
 
+    // Resolved once for the lifetime of the player. Previously every slide advance
+    // paid a getUser() round trip to the Auth API just to stamp an activity row.
+    const userIdRef = useRef<string | null>(null)
+
     const currentSlide = slides[currentSlideIndex]
     const isLastSlide = currentSlideIndex === slides.length - 1
     const progressPercent = ((currentSlideIndex + 1) / slides.length) * 100
@@ -106,15 +110,29 @@ export function ModulePlayer({
         if (!currentSlide?.id || loggedSlides.current.has(currentSlide.id)) return
         loggedSlides.current.add(currentSlide.id)
 
+        const slideId = currentSlide.id
+        const slideIndex = currentSlideIndex
+        const slideTitle = currentSlide.title
+
+        const log = (userId: string) => {
+            void Promise.resolve(supabase.from('activity_log').insert({
+                user_id: userId,
+                module_id: moduleId,
+                slide_id: slideId,
+                event_type: 'slide_viewed',
+                metadata: { slide_index: slideIndex, slide_title: slideTitle },
+            })).catch(() => {})
+        }
+
+        if (userIdRef.current) {
+            log(userIdRef.current)
+            return
+        }
+
         supabase.auth.getUser().then(({ data: { user } }) => {
             if (!user) return
-            void Promise.resolve(supabase.from('activity_log').insert({
-                user_id: user.id,
-                module_id: moduleId,
-                slide_id: currentSlide.id,
-                event_type: 'slide_viewed',
-                metadata: { slide_index: currentSlideIndex, slide_title: currentSlide.title },
-            })).catch(() => {})
+            userIdRef.current = user.id
+            log(user.id)
         }).catch(() => {})
     }, [currentSlide?.id])
 
