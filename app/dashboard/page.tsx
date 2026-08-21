@@ -3,7 +3,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { BookOpen, CheckCircle, Lock, PlayCircle, Star, Trophy, Shield, HeartPulse, Scale, FileText, Globe, ArrowRight, RefreshCw, ShieldAlert, Building2 } from 'lucide-react'
 import Image from 'next/image'
 import { getOrgPlan, tierAtLeast, type PlanTier } from '@/lib/plan'
@@ -66,11 +65,10 @@ export default async function DashboardPage() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    // Role Check & Redirect
+    // This is the training hub for every role. Admins and superadmins land on their
+    // own consoles at sign-in (see /home) but come here to take courses themselves,
+    // so no role is redirected away.
     const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
-    if (isSuperAdmin) {
-        redirect('/superadmin')
-    }
 
     // Role, org, department, name and simulator flags all come off the same row —
     // one query instead of two sequential round trips.
@@ -80,12 +78,14 @@ export default async function DashboardPage() {
         .eq('id', user?.id)
         .single()
 
-    if (userData?.role === 'admin') {
-        redirect('/admin/dashboard')
-    }
+    // Admins and superadmins are rarely attached to a department, and telling them
+    // to "contact your administrator" would be circular. They see everything the
+    // org has enabled instead — unless they've put themselves in a department, in
+    // which case the normal learner rules apply.
+    const isPrivileged = !!isSuperAdmin || userData?.role === 'admin'
 
     // If the user has no department assigned, show the contact-admin screen
-    if (!userData?.department_id) {
+    if (!isPrivileged && !userData?.department_id) {
         return (
             <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center p-8">
                 <div className="text-center max-w-md space-y-4">
@@ -111,16 +111,18 @@ export default async function DashboardPage() {
                 .from('organization_modules')
                 .select('module_id, all_employees')
                 .eq('organization_id', userData.organization_id),
-            supabase
-                .from('department_module_assignments')
-                .select('module_id')
-                .eq('department_id', userData.department_id)
+            userData.department_id
+                ? supabase
+                    .from('department_module_assignments')
+                    .select('module_id')
+                    .eq('department_id', userData.department_id)
+                : Promise.resolve({ data: [] as { module_id: string }[] })
         ])
 
         const deptModuleIds = new Set((deptModuleData.data || []).map((m: any) => m.module_id))
 
         moduleIdFilter = (orgModuleData.data || [])
-            .filter((om: any) => om.all_employees || deptModuleIds.has(om.module_id))
+            .filter((om: any) => isPrivileged || om.all_employees || deptModuleIds.has(om.module_id))
             .map((om: any) => om.module_id)
     }
 
@@ -134,7 +136,9 @@ export default async function DashboardPage() {
                     </div>
                     <h2 className="text-2xl font-bold text-white">No Modules Available Yet</h2>
                     <p className="text-slate-400">
-                        No training modules have been assigned to your department yet. Please contact your administrator.
+                        {isPrivileged
+                            ? 'No training modules are enabled for your organization yet. Enable them from the Admin Console to start training.'
+                            : 'No training modules have been assigned to your department yet. Please contact your administrator.'}
                     </p>
                 </div>
             </div>

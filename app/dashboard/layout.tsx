@@ -16,16 +16,21 @@ export default async function DashboardLayout({
         redirect('/login')
     }
 
-    // Fetch full user profile for display name and guide flag
-    const { data: profile } = await supabase
-        .from('users')
-        .select('display_name, role, has_seen_guide')
-        .eq('id', user.id)
-        .single()
+    // Fetch full user profile for display name and guide flag. The superadmin check
+    // rides along so privileged users can jump back to their console from the
+    // training hub without going through the admin dashboard first.
+    const [{ data: profile }, { data: isSuperAdmin }] = await Promise.all([
+        supabase
+            .from('users')
+            .select('display_name, role, has_seen_guide')
+            .eq('id', user.id)
+            .single(),
+        supabase.rpc('is_super_admin'),
+    ])
 
     return (
         <div className="min-h-screen bg-transparent flex">
-            <DashboardSidebar role={profile?.role} />
+            <DashboardSidebar role={profile?.role} isSuperAdmin={!!isSuperAdmin} />
             <div className="flex-1 flex flex-col" style={{ marginLeft: 220 }}>
                 <Navbar userDisplayName={profile?.display_name || user.email} />
                 <main className="flex-1 container mx-auto py-8 px-4">

@@ -226,9 +226,9 @@ export default function UpdatePasswordPage() {
             setSuccess(true)
             toast.success('Password updated successfully!')
             setLoading(false)
-            // Redirect directly to dashboard (User is already authenticated)
+            // Redirect to the role-aware landing (User is already authenticated)
             setTimeout(() => {
-                router.push('/dashboard')
+                router.push('/home')
             }, 2000)
         }
     }

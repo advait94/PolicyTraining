@@ -12,7 +12,7 @@ function ImplicitCallbackContent() {
 
     useEffect(() => {
         const handleAuth = async () => {
-            const next = searchParams.get('next') ?? '/dashboard'
+            const next = searchParams.get('next') ?? '/home'
             const errorParam = searchParams.get('error')
             const errorDesc = searchParams.get('error_description')
 

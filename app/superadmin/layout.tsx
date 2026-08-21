@@ -53,6 +53,13 @@ export default async function SuperAdminLayout({
                             Switch to Admin View
                         </a>
 
+                        <a
+                            href="/dashboard"
+                            className="text-sm font-medium text-cyan-400 hover:text-cyan-300 transition-colors hidden md:block"
+                        >
+                            My Training
+                        </a>
+
                         <div className="h-6 w-px bg-white/10 hidden md:block"></div>
                         <LogoutButton />
                     </div>

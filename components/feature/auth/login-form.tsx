@@ -42,25 +42,10 @@ export function LoginForm() {
             setError(error.message)
             setLoading(false)
         } else {
-            // 1. Check Superadmin
-            const { data: isSuperAdmin } = await supabase.rpc('is_super_admin')
-            if (isSuperAdmin) {
-                router.push('/superadmin')
-                router.refresh()
-                return
-            }
-
-            // 2. Check Org Admin Role
-            const { data: { user } } = await supabase.auth.getUser()
-
-            // Check metadata OR database role (more robust)
-            if (user?.user_metadata?._isadmin) {
-                router.push('/admin/dashboard')
-            } else {
-                // Double check DB role if metadata is missing/stale? 
-                // For now, trust metadata for speed, or let middleware handle protection.
-                router.push('/dashboard')
-            }
+            // /home resolves the landing surface from the DB role (superadmin →
+            // console, admin → admin dashboard, everyone else → training hub), so
+            // stale _isadmin metadata can no longer send an admin to the wrong place.
+            router.push('/home')
             router.refresh()
         }
     }
@@ -73,7 +58,7 @@ export function LoginForm() {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: provider,
                 options: {
-                    redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+                    redirectTo: `${window.location.origin}/auth/callback?next=/home`,
                     // Microsoft often requires explicit scope for email to be returned in the ID token
                     scopes: provider === 'azure' ? 'openid profile email User.Read offline_access' : 'openid profile email',
                     queryParams: {

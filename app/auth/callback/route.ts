@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const requestUrl = new URL(request.url)
     const { searchParams, origin } = requestUrl
     const code = searchParams.get('code')
-    const next = searchParams.get('next') ?? '/dashboard'
+    const next = searchParams.get('next') ?? '/home'
     const error = searchParams.get('error')
     const error_description = searchParams.get('error_description')
 

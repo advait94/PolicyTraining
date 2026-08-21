@@ -692,6 +692,14 @@ export default function AdminDashboard() {
                         </Button>
                     )}
                     <Button
+                        variant="outline"
+                        onClick={() => router.push('/dashboard')}
+                        className="text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/10 rounded-lg"
+                    >
+                        <GraduationCap className="w-4 h-4 mr-2" />
+                        My Training
+                    </Button>
+                    <Button
                         variant="ghost"
                         onClick={() => router.push('/admin/posh-policy')}
                         className="text-slate-300 hover:text-white hover:bg-white/10 rounded-lg"

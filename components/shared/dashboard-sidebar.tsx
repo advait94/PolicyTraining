@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Scale, Users, HeartPulse, ShieldAlert, Building2 } from 'lucide-react'
+import { LayoutDashboard, Scale, Users, HeartPulse, ShieldAlert, Building2, ShieldCheck, Shield } from 'lucide-react'
 
 const BASE_NAV = [
     { label: 'Training Hub',       href: '/dashboard',        icon: LayoutDashboard, exact: true  },
@@ -22,9 +22,23 @@ const MANAGER_NAV = [
     { label: 'Board Checker',      href: '/board-checker',    icon: Building2,       exact: false },
 ]
 
-export function DashboardSidebar({ role }: { role?: string }) {
+// Admins take the same courses as everyone else, so the training hub stays first
+// and the console they manage the org from sits right below it.
+const ADMIN_NAV = [
+    { label: 'Training Hub',       href: '/dashboard',        icon: LayoutDashboard, exact: true  },
+    { label: 'Admin Console',      href: '/admin/dashboard',  icon: ShieldCheck,     exact: false },
+    { label: 'RPT Simulator',      href: '/rpt-simulator',    icon: Scale,           exact: false },
+    { label: 'POSH Simulator',     href: '/posh-simulator',   icon: HeartPulse,      exact: false },
+    { label: 'Breach Response',    href: '/breach-simulator', icon: ShieldAlert,     exact: false },
+    { label: 'Board Checker',      href: '/board-checker',    icon: Building2,       exact: false },
+]
+
+export function DashboardSidebar({ role, isSuperAdmin }: { role?: string; isSuperAdmin?: boolean }) {
     const pathname = usePathname()
-    const navItems = role === 'manager' ? MANAGER_NAV : BASE_NAV
+    const baseItems = role === 'manager' ? MANAGER_NAV : role === 'admin' ? ADMIN_NAV : BASE_NAV
+    const navItems = isSuperAdmin
+        ? [...baseItems, { label: 'Superadmin', href: '/superadmin', icon: Shield, exact: false }]
+        : baseItems
 
     return (
         <aside
