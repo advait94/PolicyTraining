@@ -10,13 +10,28 @@ BEGIN
 END $$;
 
 -- Schedule send-nudges daily at 8:00 AM UTC
+--
+-- The service_role key is read from Vault at each run rather than written into
+-- the job body. It used to be inlined here, which put a live RLS-bypassing key
+-- into a public repo and meant every rotation silently broke this job until the
+-- schedule was rewritten. Looking it up per run makes rotation a Vault update.
+--
+-- Requires a Vault secret named 'service_role_key':
+--   select vault.create_secret('<key>', 'service_role_key');
 SELECT cron.schedule(
   'send-nudges-daily',
   '0 8 * * *',
   $$
     SELECT net.http_post(
       url     := 'https://iamactvdegcjfwtmjvaj.supabase.co/functions/v1/send-nudges',
-      headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlhbWFjdHZkZWdjamZ3dG1qdmFqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTY2OTk4MSwiZXhwIjoyMDg1MjQ1OTgxfQ.a7T_UA1Upo5qI2iXnofqmUc2JBjoeD__PFaupEfFxyY"}'::jsonb,
+      headers := jsonb_build_object(
+                   'Content-Type', 'application/json',
+                   'Authorization', 'Bearer ' || (
+                     SELECT decrypted_secret
+                     FROM vault.decrypted_secrets
+                     WHERE name = 'service_role_key'
+                   )
+                 ),
       body    := '{}'::jsonb
     ) AS request_id;
   $$

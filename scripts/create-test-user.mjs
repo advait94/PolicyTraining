@@ -1,13 +1,10 @@
-import { createClient } from '@supabase/supabase-js'
-
-const SUPABASE_URL = 'https://api.aaplus.app'
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlhbWFjdHZkZWdjamZ3dG1qdmFqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTY2OTk4MSwiZXhwIjoyMDg1MjQ1OTgxfQ.a7T_UA1Upo5qI2iXnofqmUc2JBjoeD__PFaupEfFxyY'
+import { createServiceRoleClient } from './_supabase-admin.mjs'
 
 const TEST_EMAIL = 'test@testuser.com'
-const TEST_PASSWORD = 'qwerty1234'
+const TEST_PASSWORD = process.env.TEST_USER_PASSWORD || 'qwerty1234'
 const DEPT_NAME = 'CS/Legal Team'
 
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+const supabase = createServiceRoleClient()
 
 async function main() {
     // 1. Find the AA Plus organization
