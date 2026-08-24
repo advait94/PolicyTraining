@@ -1,13 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Trophy, BookOpen, RefreshCw, Loader2, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { saveAttestation } from '@/app/actions/progress'
-import { logActivity } from '@/app/actions/audit'
 import { toast } from 'sonner'
 
 type Question = {
@@ -37,11 +36,14 @@ export function QuizPlayer({
     initialScore?: number
 }) {
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-    const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null)
-    const [isSubmitted, setIsSubmitted] = useState(false)
-    const [score, setScore] = useState(0)
+    // One entry per question id, written once and never incremented. Revisiting a
+    // question via Previous therefore cannot bank the same credit twice — the old
+    // running counter let a learner re-answer a correct question for +1 each time,
+    // pushing totals past questions.length (scores of 120%/130% in the audit trail)
+    // and letting a 70% attempt walk itself over the 80% pass line.
+    const [responses, setResponses] = useState<Record<string, { answerId: string; isCorrect: boolean }>>({})
+    const [pendingAnswerId, setPendingAnswerId] = useState<string | null>(null)
     const [showResult, setShowResult] = useState(!!initialShowResult)
-    const [feedbackMessage, setFeedbackMessage] = useState<{ text: string; isCorrect: boolean } | null>(null)
     // Snapshot the totals at the moment the quiz finishes so a React prop update
     // (e.g. after saveModuleProgress triggers a rerender with fresh questions) cannot
     // overwrite the displayed score with a mismatched questions.length.
@@ -95,35 +97,47 @@ export function QuizPlayer({
     const progressPercent = ((currentQuestionIndex + 1) / questions.length) * 100
     const letters = ['A', 'B', 'C', 'D']
 
+    // A question that already has a response stays locked and keeps showing the
+    // answer the learner actually gave, however many times they navigate back to it.
+    const currentResponse = currentQuestion ? responses[currentQuestion.id] : undefined
+    const isSubmitted = !!currentResponse
+    const selectedAnswerId = currentResponse?.answerId ?? pendingAnswerId
+
+    const feedbackMessage = (() => {
+        if (!currentQuestion || !currentResponse) return null
+        const explanation = currentQuestion.explanation
+        if (currentResponse.isCorrect) {
+            return {
+                text: explanation ? `Correct! ${explanation}` : 'Correct! Well done.',
+                isCorrect: true,
+            }
+        }
+        const correctAnswer = currentQuestion.answers.find(a => a.is_correct)
+        return {
+            text: explanation
+                ? `Incorrect. Correct answer: "${correctAnswer?.text}". ${explanation}`
+                : `Incorrect. The correct answer was: "${correctAnswer?.text}".`,
+            isCorrect: false,
+        }
+    })()
+
     const handleSelectAnswer = (answerId: string) => {
         if (isSubmitted) return
-        setSelectedAnswerId(answerId)
+        setPendingAnswerId(answerId)
     }
 
     const handleSubmitAnswer = () => {
-        if (!selectedAnswerId) return
+        if (!selectedAnswerId || isSubmitted) return
 
         const selectedAnswer = currentQuestion.answers.find(a => a.id === selectedAnswerId)
         const isCorrect = selectedAnswer?.is_correct || false
 
-        const explanation = currentQuestion.explanation
-        if (isCorrect) {
-            setScore(s => s + 1)
-            setFeedbackMessage({
-                text: explanation ? `Correct! ${explanation}` : 'Correct! Well done.',
-                isCorrect: true
-            })
-        } else {
-            const correctAnswer = currentQuestion.answers.find(a => a.is_correct)
-            setFeedbackMessage({
-                text: explanation
-                    ? `Incorrect. Correct answer: "${correctAnswer?.text}". ${explanation}`
-                    : `Incorrect. The correct answer was: "${correctAnswer?.text}".`,
-                isCorrect: false
-            })
-        }
-
-        setIsSubmitted(true)
+        setResponses(prev => (
+            prev[currentQuestion.id]
+                ? prev
+                : { ...prev, [currentQuestion.id]: { answerId: selectedAnswerId, isCorrect } }
+        ))
+        setPendingAnswerId(null)
     }
 
     const handleNext = async () => {
@@ -132,39 +146,44 @@ export function QuizPlayer({
             // then showResult=true takes over once finishQuiz completes.
             await finishQuiz()
         } else {
-            setIsSubmitted(false)
-            setSelectedAnswerId(null)
-            setFeedbackMessage(null)
+            setPendingAnswerId(null)
             setCurrentQuestionIndex(i => i + 1)
         }
     }
 
     const handlePrev = () => {
         if (currentQuestionIndex > 0) {
+            setPendingAnswerId(null)
             setCurrentQuestionIndex(i => i - 1)
-            setIsSubmitted(false)
-            setSelectedAnswerId(null)
-            setFeedbackMessage(null)
         }
     }
 
     const [isSaving, setIsSaving] = useState(false)
+    const hasFinished = useRef(false)
 
     const finishQuiz = async () => {
+        // Reaching the last question twice (answer everything, go back, come forward)
+        // must not submit the attempt twice.
+        if (hasFinished.current) return
+        hasFinished.current = true
+
         // Snapshot correct/total NOW so the results screen is immune to any
         // prop change (e.g. a rerender with fresh questions after saveModuleProgress).
-        const correct = score
+        // Credits are keyed by question id, so correct can never exceed total.
+        const correct = questions.reduce((n, q) => n + (responses[q.id]?.isCorrect ? 1 : 0), 0)
         const total = questions.length
-        const percentage = Math.round((correct / total) * 100)
+        const percentage = total > 0 ? Math.round((correct / total) * 100) : 0
         const passed = percentage >= 80
 
         setFinalTotals({ correct, total })
         setIsSaving(true)
         try {
-            await logActivity(moduleId, 'quiz_completed', { score: percentage, passed })
+            // saveModuleProgress writes the quiz_completed audit row server-side from
+            // the sanitized score; logging it here as well double-counted every attempt.
             await onComplete(percentage, passed)
         } catch (error) {
             console.error('Failed to save progress:', error)
+            hasFinished.current = false
         } finally {
             setIsSaving(false)
             setShowResult(true)
@@ -187,7 +206,8 @@ export function QuizPlayer({
 
     // Results Screen
     if (showResult) {
-        const correct = finalTotals?.correct ?? score
+        const correct = finalTotals?.correct
+            ?? questions.reduce((n, q) => n + (responses[q.id]?.isCorrect ? 1 : 0), 0)
         const total = finalTotals?.total ?? questions.length
         const percentage = Math.round((correct / Math.max(total, 1)) * 100)
         const passed = percentage >= 80
