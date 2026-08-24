@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { inviteUser, getAdminBootstrap, getCompanyUsers, bulkInviteUsers, setModuleAssignment, setModuleAllEmployees, getDepartmentsWithAccess, createDepartment, deleteDepartment, updateUserDepartment, setDeptModuleAssignment, bulkAssignDepartment, bulkAssignSelectedUsers, setModuleDeadline, updateUserRole, getReportChartData, revokeUserAccess, setDeptRptAccess as setDeptRptAccessAction, setDeptPoshSimulatorAccess as setDeptPoshSimAction, setDeptBreachSimulatorAccess as setDeptBreachSimAction, setDeptBoardCheckerAccess as setDeptBoardCheckerAction, getAdminModuleQuestions, updateQuestionSlideGroup } from '@/app/actions/admin'
+import type { BulkInviteRowResult } from '@/app/actions/admin'
 import { PlanGate } from '@/components/feature/plan/plan-gate'
 import { type PlanTier, tierAtLeast, isPlanExpired } from '@/lib/plan-utils'
 import { MAX_ADMINS_PER_ORG } from '@/lib/org-limits'
@@ -31,6 +32,13 @@ import { DeadlinePicker } from '@/components/ui/deadline-picker'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+
+/**
+ * Rows per bulk-invite request. Small enough that a chunk finishes well inside
+ * the function timeout, large enough that a few thousand users doesn't turn
+ * into hundreds of round trips.
+ */
+const BULK_CHUNK_SIZE = 250
 
 export default function AdminDashboard() {
     const router = useRouter()
@@ -79,6 +87,8 @@ export default function AdminDashboard() {
     // Bulk Invite State
     const [bulkPreview, setBulkPreview] = useState<{ name: string, email: string, department_id?: string, departmentName?: string }[]>([])
     const [isBulkUploading, setIsBulkUploading] = useState(false)
+    const [bulkProgress, setBulkProgress] = useState<{ done: number, total: number } | null>(null)
+    const [bulkResults, setBulkResults] = useState<BulkInviteRowResult[]>([])
 
     // Bulk assign + deadlines + role state
     const [bulkAssignDeptId, setBulkAssignDeptId] = useState('')
@@ -195,30 +205,73 @@ export default function AdminDashboard() {
             return
         }
 
+        const payload = bulkPreview.map(u => ({ name: u.name, email: u.email, department_id: u.department_id }))
+
         setIsBulkUploading(true)
+        setBulkResults([])
+        setBulkProgress({ done: 0, total: payload.length })
+
+        // Send the file in chunks rather than one request. A couple of thousand
+        // invites runs for minutes end to end — past any function timeout — and a
+        // single dropped request would lose the outcome of every row in it. Each
+        // chunk returns its own results, so progress survives a mid-run failure.
+        const collected: BulkInviteRowResult[] = []
+        let aborted = false
+
         try {
-            const result = await bulkInviteUsers(
-                bulkPreview.map(u => ({ name: u.name, email: u.email, department_id: u.department_id })),
-                bulkOrganizationId
-            )
-            if (result.success) {
-                toast.success(result.message)
-                if (result.details && result.details.failed > 0) {
-                    toast.warning(`${result.details.failed} invites failed. Check console.`)
-                    console.error('Bulk Failures:', result.details.errors)
+            for (let start = 0; start < payload.length; start += BULK_CHUNK_SIZE) {
+                const chunk = payload.slice(start, start + BULK_CHUNK_SIZE)
+                const result = await bulkInviteUsers(chunk, bulkOrganizationId)
+
+                if (!result.success) {
+                    toast.error(result.message || 'Bulk upload failed')
+                    aborted = true
+                    break
                 }
-                setBulkPreview([])
-                // Refresh list
-                const newUsers = await getCompanyUsers()
-                setUsers(newUsers || [])
-            } else {
-                toast.error(result.message)
+
+                collected.push(...(result.details?.rows ?? []))
+                setBulkResults([...collected])
+                setBulkProgress({ done: Math.min(start + chunk.length, payload.length), total: payload.length })
             }
-        } catch (e) {
-            toast.error('Bulk upload failed')
+
+            const invited = collected.filter(r => r.status === 'invited').length
+            const problems = collected.filter(r => r.status !== 'invited')
+
+            if (!aborted && problems.length === 0 && invited > 0) {
+                toast.success(`Invited all ${invited} users.`)
+                setBulkPreview([])
+            } else if (problems.length > 0) {
+                // Leave only the rows that need another go, so the retry doesn't
+                // re-send invites to everyone who already got one.
+                const unresolved = new Set(problems.map(p => p.email.toLowerCase()))
+                setBulkPreview(prev => prev.filter(u => unresolved.has((u.email || '').toLowerCase().trim())))
+                toast.warning(`Invited ${invited}. ${problems.length} left in the list to retry.`)
+            }
+
+            // Refresh list
+            const newUsers = await getCompanyUsers()
+            setUsers(newUsers || [])
+        } catch (e: any) {
+            toast.error(`Bulk upload stopped after ${collected.length} of ${payload.length}: ${e?.message ?? 'unknown error'}`)
         } finally {
             setIsBulkUploading(false)
+            setBulkProgress(null)
         }
+    }
+
+    const downloadBulkResults = () => {
+        const problems = bulkResults.filter(r => r.status !== 'invited')
+        const csv = [
+            'email,status,error',
+            ...problems.map(r => `${JSON.stringify(r.email)},${r.status},${JSON.stringify(r.error ?? '')}`)
+        ].join('\n')
+
+        const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `bulk-invite-failures-${new Date().toISOString().slice(0, 10)}.csv`
+        link.click()
+        URL.revokeObjectURL(url)
     }
 
     const handleLogout = async () => {
@@ -1012,10 +1065,67 @@ export default function AdminDashboard() {
                                                     </div>
                                                     <Button onClick={handleBulkSubmit} disabled={isBulkUploading} className="w-full bg-green-600 hover:bg-green-500 text-white">
                                                         {isBulkUploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
-                                                        {isBulkUploading ? 'Processing...' : `Invite ${bulkPreview.length} Users`}
+                                                        {isBulkUploading
+                                                            ? bulkProgress
+                                                                ? `Inviting ${bulkProgress.done} of ${bulkProgress.total}...`
+                                                                : 'Processing...'
+                                                            : `Invite ${bulkPreview.length} Users`}
                                                     </Button>
+
+                                                    {bulkProgress && bulkProgress.total > 0 && (
+                                                        <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                                                            <div
+                                                                className="h-full bg-green-500 transition-all duration-300"
+                                                                style={{ width: `${Math.round((bulkProgress.done / bulkProgress.total) * 100)}%` }}
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
+
+                                            {bulkResults.length > 0 && (() => {
+                                                const invited = bulkResults.filter(r => r.status === 'invited').length
+                                                const problems = bulkResults.filter(r => r.status !== 'invited')
+
+                                                return (
+                                                    <div className="space-y-2">
+                                                        <div className="text-xs text-slate-400 flex justify-between items-center">
+                                                            <span>
+                                                                <span className="text-green-400">{invited} invited</span>
+                                                                {problems.length > 0 && <span className="text-red-400"> · {problems.length} need attention</span>}
+                                                            </span>
+                                                            <div className="flex gap-3">
+                                                                {problems.length > 0 && (
+                                                                    <button onClick={downloadBulkResults} className="text-purple-400 hover:text-purple-300">
+                                                                        Download failures
+                                                                    </button>
+                                                                )}
+                                                                <button onClick={() => setBulkResults([])} className="text-slate-400 hover:text-slate-300">Dismiss</button>
+                                                            </div>
+                                                        </div>
+
+                                                        {problems.length > 0 && (
+                                                            <div className="max-h-40 overflow-y-auto rounded-md border border-red-500/20 bg-red-500/5 text-xs">
+                                                                <table className="w-full text-left text-slate-300">
+                                                                    <tbody>
+                                                                        {problems.slice(0, 50).map((r, i) => (
+                                                                            <tr key={i} className="border-t border-white/5 align-top">
+                                                                                <td className="p-2 truncate max-w-[150px]">{r.email}</td>
+                                                                                <td className="p-2 text-red-300">{r.error || r.status}</td>
+                                                                            </tr>
+                                                                        ))}
+                                                                        {problems.length > 50 && (
+                                                                            <tr><td colSpan={2} className="p-2 text-center text-slate-500">
+                                                                                ...and {problems.length - 50} more — use Download failures
+                                                                            </td></tr>
+                                                                        )}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )
+                                            })()}
                                         </TabsContent>
                                     </Tabs>
                                 </CardContent>

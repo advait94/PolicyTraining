@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { inviteUser as inviteUserInternal } from '@/lib/auth/invite'
+import { inviteUser as inviteUserInternal, resolveExistingUserIds } from '@/lib/auth/invite'
 import { unstable_cache } from 'next/cache'
 import { MAX_ADMINS_PER_ORG, isAssignableRole } from '@/lib/org-limits'
 import type { PlanTier } from '@/lib/plan-utils'
@@ -30,6 +30,47 @@ async function countOrgAdmins(orgId: string, excludeUserId?: string) {
     if (error) throw new Error(`Could not verify the organization's admin count: ${error.message}`)
     return count ?? 0
 }
+
+/**
+ * How many invites are in flight at once.
+ *
+ * Each invite is several sequential round trips (auth lookup, createUser,
+ * generateLink, token write) plus an email send, and every one lands on either
+ * GoTrue or the Postgres pooler. This used to be an unbounded Promise.all over
+ * the whole CSV, which buries both on any file of real size. 8 keeps the pool
+ * healthy while still clearing a few hundred rows well inside one request.
+ */
+const INVITE_CONCURRENCY = 8
+
+/** Attempts per row, including the first. Only retryable failures re-run. */
+const INVITE_MAX_ATTEMPTS = 3
+
+export type BulkInviteRowResult = {
+    email: string
+    status: 'invited' | 'skipped' | 'failed'
+    error?: string
+}
+
+/**
+ * Transient transport/throttle failures, worth another attempt. Anything else
+ * (bad address, constraint violation) fails the row immediately — retrying it
+ * would just burn time on a result that cannot change.
+ */
+function isRetryableInviteError(message: string): boolean {
+    const m = message.toLowerCase()
+    return m.includes('rate limit')
+        || m.includes('too many requests')
+        || m.includes('429')
+        || m.includes('timeout')
+        || m.includes('timed out')
+        || m.includes('fetch failed')
+        || m.includes('econnreset')
+        || m.includes('socket hang up')
+        || m.includes('502')
+        || m.includes('503')
+}
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 // Bulk Invite Action
 export async function bulkInviteUsers(users: { name: string, email: string, department_id?: string }[], targetOrganizationId?: string) {
@@ -64,44 +105,86 @@ export async function bulkInviteUsers(users: { name: string, email: string, depa
         return { success: false, message: 'Organization ID is required' }
     }
 
-    const results = {
-        success: 0,
-        failed: 0,
-        errors: [] as string[]
+    // One query resolves every address in the batch against auth.users. Doing
+    // this per row is what made large uploads crawl, and doing it with
+    // listUsers({page:1}) made it wrong past 1000 accounts.
+    let existingIds: Map<string, string>
+    try {
+        existingIds = await resolveExistingUserIds(users.map(u => u.email))
+    } catch (err: any) {
+        return { success: false, message: `Could not check existing accounts: ${err.message}` }
     }
 
-    // Process in batches or parallel
-    await Promise.all(users.map(async (u) => {
-        try {
-            // Basic validation
-            if (!u.email || !u.name) return
+    // Captured outside the worker: the null-check narrowing above doesn't reach
+    // into the closure.
+    const invitedBy = user.id
 
-            const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/auth/update-password&email=${encodeURIComponent(u.email)}`;
+    const rows: BulkInviteRowResult[] = new Array(users.length)
+    let cursor = 0
 
-            // Direct call to internal invite logic
-            await inviteUserInternal({
-                email: u.email,
-                redirectTo: redirectUrl,
-                data: {
-                    full_name: u.name,
-                    organization_id: targetOrgId,
-                    role: 'learner',
-                    invited_by: user.id,
-                    ...(u.department_id ? { department_id: u.department_id } : {})
+    async function runWorker() {
+        while (true) {
+            const index = cursor++
+            if (index >= users.length) return
+
+            const u = users[index]
+            const email = (u.email || '').trim()
+
+            if (!email || !u.name) {
+                rows[index] = {
+                    email: email || `(row ${index + 1})`,
+                    status: 'skipped',
+                    error: 'Missing name or email'
                 }
-            })
+                continue
+            }
 
-            results.success++
-        } catch (err: any) {
-            results.failed++
-            results.errors.push(`${u.email}: ${err.message}`)
+            for (let attempt = 1; attempt <= INVITE_MAX_ATTEMPTS; attempt++) {
+                try {
+                    await inviteUserInternal({
+                        email,
+                        data: {
+                            full_name: u.name,
+                            organization_id: targetOrgId,
+                            role: 'learner',
+                            invited_by: invitedBy,
+                            ...(u.department_id ? { department_id: u.department_id } : {})
+                        },
+                        existingUserId: existingIds.get(email.toLowerCase()) ?? null
+                    })
+                    rows[index] = { email, status: 'invited' }
+                    break
+                } catch (err: any) {
+                    const message = err?.message ?? String(err)
+                    if (attempt < INVITE_MAX_ATTEMPTS && isRetryableInviteError(message)) {
+                        await sleep(500 * 2 ** (attempt - 1))
+                        continue
+                    }
+                    rows[index] = { email, status: 'failed', error: message }
+                    break
+                }
+            }
         }
-    }))
+    }
+
+    await Promise.all(
+        Array.from({ length: Math.min(INVITE_CONCURRENCY, users.length) }, runWorker)
+    )
+
+    const invited = rows.filter(r => r.status === 'invited').length
+    const failed = rows.filter(r => r.status === 'failed').length
+    const skipped = rows.filter(r => r.status === 'skipped').length
 
     return {
         success: true,
-        message: `Processed ${users.length} users. Success: ${results.success}, Failed: ${results.failed}`,
-        details: results
+        message: `Processed ${users.length}. Invited ${invited}, failed ${failed}, skipped ${skipped}.`,
+        details: {
+            success: invited,
+            failed,
+            skipped,
+            rows,
+            errors: rows.filter(r => r.status !== 'invited').map(r => `${r.email}: ${r.error}`)
+        }
     }
 }
 

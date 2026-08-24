@@ -40,6 +40,68 @@ interface InviteData {
         invited_by?: string;
         department_id?: string | null;
     };
+    /**
+     * Account lookup already performed by the caller. Bulk invites resolve every
+     * address in one query (see `resolveExistingUserIds`) rather than paying for
+     * a lookup per row.
+     *
+     * `undefined` — not resolved, look it up here (single-invite callers).
+     * `null`      — resolved, no auth account exists for this email.
+     * `string`    — resolved, this is the existing auth user's id.
+     */
+    existingUserId?: string | null;
+}
+
+/**
+ * Maps lowercased email -> auth user id for every address that already has an
+ * account, in a single round trip regardless of how many emails are passed.
+ *
+ * Backed by the find_auth_users_by_emails() SQL function rather than
+ * auth.admin.listUsers, which pages at 1000 and offers no email filter — a
+ * lookup built on it silently misses accounts once a project passes 1000 users.
+ */
+export async function resolveExistingUserIds(emails: string[]): Promise<Map<string, string>> {
+    const resolved = new Map<string, string>();
+
+    const unique = [...new Set(
+        emails.map(e => (e || '').toLowerCase().trim()).filter(Boolean)
+    )];
+    if (unique.length === 0) return resolved;
+
+    const { data, error } = await getSupabaseAdmin()
+        .rpc('find_auth_users_by_emails', { p_emails: unique });
+
+    if (error) {
+        throw new Error(`Could not check for existing accounts: ${error.message}`);
+    }
+
+    for (const row of (data ?? []) as { user_id: string; user_email: string }[]) {
+        resolved.set(row.user_email, row.user_id);
+    }
+
+    return resolved;
+}
+
+/**
+ * A pre-resolved id can go stale between lookup and createUser — a concurrent
+ * invite, or a self-signup landing in the gap. Detecting that lets us fall back
+ * to the re-invite path instead of failing the row.
+ */
+function isDuplicateEmailError(error: { message?: string; code?: string } | null): boolean {
+    const message = (error?.message || '').toLowerCase();
+    return error?.code === 'email_exists'
+        || message.includes('already been registered')
+        || message.includes('already registered')
+        || message.includes('already exists');
+}
+
+async function fetchAuthUser(userId: string) {
+    const { data, error } = await getSupabaseAdmin().auth.admin.getUserById(userId);
+    if (error) {
+        console.error(`Could not load auth user ${userId}:`, error);
+        return null;
+    }
+    return data?.user ?? null;
 }
 
 interface OrgBranding {
@@ -160,7 +222,114 @@ function buildInviteEmail(safeLink: string, branding: OrgBranding, isExistingUse
     return { subject, html, text };
 }
 
-export async function inviteUser({ email, redirectTo, data: userData }: InviteData) {
+/**
+ * Adds an account that already exists in auth.users to the organization and
+ * sends it through the magic-link → set-password flow.
+ */
+async function reinviteExistingUser(
+    existingUser: { id: string; user_metadata?: Record<string, any> },
+    email: string,
+    userData: InviteData['data'],
+    branding: OrgBranding
+) {
+    const supabaseAdmin = getSupabaseAdmin();
+
+    console.log(`User ${email} already exists. Adding directly to organization...`);
+
+    await supabaseAdmin
+        .from('users')
+        .upsert({
+            id: existingUser.id,
+            email: email,
+            display_name: userData.full_name || email.split('@')[0],
+            role: userData.role || 'learner',
+            organization_id: userData.organization_id,
+            ...(userData.department_id ? { department_id: userData.department_id } : {})
+        })
+        .select();
+
+    const { error: memberError } = await supabaseAdmin
+        .from('organization_members')
+        .upsert({
+            organization_id: userData.organization_id,
+            user_id: existingUser.id,
+            role: userData.role || 'learner'
+        }, { onConflict: 'organization_id,user_id' });
+
+    if (memberError) {
+        console.error('Failed to add existing user to org:', memberError);
+        throw new Error(`Failed to add user to organization: ${memberError.message}`);
+    }
+
+    const appUrl = getAppUrl();
+
+    // Send every re-invited user through the magic-link → set-password flow,
+    // even if they signed up via Microsoft/Google SSO. Setting a password does
+    // not remove SSO — it just adds email+password as a second way to log in —
+    // so an SSO user who doesn't want to keep using their provider can gain a
+    // password. This also covers users who were removed (revokeUserAccess) and
+    // may never have set a password.
+    //
+    // Routing is driven by the `force_password_setup` metadata flag (checked in
+    // /auth/callback and /auth/implicit), which works for SSO accounts too and,
+    // unlike is_invite, is cleared once the password is set so normal SSO logins
+    // are never diverted. We deliberately do NOT add query params to redirectTo:
+    // Supabase validates redirectTo against its Redirect-URL allow-list, and an
+    // unlisted variant silently falls back to the Site URL (the login page).
+    await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+        user_metadata: {
+            ...existingUser.user_metadata,
+            ...userData,
+            is_invite: true,
+            force_password_setup: true
+        }
+    });
+
+    const existingUserRedirect = `${appUrl}/auth/callback`;
+
+    const { data: existingLinkData, error: existingLinkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email,
+        options: { redirectTo: existingUserRedirect }
+    });
+
+    if (existingLinkError) throw existingLinkError;
+
+    const existingMagicLink = existingLinkData.properties?.action_link;
+    if (!existingMagicLink) {
+        throw new Error('Failed to generate re-invite link (no action_link returned)');
+    }
+
+    const { data: existingTokenRecord, error: existingTokenError } = await supabaseAdmin
+        .from('safe_link_tokens')
+        .upsert({
+            magic_link: existingMagicLink,
+            email: email.toLowerCase(),
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            used: false
+        }, { onConflict: 'email' })
+        .select('id')
+        .single();
+
+    if (existingTokenError || !existingTokenRecord) {
+        console.error('Failed to create safe link token for existing user:', existingTokenError);
+        throw new Error('Failed to create secure re-invite link');
+    }
+
+    const existingSafeLink = `${appUrl}/auth/verify-invite?token=${existingTokenRecord.id}`;
+
+    const { subject, html, text } = buildInviteEmail(existingSafeLink, branding, false);
+
+    const existingEmailResult = await sendEmail({ to: email, subject, html, text });
+
+    if (!existingEmailResult.success) {
+        throw new Error(`Email sending failed: ${existingEmailResult.error}`);
+    }
+
+    return { success: true, message: 'User re-invited with set-password link.' };
+}
+
+export async function inviteUser({ email, redirectTo, data: userData, existingUserId }: InviteData) {
     if (!email) {
         throw new Error('Email is required');
     }
@@ -171,115 +340,19 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
         // Fetch org branding once upfront
         const branding = await getOrgBranding(userData.organization_id);
 
-        // 0. Check if user already exists
-        let existingUser;
-        try {
-            const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers({
-                page: 1,
-                perPage: 1000
-            });
-
-            if (error) throw error;
-
-            existingUser = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
-        } catch (e) {
-            console.error('Error checking existing user:', e);
+        // 0. Does this email already have an auth account? Bulk callers resolve
+        //    this for every address in the file up front and pass the answer in.
+        let resolvedId = existingUserId;
+        if (resolvedId === undefined) {
+            resolvedId = (await resolveExistingUserIds([email])).get(email.toLowerCase().trim()) ?? null;
         }
 
-        if (existingUser) {
-            console.log(`User ${email} already exists. Adding directly to organization...`);
-
-            await supabaseAdmin
-                .from('users')
-                .upsert({
-                    id: existingUser.id,
-                    email: email,
-                    display_name: userData.full_name || email.split('@')[0],
-                    role: userData.role || 'learner',
-                    organization_id: userData.organization_id,
-                    ...(userData.department_id ? { department_id: userData.department_id } : {})
-                })
-                .select();
-
-            const { error: memberError } = await supabaseAdmin
-                .from('organization_members')
-                .upsert({
-                    organization_id: userData.organization_id,
-                    user_id: existingUser.id,
-                    role: userData.role || 'learner'
-                }, { onConflict: 'organization_id,user_id' });
-
-            if (memberError) {
-                console.error('Failed to add existing user to org:', memberError);
-                throw new Error(`Failed to add user to organization: ${memberError.message}`);
+        if (resolvedId) {
+            const existingUser = await fetchAuthUser(resolvedId);
+            if (existingUser) {
+                return await reinviteExistingUser(existingUser, email, userData, branding);
             }
-
-            const appUrl = getAppUrl();
-
-            // Send every re-invited user through the magic-link → set-password flow,
-            // even if they signed up via Microsoft/Google SSO. Setting a password does
-            // not remove SSO — it just adds email+password as a second way to log in —
-            // so an SSO user who doesn't want to keep using their provider can gain a
-            // password. This also covers users who were removed (revokeUserAccess) and
-            // may never have set a password.
-            //
-            // Routing is driven by the `force_password_setup` metadata flag (checked in
-            // /auth/callback and /auth/implicit), which works for SSO accounts too and,
-            // unlike is_invite, is cleared once the password is set so normal SSO logins
-            // are never diverted. We deliberately do NOT add query params to redirectTo:
-            // Supabase validates redirectTo against its Redirect-URL allow-list, and an
-            // unlisted variant silently falls back to the Site URL (the login page).
-            await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
-                user_metadata: {
-                    ...existingUser.user_metadata,
-                    ...userData,
-                    is_invite: true,
-                    force_password_setup: true
-                }
-            });
-
-            const existingUserRedirect = `${appUrl}/auth/callback`;
-
-            const { data: existingLinkData, error: existingLinkError } = await supabaseAdmin.auth.admin.generateLink({
-                type: 'magiclink',
-                email,
-                options: { redirectTo: existingUserRedirect }
-            });
-
-            if (existingLinkError) throw existingLinkError;
-
-            const existingMagicLink = existingLinkData.properties?.action_link;
-            if (!existingMagicLink) {
-                throw new Error('Failed to generate re-invite link (no action_link returned)');
-            }
-
-            const { data: existingTokenRecord, error: existingTokenError } = await supabaseAdmin
-                .from('safe_link_tokens')
-                .upsert({
-                    magic_link: existingMagicLink,
-                    email: email.toLowerCase(),
-                    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-                    used: false
-                }, { onConflict: 'email' })
-                .select('id')
-                .single();
-
-            if (existingTokenError || !existingTokenRecord) {
-                console.error('Failed to create safe link token for existing user:', existingTokenError);
-                throw new Error('Failed to create secure re-invite link');
-            }
-
-            const existingSafeLink = `${appUrl}/auth/verify-invite?token=${existingTokenRecord.id}`;
-
-            const { subject, html, text } = buildInviteEmail(existingSafeLink, branding, false);
-
-            const existingEmailResult = await sendEmail({ to: email, subject, html, text });
-
-            if (!existingEmailResult.success) {
-                throw new Error(`Email sending failed: ${existingEmailResult.error}`);
-            }
-
-            return { success: true, message: 'User re-invited with set-password link.' };
+            // Id no longer resolves — account deleted since the lookup. Create fresh.
         }
 
         // --- NEW USER FLOW ---
@@ -314,6 +387,16 @@ export async function inviteUser({ email, redirectTo, data: userData }: InviteDa
         });
 
         if (createUserError) {
+            // The lookup can go stale between resolve and create — a concurrent
+            // invite for the same address, or a self-signup landing in the gap.
+            // Recover into the re-invite path instead of failing the row.
+            if (isDuplicateEmailError(createUserError)) {
+                const racedId = (await resolveExistingUserIds([email])).get(email.toLowerCase().trim());
+                const racedUser = racedId ? await fetchAuthUser(racedId) : null;
+                if (racedUser) {
+                    return await reinviteExistingUser(racedUser, email, userData, branding);
+                }
+            }
             console.error('Failed to create user:', createUserError);
             throw new Error(`Failed to create user: ${createUserError.message}`);
         }
