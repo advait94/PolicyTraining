@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
-import { DEV_DEPLOYMENT_ID } from '@/lib/deployment'
+import { isStale, type DeploymentStamp } from '@/lib/deployment'
 
 /** How often an open tab asks whether it is still running the current build. */
 const POLL_MS = 3 * 60 * 1000
@@ -10,7 +10,7 @@ const POLL_MS = 3 * 60 * 1000
 /**
  * Tells a browser running a superseded bundle to reload.
  *
- * `deploymentId` is baked into the page when it is served; /api/version reports
+ * `loaded` is baked into the page when it is served; /api/version reports
  * whichever deployment is live right now. A mismatch means this tab has been
  * left behind by a deploy and is executing code that has since been replaced.
  *
@@ -18,33 +18,32 @@ const POLL_MS = 3 * 60 * 1000
  * component state, so reloading unasked would wipe a part-finished attempt and
  * silently restart someone at question one.
  */
-export function UpdatePrompt({ deploymentId }: { deploymentId: string }) {
-    const [isStale, setIsStale] = useState(false)
+export function UpdatePrompt({ loaded }: { loaded: DeploymentStamp }) {
+    const [stale, setStale] = useState(false)
     // Read inside the polling callback without making it a dependency, so the
-    // interval is installed once rather than town down and rebuilt on each change.
-    const isStaleRef = useRef(false)
+    // interval is installed once rather than torn down and rebuilt on each change.
+    const staleRef = useRef(false)
 
     const check = useCallback(async () => {
-        if (isStaleRef.current) return
+        if (staleRef.current) return
         if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
 
         try {
             const res = await fetch('/api/version', { cache: 'no-store' })
             if (!res.ok) return
 
-            const { deploymentId: live } = await res.json()
-            // Only a comparison between two real deployment ids means anything.
-            if (!live || live === DEV_DEPLOYMENT_ID || live === deploymentId) return
+            const live: DeploymentStamp = await res.json()
+            if (!live?.id || !isStale(loaded, live)) return
 
-            isStaleRef.current = true
-            setIsStale(true)
+            staleRef.current = true
+            setStale(true)
         } catch {
             // Offline, mid-deploy, or a transient failure — just try again later.
         }
-    }, [deploymentId])
+    }, [loaded])
 
     useEffect(() => {
-        if (deploymentId === DEV_DEPLOYMENT_ID) return
+        if (loaded.source === 'development') return
 
         const interval = setInterval(check, POLL_MS)
         // Returning to a tab that has been in the background for a while is the
@@ -55,9 +54,9 @@ export function UpdatePrompt({ deploymentId }: { deploymentId: string }) {
             clearInterval(interval)
             document.removeEventListener('visibilitychange', check)
         }
-    }, [deploymentId, check])
+    }, [loaded.source, check])
 
-    if (!isStale) return null
+    if (!stale) return null
 
     return (
         <div
