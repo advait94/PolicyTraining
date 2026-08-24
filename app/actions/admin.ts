@@ -288,11 +288,16 @@ const _getAdminStatsCached = unstable_cache(
 
         if (countError) return null
 
-        const { data: progressData, error: progressError } = await supabase
+        // Paged: totalEmployees above is an exact count, but these rows come back
+        // capped at db-max-rows (1000). An org past that many completions would
+        // have every percentage below silently computed from a truncated numerator.
+        const { data: progressData, error: progressError } = await fetchAllRows((from, to) => supabase
             .from('user_progress')
             .select('module_id, modules(title), users!inner(organization_id)')
             .eq('is_completed', true)
             .eq('users.organization_id', orgId)
+            .order('id')
+            .range(from, to))
 
         if (progressError) return null
 
@@ -311,12 +316,14 @@ const _getAdminStatsCached = unstable_cache(
             ? Math.round(moduleStats.reduce((acc, curr) => acc + curr.percentage, 0) / moduleStats.length)
             : 0
 
-        const { data: expired } = await supabase
+        const { data: expired } = await fetchAllRows((from, to) => supabase
             .from('user_progress')
             .select('users!inner(display_name, email, organization_id), completed_at, modules(title)')
             .eq('users.organization_id', orgId)
             .eq('is_completed', true)
             .lt('completed_at', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString())
+            .order('id')
+            .range(from, to))
 
         return {
             totalEmployees: totalEmployees || 0,
@@ -354,32 +361,64 @@ export async function getAdminStats() {
 
 // Core fetch — assumes the caller has already verified admin access to `orgId`.
 // Split out so getAdminBootstrap can reuse it without repeating the auth preamble.
+/**
+ * Pulls every row of a query, page by page.
+ *
+ * PostgREST caps an unbounded select at db-max-rows (1000 on this project) and
+ * says nothing about it. A 1937-person organization therefore came back as 1000
+ * members and a *different* 1000 profiles — neither query had an ORDER BY, so
+ * the two slices didn't even line up, and the ~178 members whose profile fell
+ * outside the profile page rendered as "Unknown / No Email" at the end of the
+ * admin list. Ordering by the primary key is what makes the paging sound:
+ * range() without a stable sort can repeat or skip rows between pages.
+ */
+async function fetchAllRows<T = any>(build: (from: number, to: number) => any): Promise<{ data: T[]; error: any }> {
+    const PAGE = 1000
+    const out: T[] = []
+    for (let from = 0; ; from += PAGE) {
+        const { data, error } = await build(from, from + PAGE - 1)
+        if (error) return { data: out, error }
+        out.push(...(data ?? []))
+        if (!data || data.length < PAGE) break
+    }
+    return { data: out, error: null }
+}
+
 async function _fetchCompanyUsers(supabase: any, orgId: string) {
     // Fetch Members + Profiles + Progress in Parallel
     const [membersResult, profilesResult, progressResult] = await Promise.all([
         // A. Get Members IDs & Roles
-        supabase
+        fetchAllRows((from, to) => supabase
             .from('organization_members')
             .select('user_id, role')
-            .eq('organization_id', orgId),
+            .eq('organization_id', orgId)
+            .order('id')
+            .range(from, to)),
 
         // B. Get Public Profiles
-        supabase
+        fetchAllRows((from, to) => supabase
             .from('users')
             .select('id, display_name, email, role, department_id, departments(id, name)')
-            .eq('organization_id', orgId),
+            .eq('organization_id', orgId)
+            .order('id')
+            .range(from, to)),
 
         // C. Get Progress Counts — use admin client to bypass RLS (admin already verified above)
-        createAdminClient()
+        fetchAllRows((from, to) => createAdminClient()
             .from('user_progress')
             .select('user_id, users!inner(organization_id)')
             .eq('is_completed', true)
             .eq('users.organization_id', orgId)
+            .order('id')
+            .range(from, to))
     ])
 
     if (membersResult.error) {
         console.error('Members Fetch Error:', membersResult.error)
         return []
+    }
+    if (profilesResult.error) {
+        console.error('Profiles Fetch Error:', profilesResult.error)
     }
     if (progressResult.error) {
         console.error('Progress Fetch Error:', progressResult.error)
