@@ -46,13 +46,30 @@ function mapAuditRow(row: any) {
     }
 }
 
-async function getOrgUserIds(supabase: any, isSuperAdmin: boolean, userData: any): Promise<string[] | null> {
-    if (isSuperAdmin || !userData?.organization_id) return null
-    const { data: members } = await supabase
-        .from('users')
-        .select('id')
-        .eq('organization_id', userData.organization_id)
-    return members?.map((m: any) => m.id) ?? []
+/**
+ * Builds the base activity_log select, scoped to a single organization.
+ *
+ * Scoping happens through an inner join on `users` rather than by fetching the
+ * org's user ids and passing them to `.in('user_id', …)`. PostgREST selects go
+ * over GET, so an org with a couple of thousand people turned that filter into
+ * a ~72KB query string and the request was rejected before it reached the
+ * database — the audit trail read as empty for exactly the large orgs that
+ * needed it most. RLS enforces the same boundary; this filter is belt-and-braces.
+ */
+function auditQuery(supabase: any, orgId: string | null) {
+    const usersEmbed = orgId ? 'users!inner ( display_name, email )' : 'users ( display_name, email )'
+
+    const query = supabase
+        .from('activity_log')
+        .select(`
+            id, user_id, event_type, metadata, created_at,
+            ${usersEmbed},
+            modules ( title ),
+            slides ( title )
+        `)
+        .order('created_at', { ascending: false })
+
+    return orgId ? query.eq('users.organization_id', orgId) : query
 }
 
 export async function getAuditLog(opts: AuditLogOpts = {}) {
@@ -69,21 +86,15 @@ export async function getAuditLog(opts: AuditLogOpts = {}) {
 
     if (!isSuperAdmin && userData?.role !== 'admin') return null
 
-    const orgUserIds = await getOrgUserIds(supabase, !!isSuperAdmin, userData)
-
     const page = opts.page ?? 0
     const pageSize = opts.pageSize ?? 100
 
-    // Fetch one extra row to detect if there's a next page
-    let query = supabase
-        .from('activity_log')
-        .select(`
-            id, user_id, event_type, metadata, created_at,
-            users ( display_name, email ),
-            modules ( title ),
-            slides ( title )
-        `)
-        .order('created_at', { ascending: false })
+    // A non-super-admin with no org has nobody to audit; don't fall through unscoped.
+    if (!isSuperAdmin && !userData?.organization_id) {
+        return { data: [], hasMore: false, page }
+    }
+
+    let query = auditQuery(supabase, isSuperAdmin ? null : userData!.organization_id)
         .range(page * pageSize, (page + 1) * pageSize) // +1 to detect hasMore
 
     if (opts.targetUserId) query = query.eq('user_id', opts.targetUserId)
@@ -91,12 +102,11 @@ export async function getAuditLog(opts: AuditLogOpts = {}) {
     if (opts.eventType) query = query.eq('event_type', opts.eventType)
     if (opts.startDate) query = query.gte('created_at', opts.startDate)
     if (opts.endDate) query = query.lte('created_at', opts.endDate + 'T23:59:59')
-    if (orgUserIds) query = query.in('user_id', orgUserIds.length > 0 ? orgUserIds : ['__none__'])
 
     const { data, error } = await query
     if (error) {
         console.error('getAuditLog error:', error)
-        return null
+        return { data: [], hasMore: false, page, error: error.message || 'Could not load the audit trail' }
     }
 
     const hasMore = (data?.length ?? 0) > pageSize
@@ -121,26 +131,20 @@ export async function exportAuditLog(opts: Pick<AuditLogOpts, 'startDate' | 'end
 
     if (!isSuperAdmin && userData?.role !== 'admin') return null
 
-    const orgUserIds = await getOrgUserIds(supabase, !!isSuperAdmin, userData)
+    if (!isSuperAdmin && !userData?.organization_id) return []
 
-    let query = supabase
-        .from('activity_log')
-        .select(`
-            id, user_id, event_type, metadata, created_at,
-            users ( display_name, email ),
-            modules ( title ),
-            slides ( title )
-        `)
-        .order('created_at', { ascending: false })
+    let query = auditQuery(supabase, isSuperAdmin ? null : userData!.organization_id)
         .limit(5000)
 
     if (opts.eventType) query = query.eq('event_type', opts.eventType)
     if (opts.startDate) query = query.gte('created_at', opts.startDate)
     if (opts.endDate) query = query.lte('created_at', opts.endDate + 'T23:59:59')
-    if (orgUserIds) query = query.in('user_id', orgUserIds.length > 0 ? orgUserIds : ['__none__'])
 
     const { data, error } = await query
-    if (error) return null
+    if (error) {
+        console.error('exportAuditLog error:', error)
+        return null
+    }
 
     return (data ?? []).map(mapAuditRow)
 }

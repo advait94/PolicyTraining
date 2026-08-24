@@ -112,6 +112,7 @@ export default function AdminDashboard() {
     const [auditEventFilter, setAuditEventFilter] = useState('')
     const [auditPage, setAuditPage] = useState(0)
     const [auditHasMore, setAuditHasMore] = useState(false)
+    const [auditError, setAuditError] = useState<string | null>(null)
     const [auditStartDate, setAuditStartDate] = useState('')
     const [auditEndDate, setAuditEndDate] = useState('')
     const [exportingAudit, setExportingAudit] = useState(false)
@@ -667,7 +668,15 @@ export default function AdminDashboard() {
             endDate: opts.end ?? (auditEndDate || undefined),
             eventType: opts.event ?? (auditEventFilter || undefined),
         })
-        if (result) {
+        if (!result) {
+            setAuditError('You do not have permission to view the audit trail.')
+        } else if (result.error) {
+            // An empty table is indistinguishable from a failed query — say which it is.
+            setAuditError('Could not load the audit trail. Please try again.')
+            console.error('Audit trail load failed:', result.error)
+            toast.error('Could not load the audit trail')
+        } else {
+            setAuditError(null)
             setAuditLog(result.data)
             setAuditHasMore(result.hasMore)
             setAuditPage(result.page)
@@ -683,7 +692,8 @@ export default function AdminDashboard() {
                 endDate: auditEndDate || undefined,
                 eventType: auditEventFilter || undefined,
             })
-            if (!rows?.length) { toast.error('No audit data to export'); return }
+            if (!rows) { toast.error('Could not load the audit trail — please try again'); return }
+            if (!rows.length) { toast.error('No audit data to export'); return }
             const XLSX = await import('xlsx')
             const exportRows = rows.map((e: any) => ({
                 Timestamp: new Date(e.createdAt).toLocaleString('en-IN'),
@@ -2021,7 +2031,24 @@ export default function AdminDashboard() {
                                                 )
                                             })}
                                             {auditLog.length === 0 && (
-                                                <tr><td colSpan={5} className="py-12 text-center text-slate-500">No events found.</td></tr>
+                                                <tr>
+                                                    <td colSpan={5} className="py-12 text-center">
+                                                        {auditError ? (
+                                                            <div className="space-y-3">
+                                                                <div className="text-red-400">{auditError}</div>
+                                                                <Button
+                                                                    size="sm" variant="outline"
+                                                                    className="border-white/10 text-slate-300 hover:text-white text-xs h-7"
+                                                                    onClick={() => loadAuditPage(auditPage)}
+                                                                >
+                                                                    Retry
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-slate-500">No events found.</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
                                             )}
                                         </tbody>
                                     </table>
