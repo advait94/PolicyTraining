@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils'
 
 import { AuthSync } from '@/components/feature/auth/auth-sync'
 import { ExpiredBanner } from '@/components/feature/plan/expired-banner'
+import { UpdatePrompt } from '@/components/feature/system/update-prompt'
+import { getDeploymentId } from '@/lib/deployment'
 
 const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' })
 const raleway = Raleway({ subsets: ['latin'], variable: '--font-raleway' })
@@ -39,6 +41,7 @@ export default function RootLayout({
       )}>
         <OrganizationProvider>
           <ExpiredBanner />
+          <UpdatePrompt deploymentId={getDeploymentId()} />
           <AuthSync />
           {children}
           <Toaster position="top-center" richColors />
