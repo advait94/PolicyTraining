@@ -329,10 +329,23 @@ async function reinviteExistingUser(
     return { success: true, message: 'User re-invited with set-password link.' };
 }
 
-export async function inviteUser({ email, redirectTo, data: userData, existingUserId }: InviteData) {
-    if (!email) {
+export async function inviteUser({ email: rawEmail, redirectTo, data: userData, existingUserId }: InviteData) {
+    if (!rawEmail) {
         throw new Error('Email is required');
     }
+
+    /**
+     * Everything downstream keys off this address, so normalise it once, here.
+     *
+     * GoTrue lowercases the address it stores in auth.users, but the invitations
+     * row keeps whatever the CSV had. handle_new_user() matches the two with a
+     * plain `=`, so a row typed `Pawar.praful@…` produced an auth account whose
+     * invitation could never be found: no organization_id, no membership row,
+     * invitation stuck on 'pending', and the person invisible in the admin
+     * console despite having received their invite email. Writing the address
+     * lowercased keeps both sides of that match in the same case.
+     */
+    const email = rawEmail.toLowerCase().trim();
 
     const supabaseAdmin = getSupabaseAdmin();
 

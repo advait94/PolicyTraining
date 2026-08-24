@@ -46,3 +46,9 @@ mcp_config.json
 
 # local resources / non-app assets (marketing decks, docs, one-off scripts)
 /resources/
+
+# customer data — bulk-upload spreadsheets carry real names and email addresses
+# for thousands of people. Never let these reach the repo.
+/ishandata/
+*.xlsx
+*.xls

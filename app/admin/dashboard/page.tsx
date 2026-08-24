@@ -168,19 +168,44 @@ export default function AdminDashboard() {
             const deptLookup = new Map<string, { id: string, name: string }>()
             departments.forEach(d => deptLookup.set(d.name.toLowerCase().trim(), d))
 
-            // Extract Name/Email/Department
-            const validUsers = normalized
-                .filter(r => (r.email || r['email address']) && (r.name || r.fullname || r['full name']))
-                .map(r => {
-                    const deptRaw: string = (r.department || r.dept || '').toString().toLowerCase().trim()
-                    const deptMatch = deptRaw ? deptLookup.get(deptRaw) : undefined
-                    return {
-                        name: r.name || r.fullname || r['full name'],
-                        email: r.email || r['email address'],
-                        department_id: deptMatch?.id,
-                        departmentName: deptMatch?.name ?? (deptRaw || undefined)
-                    }
+            // Extract Name/Email/Department.
+            //
+            // Rows that fall out here used to disappear without a word, so a file
+            // of 1934 people could load as 1931 and look like a clean run. Count
+            // both kinds of loss and say so — an upload that quietly shrinks is
+            // the one failure mode nobody goes looking for.
+            const incomplete: number[] = []
+            const duplicates: string[] = []
+            const seen = new Set<string>()
+            const validUsers: { name: string; email: string; department_id?: string; departmentName?: string }[] = []
+
+            normalized.forEach((r, i) => {
+                const rawEmail = (r.email ?? r['email address'] ?? '').toString().trim()
+                const name = (r.name ?? r.fullname ?? r['full name'] ?? '').toString().trim()
+
+                if (!rawEmail || !name) {
+                    incomplete.push(i + 2) // +2: 1-based, and past the header row
+                    return
+                }
+
+                // The invite pipeline keys on the lowercased address, so two rows
+                // differing only in case are one person, not two.
+                const email = rawEmail.toLowerCase()
+                if (seen.has(email)) {
+                    duplicates.push(rawEmail)
+                    return
+                }
+                seen.add(email)
+
+                const deptRaw: string = (r.department || r.dept || '').toString().toLowerCase().trim()
+                const deptMatch = deptRaw ? deptLookup.get(deptRaw) : undefined
+                validUsers.push({
+                    name,
+                    email,
+                    department_id: deptMatch?.id,
+                    departmentName: deptMatch?.name ?? (deptRaw || undefined)
                 })
+            })
 
             if (validUsers.length === 0) {
                 toast.error('No valid rows found. Ensure columns are "Name" and "Email".')
@@ -188,7 +213,21 @@ export default function AdminDashboard() {
             }
 
             setBulkPreview(validUsers)
-            toast.success(`Loaded ${validUsers.length} users`)
+
+            const notes: string[] = []
+            if (incomplete.length > 0) {
+                const shown = incomplete.slice(0, 5).join(', ')
+                notes.push(`${incomplete.length} row${incomplete.length === 1 ? '' : 's'} skipped for a missing name or email (row ${shown}${incomplete.length > 5 ? ', …' : ''})`)
+            }
+            if (duplicates.length > 0) {
+                notes.push(`${duplicates.length} duplicate address${duplicates.length === 1 ? '' : 'es'} collapsed (${duplicates.slice(0, 3).join(', ')}${duplicates.length > 3 ? ', …' : ''})`)
+            }
+
+            if (notes.length > 0) {
+                toast.warning(`Loaded ${validUsers.length} of ${data.length} rows — ${notes.join('; ')}.`, { duration: 12000 })
+            } else {
+                toast.success(`Loaded ${validUsers.length} users`)
+            }
         }
         reader.readAsBinaryString(file)
     }
