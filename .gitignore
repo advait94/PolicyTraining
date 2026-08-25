@@ -52,3 +52,6 @@ mcp_config.json
 /ishandata/
 *.xlsx
 *.xls
+
+# local database backups (contain employee data — never commit)
+/backups/
